@@ -1,0 +1,39 @@
+@import "tailwindcss";
+/* Thème et composants visuels de la maquette V3 HackMeridian / Stellar */
+@import "./styles/meridian.css" layer(components);
+@import "./styles/presentation.css" layer(components);
+
+/* Les couleurs Tailwind pointent sur les variables de la maquette (sombre et clair) */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raise: var(--raise);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-safe: var(--safe);
+  --color-watch: var(--watch);
+  --color-danger: var(--danger);
+}
+@theme {
+  --color-stellar: #fdda24;
+  --color-onyx: #0f0f0f;
+  --color-cream: #f7f6f2;
+  --font-sans: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Inter Tight", "Arial Black", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+
+@layer components {
+  .title-md {
+    @apply font-display text-xl font-black uppercase tracking-tight;
+  }
+  .label-mono {
+    @apply font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted;
+  }
+  .lucide.i {
+    width: 16px;
+    height: 16px;
+  }
+}

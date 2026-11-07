@@ -1,0 +1,15 @@
+# Dépôt UnlockShares : seuls ces deux dossiers sont suivis (les autres projets d'apprentissage restent locaux)
+/*
+!/.gitignore
+!/README.md
+!/unlockshares-frontend-testnet/
+!/unlockshares-app/
+
+node_modules/
+dist/
+target/
+__pycache__/
+.env
+.env.local
+unlockshares-frontend-testnet/frontend/tr.py
+unlockshares-frontend-testnet/frontend/strings.txt
