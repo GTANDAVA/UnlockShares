@@ -1,5 +1,7 @@
 # UnlockShares — Borrow without selling (Stellar testnet)
 
+**▶ Essayer l'appli en ligne : https://unlockshares.vercel.app** (extension Varial / ex-Freighter réglée sur Testnet)
+
 Emprunter des USDC en gardant ses actions tokenisées (AAPL) en garantie, sur Stellar / Soroban.
 
 | Dossier | Contenu |
