@@ -1,4 +1,4 @@
-// Le parcours d'entrée : connecter Freighter, puis recevoir les jetons de test en un clic.
+// Le parcours d'entrée : connecter Varial, puis recevoir les jetons de test en un clic.
 // (Leçon du jury HackMeridian : sans jetons, impossible d'utiliser l'appli.)
 import { Droplets, Wallet } from 'lucide-react'
 import { useDemo } from '../lib/useDemo'
@@ -42,8 +42,8 @@ export function Onboarding() {
     return (
       <div className="pos onboard">
         <b>Step 1 of 3 · Connect your wallet</b>
-        <span className="muted">UnlockShares runs on Stellar testnet with the Freighter extension, set to “Testnet”. Nothing real is at stake.</span>
-        <button className="btn primary" onClick={connect}><Wallet className="i" aria-hidden />Connect Freighter</button>
+        <span className="muted">UnlockShares runs on Stellar testnet with the Varial wallet extension (formerly Freighter), set to “Testnet”. Nothing real is at stake.</span>
+        <button className="btn primary" onClick={connect}><Wallet className="i" aria-hidden />Connect Varial</button>
       </div>
     )
 
@@ -51,7 +51,7 @@ export function Onboarding() {
     return (
       <div className="pos onboard">
         <b>Step 2 of 3 · Get your test tokens</b>
-        <span className="muted">One click gives you 100 test Apple shares (tAAPL) and 5,000 test dollars (tUSDC). Freighter asks you to sign twice: once to add the tokens to your account, once to receive them.</span>
+        <span className="muted">One click gives you 100 test Apple shares (tAAPL) and 5,000 test dollars (tUSDC). Varial asks you to sign twice: once to add the tokens to your account, once to receive them.</span>
         <button className="btn primary" onClick={faucet}><Droplets className="i" aria-hidden />Get test tokens</button>
       </div>
     )

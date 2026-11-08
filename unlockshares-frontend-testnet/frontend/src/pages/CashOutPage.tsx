@@ -145,7 +145,7 @@ export function CashOutPage() {
       </ol>
 
       {needWallet ? (
-        <div className="empty"><b>Connect your wallet</b><span className="muted">We read your real tUSDC balance from Freighter. Nothing is sent.</span><button className="btn primary" onClick={() => void connect()}>Connect Freighter</button></div>
+        <div className="empty"><b>Connect your wallet</b><span className="muted">We read your real tUSDC balance from Varial. Nothing is sent.</span><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
       ) : phase === 'amount' ? (
         <div className="co-card">
           <label className="co-label" htmlFor="co-amount">Amount to cash out</label>

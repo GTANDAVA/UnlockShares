@@ -497,7 +497,7 @@ function Trust() {
         <div className="p-card">
           <span className="p-ico"><KeyRound /></span>
           <b>You keep control</b>
-          <p>Non-custodial. You sign every operation with Freighter. Nobody can move your shares without your signature.</p>
+          <p>Non-custodial. You sign every operation with Varial. Nobody can move your shares without your signature.</p>
         </div>
         <div className="p-card">
           <span className="p-ico"><FileCode2 /></span>

@@ -12,7 +12,7 @@ export type AppEvent = DemoEvent & { hash?: string; qui?: string; mine?: boolean
 export type AppState = Omit<DemoState, 'history'> & {
   mode: 'demo' | 'chain'
   history: AppEvent[]
-  /** Adresse Freighter connectée */
+  /** Adresse Varial connectée */
   address: string | null
   xlm: number
   /** Le compte a-t-il ses jetons de test (trustlines + autorisation tAAPL) ? */
@@ -132,7 +132,7 @@ if (chainReady) {
     void refresh()
   })
   window.setInterval(() => void refresh(), 10_000)
-  // Si l'utilisateur change de compte dans Freighter, l'appli suit ce compte.
+  // Si l'utilisateur change de compte dans Varial, l'appli suit ce compte.
   ch.suivreCompte((a) => {
     if (chainState.address && a !== chainState.address) {
       patch({ address: a, shares: 0, walletShares: 0, debt: 0, lent: 0, usdc: 0, earnings: 0, xlm: 0, ready: false })
@@ -144,7 +144,7 @@ if (chainReady) {
 /* ---------- Actions (communes aux deux modes) ---------- */
 
 async function tx(label: string, run: () => Promise<string>): Promise<string> {
-  patch({ busy: `${label}: sign in Freighter…` })
+  patch({ busy: `${label}: sign in Varial…` })
   try {
     const hash = await run()
     await refresh()
@@ -157,7 +157,7 @@ async function tx(label: string, run: () => Promise<string>): Promise<string> {
 }
 
 function need(): string {
-  if (!chainState.address) throw new Error('Connect your Freighter wallet first.')
+  if (!chainState.address) throw new Error('Connect your Varial wallet first.')
   return chainState.address
 }
 

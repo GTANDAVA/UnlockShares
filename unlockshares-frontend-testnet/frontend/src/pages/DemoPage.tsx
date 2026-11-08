@@ -49,7 +49,7 @@ export function DemoPage() {
           {(demo ? [200, 130, 95, 70] : [150, 100, 70, 40]).map((p) => <button key={p} className="btn" disabled={sending} onClick={() => apply(p)}>{eur(p)}</button>)}
           {!demo && <button className="btn primary" disabled={sending || !s.address || price === s.price} onClick={() => apply(price)}>Apply {eur(price)} on Stellar</button>}
         </div>
-        {!demo && <small className="muted">Current price on Stellar: <b>{eur(s.price)}</b>. Changing it is a transaction signed in Freighter, and it applies to everyone.</small>}
+        {!demo && <small className="muted">Current price on Stellar: <b>{eur(s.price)}</b>. Changing it is a transaction signed in Varial, and it applies to everyone.</small>}
         {!demo && d.liquidable && (
           <button className="btn primary" disabled={sending} onClick={() => go(() => actions.liquidate(s.address ?? undefined))} style={{ alignSelf: 'flex-start' }}>
             Liquidator steps in on my loan<Term>liquider()</Term>

@@ -101,7 +101,7 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
             ) : s.address ? (
               <a className="wallet" href={lienCompte(s.address)} target="_blank" rel="noreferrer" title="See my account on stellar.expert"><Wallet className="i" aria-hidden />{court(s.address)}</a>
             ) : (
-              <button className="wallet" onClick={connect}><Wallet className="i" aria-hidden />Connect Freighter</button>
+              <button className="wallet" onClick={connect}><Wallet className="i" aria-hidden />Connect Varial</button>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2" style={{ marginTop: -10 }}>

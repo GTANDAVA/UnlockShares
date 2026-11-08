@@ -1,5 +1,5 @@
 // SEUL point de contact avec Stellar : lectures (gratuites, simulées), transactions signées
-// par Freighter, robinet de jetons et historique des événements du contrat.
+// par Varial, robinet de jetons et historique des événements du contrat.
 import { getAddress, getNetworkDetails, isConnected, requestAccess, signTransaction, WatchWalletChanges } from '@stellar/freighter-api'
 import {
   Account, Address, Asset, BASE_FEE, Contract, Horizon, Networks, Operation, TransactionBuilder, nativeToScVal, rpc, scValToNative,
@@ -43,18 +43,18 @@ export function messageErreur(e: unknown, contrat: 'pret' | 'robinet' = 'pret'):
   }
   if (/trustline|op_no_trust/i.test(t)) return 'Your account does not have the test tokens yet: click “Get test tokens” first.'
   if (/not authorized|authoriz/i.test(t)) return 'Your account is not yet allowed to hold the share: click “Get test tokens”.'
-  if (/declined|rejected|User declined/i.test(t)) return 'Signature declined in Freighter.'
+  if (/declined|rejected|User declined/i.test(t)) return 'Signature declined in Varial.'
   if (/balance|underfunded|insufficient/i.test(t)) return 'Insufficient balance.'
   return t.length > 180 ? `${t.slice(0, 180)}…` : t
 }
 
-/* ---------- Portefeuille Freighter ---------- */
+/* ---------- Portefeuille Varial ---------- */
 
 export async function connecter(): Promise<string> {
   const c = await isConnected()
-  if (!c.isConnected) throw new Error('Freighter is not installed: add the extension from freighter.app, then reload the page.')
+  if (!c.isConnected) throw new Error('Varial (formerly Freighter) is not installed: add the extension from varialwallet.com, then reload the page.')
   const r = await requestAccess()
-  if (r.error) throw new Error(r.error.message ?? 'Connection declined in Freighter.')
+  if (r.error) throw new Error(r.error.message ?? 'Connection declined in Varial.')
   await verifierReseau()
   return r.address
 }
@@ -71,7 +71,7 @@ export async function adresseConnue(): Promise<string | null> {
   }
 }
 
-/** Prévient quand l'utilisateur change de compte dans Freighter */
+/** Prévient quand l'utilisateur change de compte dans Varial */
 export function suivreCompte(cb: (address: string) => void) {
   new WatchWalletChanges(2000).watch(({ address }) => {
     if (address) cb(address)
@@ -80,17 +80,17 @@ export function suivreCompte(cb: (address: string) => void) {
 
 async function verifierReseau() {
   const n = await getNetworkDetails()
-  if (n.networkPassphrase && n.networkPassphrase !== PASS) throw new Error('Freighter is not on Testnet: open Freighter and pick the “Testnet” network.')
+  if (n.networkPassphrase && n.networkPassphrase !== PASS) throw new Error('Varial is not on Testnet: open Varial and pick the “Testnet” network.')
 }
 
 async function signer(tx: Transaction, address: string): Promise<Transaction> {
   await verifierReseau()
   const r = await signTransaction(tx.toXDR(), { networkPassphrase: PASS, address })
-  if (r.error) throw new Error(r.error.message ?? 'Signature declined in Freighter.')
+  if (r.error) throw new Error(r.error.message ?? 'Signature declined in Varial.')
   return TransactionBuilder.fromXDR(r.signedTxXdr, PASS) as Transaction
 }
 
-/** Pour l'off-ramp (anchor.ts) : signature Freighter et accès Horizon */
+/** Pour l'off-ramp (anchor.ts) : signature Varial et accès Horizon */
 export { signer as signerFreighter, horizon, PASS }
 
 /** Envoie une transaction signée et attend sa confirmation. Renvoie le hash (preuve sur stellar.expert). */
@@ -225,12 +225,12 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
     !c.trustUsdc && new Asset('TUSDC', chain.emetteurUsdc),
   ].filter(Boolean) as Asset[]
   if (manque.length) {
-    etape('2/3 · Adding tAAPL and tUSDC to your account: sign in Freighter…')
+    etape('2/3 · Adding tAAPL and tUSDC to your account: sign in Varial…')
     let b = new TransactionBuilder(await server.getAccount(qui), { fee: BASE_FEE, networkPassphrase: PASS })
     for (const a of manque) b = b.addOperation(Operation.changeTrust({ asset: a }))
     await envoyer(await signer(b.setTimeout(120).build(), qui))
   }
-  etape('3/3 · The faucet sends you 100 tAAPL and 5,000 tUSDC: sign in Freighter…')
+  etape('3/3 · The faucet sends you 100 tAAPL and 5,000 tUSDC: sign in Varial…')
   try {
     return await appeler(qui, chain.robinet, 'recevoir', [addr(qui)])
   } catch (e) {

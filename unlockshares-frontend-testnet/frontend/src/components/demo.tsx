@@ -232,10 +232,10 @@ function ActionModal({ kind, onClose, onDone }: { kind: Kind; onClose: () => voi
         )}
         {err && <p role="alert" className="small s-danger">{err}</p>}
         <button className="btn primary" disabled={!ok} onClick={confirm} style={{ justifyContent: 'center', padding: 12 }}>
-          {sending ? 'Signing and sending…' : chainReady ? 'Confirm in Freighter' : 'Confirm (simulation)'}<Term>sign transaction</Term>
+          {sending ? 'Signing and sending…' : chainReady ? 'Confirm in Varial' : 'Confirm (simulation)'}<Term>sign transaction</Term>
         </button>
         <small className="muted">
-          {chainReady ? 'Freighter opens to sign. The transaction is sent to Stellar testnet (fee ≈ 0.0001 XLM).' : 'Demo: no wallet is connected and nothing is sent to Stellar.'}
+          {chainReady ? 'Varial opens to sign. The transaction is sent to Stellar testnet (fee ≈ 0.0001 XLM).' : 'Demo: no wallet is connected and nothing is sent to Stellar.'}
         </small>
       </div>
     </div>

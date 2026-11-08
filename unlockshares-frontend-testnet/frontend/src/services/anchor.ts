@@ -1,5 +1,5 @@
 // Off-ramp réel sur testnet avec l'anchor de référence de la Stellar Development Foundation.
-// SEP-1 (stellar.toml) → SEP-10 (connexion signée Freighter) → SEP-24 (retrait interactif) → paiement vers l'anchor.
+// SEP-1 (stellar.toml) → SEP-10 (connexion signée Varial) → SEP-24 (retrait interactif) → paiement vers l'anchor.
 // Analogie : l'anchor est le bureau de change. SEP-10 = montrer sa pièce d'identité, SEP-24 = remplir le bordereau au guichet.
 import { Asset, BASE_FEE, Memo, Operation, StellarToml, TransactionBuilder, WebAuth, type Transaction } from '@stellar/stellar-sdk'
 import { horizon, PASS, signerFreighter } from './chain'
@@ -41,7 +41,7 @@ export async function lireToml(): Promise<Toml> {
 
 const tokens = new Map<string, string>()
 
-/** SEP-10 : l'anchor envoie un « défi » (transaction non soumise), Freighter le signe, l'anchor rend un jeton de session */
+/** SEP-10 : l'anchor envoie un « défi » (transaction non soumise), Varial le signe, l'anchor rend un jeton de session */
 export async function connexionAnchor(account: string): Promise<string> {
   const known = tokens.get(account)
   if (known) return known
