@@ -261,30 +261,31 @@ const nombre = (n: number, unite: string) => `${n.toLocaleString('en-US', { maxi
 // Cache : la 1re lecture parcourt l'historique page par page, ensuite on ne lit que la suite.
 let evBruts: rpc.Api.EventResponse[] = []
 let evCurseur: string | undefined
+/** Le curseur RPC commence par un identifiant dont les 32 bits hauts sont le numéro de ledger */
+const ledgerDuCurseur = (c: string) => Number(BigInt(c.split('-')[0]) >> 32n)
 
 export async function lireEvenements(): Promise<Evenement[]> {
   const filters = [{ type: 'contract' as const, contractIds: [chain.pret] }]
   if (!evCurseur) {
     const dernier = (await server.getLatestLedger()).sequence
-    let debut = Math.max(1, dernier - 6 * 17_280)
-    try {
-      await server.getEvents({ startLedger: debut, filters, limit: 1 })
-    } catch (e) {
-      // Le RPC garde moins d'historique : il donne son plus vieux ledger.
-      const m = String(e instanceof Error ? e.message : e).match(/between (?:the oldest ledger: )?(\d+)/i)
-      debut = m ? Number(m[1]) + 1 : dernier - 10_000
-    }
-    const r = await server.getEvents({ startLedger: debut, filters, limit: 200 })
-    evBruts = r.events
-    evCurseur = r.cursor
-  }
-  // Le RPC ne parcourt qu'une fenêtre de ledgers par appel : on suit le curseur jusqu'au bout.
-  for (let i = 0; i < 30 && evCurseur; i++) {
+    const debut = Math.max(1, dernier - 6 * 17_280)
+    // Le RPC ne parcourt que 10 000 ledgers par appel : on lit toutes les fenêtres en parallèle (1 aller-retour au lieu de 11).
+    const debuts: number[] = []
+    for (let l = debut; l <= dernier; l += 10_000) debuts.push(l)
+    const lus = await Promise.allSettled(debuts.map((l) => server.getEvents({ startLedger: l, filters, limit: 200 })))
+    // Une fenêtre plus ancienne que l'historique gardé par le RPC est refusée : on l'ignore.
+    const rs = lus.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
+    if (!rs.length) throw new Error('Cannot read the contract events.')
+    evBruts = rs.flatMap((r) => r.events)
+    evCurseur = rs[rs.length - 1].cursor
+  } else for (let i = 0; i < 30 && evCurseur; i++) {
+    // Ensuite on ne lit que la suite, en suivant le curseur jusqu'au dernier ledger.
     const r = await server.getEvents({ cursor: evCurseur, filters, limit: 200 })
     evBruts = evBruts.concat(r.events)
     if (!r.cursor || r.cursor === evCurseur) break
     evCurseur = r.cursor
-    if (!r.events.length && i > 0) break
+    // On s'arrête quand le curseur a rattrapé le dernier ledger (pas sur une fenêtre vide : il peut en avoir plusieurs d'affilée).
+    if (ledgerDuCurseur(evCurseur) >= r.latestLedger) break
   }
   const vus = new Set<string>()
   const res = { events: evBruts.filter((e) => (vus.has(e.id) ? false : (vus.add(e.id), true))) }
