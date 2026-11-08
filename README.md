@@ -17,3 +17,7 @@ npm run dev
 ```
 
 Sans adresses de contrats dans `.env`, l'application tourne en mode démo (données simulées).
+
+## Licence
+
+© 2026 GTANDAVA — tous droits réservés. Code consultable, mais aucune réutilisation sans accord écrit. Voir `LICENSE`.
