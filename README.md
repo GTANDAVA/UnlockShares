@@ -37,15 +37,17 @@ Lenders put USDC in the pool and earn the interest paid by borrowers (rates foll
 
 | Item | Address |
 |---|---|
-| Lending pool used by the live app (v1, Circle testnet USDC) | [`CAMRWYRLSSFF5VJB6FKZSJO3QG3CQQDMJS77LTY3E5H7C67R2NYMUDVQ`](https://stellar.expert/explorer/testnet/contract/CAMRWYRLSSFF5VJB6FKZSJO3QG3CQQDMJS77LTY3E5H7C67R2NYMUDVQ) |
+| **Lending pool used by the live app** (Circle testnet USDC) | [`CCWKS7YCP62XJI6B523JLUGNQMOYXES2RD56LYKHGIDL4U2REWPTDHOK`](https://stellar.expert/explorer/testnet/contract/CCWKS7YCP62XJI6B523JLUGNQMOYXES2RD56LYKHGIDL4U2REWPTDHOK) |
+| **Faucet used by the live app** (2 tAAPL per hour) | [`CD3MLCLA2SQHC2X7P3W6PRNHJTZVMT5ELHS2MXT6GOFVAPXRIJVFBNH7`](https://stellar.expert/explorer/testnet/contract/CD3MLCLA2SQHC2X7P3W6PRNHJTZVMT5ELHS2MXT6GOFVAPXRIJVFBNH7) |
+| Previous pool (v1, USDC), still online | [`CAMRWYRLSSFF5VJB6FKZSJO3QG3CQQDMJS77LTY3E5H7C67R2NYMUDVQ`](https://stellar.expert/explorer/testnet/contract/CAMRWYRLSSFF5VJB6FKZSJO3QG3CQQDMJS77LTY3E5H7C67R2NYMUDVQ) |
 | Older pool (v1, tUSDC), still online | [`CC2IWLMTGP3F4WG4TOYOCE7ZOYD4KRE4R4AXPTVUWX6UWGUK2ID564BS`](https://stellar.expert/explorer/testnet/contract/CC2IWLMTGP3F4WG4TOYOCE7ZOYD4KRE4R4AXPTVUWX6UWGUK2ID564BS) |
-| Faucet (robinet) | [`CBM2U75GMZKML2AO2E44YXU5QGQBAOFGIJFKSRR7FP4CZUKH3HTC4XTV`](https://stellar.expert/explorer/testnet/contract/CBM2U75GMZKML2AO2E44YXU5QGQBAOFGIJFKSRR7FP4CZUKH3HTC4XTV) |
+| Previous faucet (v1) | [`CBM2U75GMZKML2AO2E44YXU5QGQBAOFGIJFKSRR7FP4CZUKH3HTC4XTV`](https://stellar.expert/explorer/testnet/contract/CBM2U75GMZKML2AO2E44YXU5QGQBAOFGIJFKSRR7FP4CZUKH3HTC4XTV) |
 | USDC dispenser (distributeur) | [`CAMCKH3GBDEPO7ONTAMIRYJ7YCZWYT3G7F6Q33L2KEPLF7AFIB43A275`](https://stellar.expert/explorer/testnet/contract/CAMCKH3GBDEPO7ONTAMIRYJ7YCZWYT3G7F6Q33L2KEPLF7AFIB43A275) |
 | tAAPL (collateral, SAC) | [`CDB64RA3FX4WYKWLBKGNJ5OB4NE454CPCDTG2AT3WJF7JMGT4VPDJFXS`](https://stellar.expert/explorer/testnet/contract/CDB64RA3FX4WYKWLBKGNJ5OB4NE454CPCDTG2AT3WJF7JMGT4VPDJFXS) |
 | USDC (Circle testnet, SAC) | [`CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
 | **v2 test pool** (isolated, test tokens TAAPLS / USDS) | [`CDNTTZ5FLJHZMS7SSVHLANR6W7RBXT4RWDYU2XSY7XX7222PUFFWA33G`](https://stellar.expert/explorer/testnet/contract/CDNTTZ5FLJHZMS7SSVHLANR6W7RBXT4RWDYU2XSY7XX7222PUFFWA33G) |
 
-**v2** (branch `feature/unlockshares-v2-stabilization`, not yet used by the live app) adds: borrow limits (per address and per share of the pool cash), admin-only global settings, a demo price and a demo time jump **per position** (they never affect other users or the rates), and liquidation / repayment with an exact amount where any extra is returned.
+The current contracts (**v2**, used by the live app since 2026-11-14) add: borrow limits (per address and per share of the pool cash), admin-only global settings, a demo price and a demo time jump **per position** (they never affect other users or the rates), and liquidation / repayment with an exact amount where any extra is returned.
 
 ## Repository
 
@@ -83,7 +85,7 @@ See [TESTING.md](TESTING.md) for all tests and the on-chain scenario.
 1. Open the app, connect Varial (Testnet), click **Get test tokens**.
 2. **Borrow**: use your shares as a guarantee, then receive USDC.
 3. **Activity**: every operation with its link to stellar.expert.
-4. **Liquidations**: positions above 80 % can be liquidated by anyone (page added on this branch: run the app locally until it is deployed).
+4. **Liquidations**: positions above 80 % can be liquidated by anyone.
 5. **Presentation**: the story and the numbers behind the product.
 
 ## Proofs on testnet
@@ -108,16 +110,16 @@ All hashes below were checked on Horizon testnet (`successful: true`).
 | Activity history with proofs | **Real** (contract events) |
 | Test tokens (faucet, USDC dispenser) | **Real** testnet tokens, no value |
 | Share price | **Demo oracle**: a reference price set by the admin, no market feed |
-| Demo price / time jump | **Demo**: on the live v1 pool these tools are now switched off; on v2 they apply to one position only |
+| Demo price / time jump | **Demo**: they apply to your own position only, never to other users or the rates (switched off on the previous v1 pools) |
 | Cash in / cash out with MoneyGram | **Partial**: real MoneyGram Ramps sandbox session; cash deposit and pickup cannot be completed on testnet |
 | Bank transfer (cash out) | **Simulation** (fixed demo rate 1 USDC = 0.92 €, nothing is sent) |
 | Léa's story (no wallet connected) | **Simulation** |
-| Live app on the v2 contracts, real price oracle, more assets | **Planned** |
+| Real price oracle, more assets | **Planned** |
 
 ## Limitations
 
 - Testnet only; the price is set by the admin (no oracle).
-- The live app still uses the v1 pool; v2 is validated on an isolated test pool and not yet deployed for users.
+- The previous v1 pools stay online so that their users can close their positions.
 - Contracts have unit tests but no external audit.
 
 ## More

@@ -82,4 +82,4 @@ Run on 2026-11-14 with account `GCAOIADX6FZ7O2OSFXHFBSSUCZMG7IIJDWXTB5EMWTA7WG2W
 ## Not yet tested
 
 - A test by someone outside the team, on a fresh browser and wallet, without help.
-- The live app on the v2 contracts (not deployed for users yet).
+- The full path on the live app with the v2 contracts and Circle USDC (to do right after the switch, with a fresh Varial account).
