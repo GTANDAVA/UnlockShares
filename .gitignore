@@ -3,6 +3,10 @@
 !/.gitignore
 !/README.md
 !/LICENSE
+!/PRIOR_WORK.md
+!/AI_DISCLOSURE.md
+!/TESTING.md
+!/.github/
 !/unlockshares-frontend-testnet/
 !/unlockshares-app/
 
@@ -14,3 +18,6 @@ __pycache__/
 .env.local
 unlockshares-frontend-testnet/frontend/tr.py
 unlockshares-frontend-testnet/frontend/strings.txt
+# Journaux locaux des scripts testnet
+staging-v2*.log
+oc.log
