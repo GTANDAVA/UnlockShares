@@ -2,12 +2,14 @@ import { Check, Landmark, LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { lienTx, messageErreur } from '../services/chain'
 import { addUsdcTrustline, openMoneyGram, usdcBalance, type RampMode } from '../services/moneygram'
+import { tagTx } from '../services/movements'
 
 // Widget MoneyGram (sandbox, testnet). off-ramp : USDC de Circle → espèces. on-ramp : espèces au guichet → USDC dans le wallet.
 export function MoneyGramCard({ address, mode = 'off-ramp' }: { address: string; mode?: RampMode }) {
   const cashIn = mode === 'on-ramp'
   const box = useRef<HTMLDivElement>(null)
   const close = useRef<(() => void) | null>(null)
+  const lastHash = useRef('')
   const [usdc, setUsdc] = useState<number | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
@@ -31,8 +33,8 @@ export function MoneyGramCard({ address, mode = 'off-ramp' }: { address: string;
       close.current?.()
       setOpen(true)
       close.current = await openMoneyGram(box.current, address, {
-        onPaid: (h) => { setHash(h); refresh() },
-        onComplete: (r) => { setRef(r || '(no reference returned)'); refresh() },
+        onPaid: (h) => { setHash(h); lastHash.current = h; tagTx(h, { kind: 'mg-out' }); refresh() },
+        onComplete: (r) => { setRef(r || '(no reference returned)'); if (lastHash.current && r) tagTx(lastHash.current, { kind: 'mg-out', ref: r }); refresh() },
         onError: (m) => setErr(m),
       }, mode)
     } catch (e) {

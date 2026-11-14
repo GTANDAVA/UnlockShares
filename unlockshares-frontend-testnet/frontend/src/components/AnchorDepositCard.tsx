@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ANCHOR_DOMAIN, demarrerDepot, lireRetrait, type Sep24Tx } from '../services/anchor'
 import { lienTx, messageErreur } from '../services/chain'
 import { addUsdcTrustline, usdcBalance } from '../services/moneygram'
+import { tagTx } from '../services/movements'
 
 // Dépôt réel sur testnet via un anchor Stellar (SEP-10 + SEP-24) : « virement bancaire » simulé → USDC de Circle dans le wallet.
 // Analogie : on passe au guichet d'un bureau de change agréé ; il vérifie ton identité (SEP-10), tu remplis son formulaire (SEP-24), il t'envoie les USDC.
@@ -36,6 +37,7 @@ export function AnchorDepositCard({ address }: { address: string }) {
       try {
         const next = await lireRetrait(address, id.current)
         setTx(next)
+        if (next.stellar_transaction_id) tagTx(next.stellar_transaction_id, { kind: 'anchor-in' })
         if (next.status === 'completed') refresh()
       } catch (e) { setErr(messageErreur(e)) }
     }, 5000)

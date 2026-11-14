@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { RampHistory } from '../components/RampHistory'
 import { useDemo } from '../lib/useDemo'
 import { court, lienCompte, lienTx } from '../services/chain'
 
@@ -37,6 +38,7 @@ export function ActivityPage() {
       ) : (
         <div className="empty"><b>{s.loaded ? 'No activity' : 'Loading…'}</b><span className="muted">{s.loaded ? 'No operation yet' : 'Reading the contract events on Stellar'}</span></div>
       )}
+      {!demo && s.address && <RampHistory address={s.address} />}
     </>
   )
 }
