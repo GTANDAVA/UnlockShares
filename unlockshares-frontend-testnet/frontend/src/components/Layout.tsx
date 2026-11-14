@@ -1,5 +1,5 @@
 import {
-  ArrowDownToLine, Banknote, BookOpen, CircleDollarSign, Presentation, CirclePlay, Clock, Droplets, FlaskConical, House, Mail, Percent, Plug, Plus, Search, Shield, TriangleAlert, Wallet,
+  ArrowDownToLine, Banknote, CircleDollarSign, Presentation, CirclePlay, Clock, Droplets, FlaskConical, House, Percent, Plug, Plus, Search, TriangleAlert, Wallet,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { config, configProblem } from '../config'
@@ -19,8 +19,6 @@ const MENU: { section?: string; items: Item[] }[] = [
   { items: [{ id: 'accueil', label: 'Home', icon: House }, { id: 'presentation', label: 'Presentation', icon: Presentation }, { id: 'activite', label: 'Activity', icon: Clock }] },
   { section: 'Explore', items: [{ id: 'preter', label: 'Earn', icon: Percent }, { id: 'emprunter', label: 'Borrow', icon: CircleDollarSign }, { id: 'ajouter', label: 'Add money', icon: ArrowDownToLine }, { id: 'retrait', label: 'Cash out', icon: Banknote }] },
   { section: 'Demo', items: [{ id: 'demo', label: 'Demo controls', icon: CirclePlay }] },
-  { section: 'Protocol', items: [{ label: 'Security', icon: Shield, ext: true }, { label: 'Developer Docs', icon: BookOpen, ext: true }] },
-  { section: 'Support', items: [{ label: 'Contact Support', icon: Mail, ext: true }] },
 ]
 
 export function ModeBadge() {
