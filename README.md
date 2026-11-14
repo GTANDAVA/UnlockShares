@@ -128,5 +128,7 @@ All hashes below were checked on Horizon testnet (`successful: true`).
 
 ## License
 
-© 2026 GTANDAVA — all rights reserved. The code can be read, but not reused without written permission. See `LICENSE`.
-Brand logos (Apple, Stellar, MoneyGram and others) belong to their owners.
+[MIT](LICENSE) © 2026 GTANDAVA. All the code in this repository was written by its author (no code from other HackMeridian team members).
+
+- Brand logos and names (Apple, Stellar, MoneyGram, Circle / USDC and others, some via simple-icons) are **trademarks** of their owners and are not covered by the MIT license.
+- Third-party dependencies keep their own licenses (mostly MIT; also Apache-2.0, MPL-2.0 used unmodified, ISC, BSD-3-Clause, CC0).
