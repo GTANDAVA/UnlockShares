@@ -101,11 +101,11 @@ export function Jar() {
       <small className="muted">Your shares jar</small>
       <p className="jarmsg">
         {d.liquidable ? (
-          <><em className="s-danger">Your cash is bigger than your limit.</em> The protection sale starts.</>
+          <><em className="s-danger">Your loan is above 80 % of your shares’ value.</em> A liquidator can now pay it back and take shares.</>
         ) : d.available > 0 ? (
-          <>You own <em className={d.zone.cls}>{usd(d.net)}</em> and can still receive <em>{usd(d.available)}</em>.</>
+          <>Your shares are worth <em>{usd(d.value)}</em>. You have received <em className={d.zone.cls}>{usd(s.debt)}</em> and can still receive <em>{usd(d.available)}</em>.</>
         ) : (
-          <>You own <em className={d.zone.cls}>{usd(d.net)}</em>. Pay back a little to stay safe.</>
+          <>Your shares are worth <em>{usd(d.value)}</em>. You have received <em className={d.zone.cls}>{usd(s.debt)}</em>, your maximum: pay back a little to stay safe.</>
         )}
       </p>
       <div className="jar">
