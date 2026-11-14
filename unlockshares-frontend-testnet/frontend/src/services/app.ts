@@ -115,6 +115,8 @@ export async function refresh() {
       Object.assign(next, {
         xlm: c.xlm, walletShares: c.aapl, usdc: c.usdc, ready: c.trustAapl && c.trustUsdc && c.aaplAutorise,
         shares: p.garantie, debt: p.dette, lent,
+        // V2 : chaque position a son propre prix de démo ; on affiche celui de l'utilisateur.
+        ...(p.prix !== undefined ? { price: p.prix } : {}),
         earnings: Math.max(0, lent - ch.netFourni(evs, me)),
       })
     }

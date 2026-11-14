@@ -19,6 +19,11 @@ export const toUnits = (n: number) => BigInt(Math.round(n * UNITE))
 
 const addr = (a: string) => new Address(a).toScVal()
 const i128 = (n: number) => nativeToScVal(toUnits(n), { type: 'i128' })
+const i128u = (u: bigint) => nativeToScVal(u, { type: 'i128' })
+const V2 = chain.pretVersion === 2
+/** V2 : le contrat débite exactement le montant signé, puis rend l'excédent. La dette grandit de quelques unités
+ *  entre la lecture et l'exécution : on ajoute une petite marge (0,01 % + 1000 unités) pour couvrir cet écart. */
+const avecMarge = (u: bigint) => u + u / 10_000n + 1_000n
 
 /* ---------- Messages d'erreur en français ---------- */
 
@@ -28,9 +33,10 @@ const ERREURS_PRET: Record<number, string> = {
   3: 'The pool does not have enough USDC right now.',
   4: 'This position cannot be liquidated: the loan is below 80 % of the shares’ value.',
   5: 'There is no loan to pay back.',
-  6: 'Only the admin can change the price (demo mode is off).',
+  6: V2 ? 'Only the admin can do this (or the demo tools are switched off).' : 'Only the admin can change the price (demo mode is off).',
   7: 'Insufficient balance.',
-  8: 'The price must be above zero.',
+  8: V2 ? 'The demo price must be above zero and not above the reference price.' : 'The price must be above zero.',
+  9: 'Borrow limit reached (per-address cap or share of the pool cash).',
 }
 
 export function messageErreur(e: unknown, contrat: 'pret' | 'robinet' = 'pret'): string {
@@ -123,7 +129,9 @@ export type Marche = {
   /** Fractions : 0.07 = 7 % */
   utilisation: number; tauxEmprunt: number; tauxDepot: number; reserve: number
 }
-export type Position = { garantie: number; dette: number; valeur: number; ltv: number; disponible: number; prixLiquidation: number; liquidable: boolean }
+export type Position = { garantie: number; dette: number; valeur: number; ltv: number; disponible: number; prixLiquidation: number; liquidable: boolean
+  /** V2 seulement : prix utilisé pour CETTE position (prix de démo perso s'il existe) */
+  prix?: number }
 
 export async function lireMarche(): Promise<Marche> {
   const m = await lire<Record<string, bigint | boolean>>(chain.pret, 'marche')
@@ -132,7 +140,7 @@ export async function lireMarche(): Promise<Marche> {
     totalFourni: fromUnits(m.total_fourni as bigint),
     totalEmprunte: fromUnits(m.total_emprunte as bigint),
     caisse: fromUnits(m.caisse as bigint),
-    modeDemo: Boolean(m.mode_demo),
+    modeDemo: Boolean(V2 ? m.demo_perso : m.mode_demo),
     utilisation: Number(m.utilisation_bps ?? 0) / 10_000,
     tauxEmprunt: Number(m.taux_emprunt_bps ?? 0) / 10_000,
     tauxDepot: Number(m.taux_depot_bps ?? 0) / 10_000,
@@ -150,6 +158,7 @@ export async function lirePosition(qui: string): Promise<Position> {
     disponible: fromUnits(p.disponible as bigint),
     prixLiquidation: fromUnits(p.prix_liquidation as bigint),
     liquidable: Boolean(p.liquidable),
+    prix: p.prix === undefined ? undefined : fromUnits(p.prix as bigint),
   }
 }
 
@@ -205,11 +214,27 @@ export const pret = {
   deposer: (qui: string, n: number) => appeler(qui, chain.pret, 'deposer', [addr(qui), i128(n)]),
   retirer: (qui: string, n: number) => appeler(qui, chain.pret, 'retirer', [addr(qui), i128(n)]),
   emprunter: (qui: string, n: number) => appeler(qui, chain.pret, 'emprunter', [addr(qui), i128(n)]),
-  rembourser: (qui: string, n: number) => appeler(qui, chain.pret, 'rembourser', [addr(qui), i128(n)]),
-  fixerPrix: (qui: string, prix: number) => appeler(qui, chain.pret, 'fixer_prix', [addr(qui), i128(prix)]),
-  liquider: (qui: string, cible: string) => appeler(qui, chain.pret, 'liquider', [addr(qui), addr(cible)]),
-  /** Démo : fait comme si `secondes` s'étaient écoulées (les intérêts tombent d'un coup) */
-  avancerTemps: (qui: string, secondes: number) => appeler(qui, chain.pret, 'avancer_temps', [addr(qui), nativeToScVal(BigInt(secondes), { type: 'u64' })]),
+  rembourser: async (qui: string, n: number) => {
+    if (!V2) return appeler(qui, chain.pret, 'rembourser', [addr(qui), i128(n)])
+    // V2 : pour « tout rembourser », on couvre les intérêts courus d'ici l'exécution (l'excédent est rendu).
+    const p = await lire<Record<string, bigint>>(chain.pret, 'position', [addr(qui)])
+    const u = toUnits(n) >= p.dette ? avecMarge(p.dette) : toUnits(n)
+    return appeler(qui, chain.pret, 'rembourser', [addr(qui), i128u(u)])
+  },
+  /** V1 : prix global (mode démo). V2 : prix de démo de MA position seulement (≤ prix de référence). */
+  fixerPrix: (qui: string, prix: number) =>
+    V2
+      ? appeler(qui, chain.pret, 'fixer_prix_demo', [addr(qui), i128(prix)])
+      : appeler(qui, chain.pret, 'fixer_prix', [addr(qui), i128(prix)]),
+  liquider: async (qui: string, cible: string) => {
+    if (!V2) return appeler(qui, chain.pret, 'liquider', [addr(qui), addr(cible)])
+    const max = await lire<bigint>(chain.pret, 'montant_liquidable', [addr(cible)])
+    if (max <= 0n) throw new Error('Error(Contract, #4)')
+    return appeler(qui, chain.pret, 'liquider', [addr(qui), addr(cible), i128u(avecMarge(max))])
+  },
+  /** Démo : fait comme si `secondes` s'étaient écoulées (les intérêts tombent d'un coup). V2 : sur MA position seulement. */
+  avancerTemps: (qui: string, secondes: number) =>
+    appeler(qui, chain.pret, V2 ? 'avancer_temps_perso' : 'avancer_temps', [addr(qui), nativeToScVal(BigInt(secondes), { type: 'u64' })]),
 }
 
 /* ---------- Robinet : tout ce qu'il faut pour démarrer, en 3 étapes ---------- */

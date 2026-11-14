@@ -6,6 +6,8 @@ const v = (k: string) => String(env[k] ?? '').trim()
 
 export const chain = {
   pret: v('VITE_PRET_ID'),
+  /** Version du contrat de prêt : 1 (pools actuels, par défaut) ou 2 (plafonds, démo perso, liquidation au montant) */
+  pretVersion: v('VITE_PRET_VERSION') === '2' ? 2 : 1,
   robinet: v('VITE_ROBINET_ID'),
   /** Distributeur d'USDC de Circle (réserve remplie par l'admin) : facultatif */
   distributeur: v('VITE_DISTRIBUTEUR_ID'),
