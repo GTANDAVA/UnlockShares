@@ -137,3 +137,30 @@ stellar contract invoke --id robinet --source-account greg --network testnet -- 
 Adresse : `CAMRWYRLSSFF5VJB6FKZSJO3QG3CQQDMJS77LTY3E5H7C67R2NYMUDVQ`.
 Caisse : on la remplit avec de l'USDC du faucet Circle (faucet.circle.com, 20 USDC / 2 h), via la page **Earn → Lend** de l'appli.
 Le robinet donne toujours du tAAPL (garantie) et du tUSDC (inutile pour ce pool).
+
+---
+
+## Distributeur d'USDC pour les testeurs
+
+Contrat `distributeur` (dossier `contracts/distributeur`) : il donne **20 USDC de Circle par adresse, une fois par 24 h**, depuis une réserve.
+On ne peut pas imprimer l'USDC : on remplit la réserve en lui envoyant des USDC.
+
+```powershell
+stellar contract deploy --wasm target\wasm32v1-none\release\distributeur.wasm --source-account greg --network testnet --alias distributeur-usdc -- --admin greg --jeton CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA --montant 200000000 --delai 86400
+```
+
+Adresse : `CAMCKH3GBDEPO7ONTAMIRYJ7YCZWYT3G7F6Q33L2KEPLF7AFIB43A275` (bouton « Get test tokens », étape 4/4).
+
+### Recharger la réserve et le pool
+
+Le script `unlockshares-frontend-testnet/frontend/scripts/recharger-usdc.mjs` fait des dépôts automatiques auprès de l'anchor de test
+de Stellar (10 USDC par dépôt, 9 reçus après frais), puis répartit les USDC.
+
+```powershell
+cd C:\Users\grego\stellar\unlockshares-frontend-testnet\frontend
+$env:ADMIN_SECRET = stellar keys show greg
+node scripts/recharger-usdc.mjs --tours 20 --distributeur 100 --pool 80
+Remove-Item Env:ADMIN_SECRET
+```
+
+Vérifier : `stellar contract invoke --id distributeur-usdc --source-account greg --network testnet --send=no -- reserve`

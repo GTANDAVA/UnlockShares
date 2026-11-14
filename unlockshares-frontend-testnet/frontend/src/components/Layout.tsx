@@ -94,7 +94,7 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
             <label className="search"><Search className="i" aria-hidden /><input placeholder="Search assets and markets" aria-label="Search" /><span className="kbd">/</span></label>
             <button className="round" aria-label="Lend" title="Lend" onClick={() => open('lend')}><Plus className="i" aria-hidden /></button>
             {live && s.address && s.ready && (
-              <button className="round" aria-label="Get test tokens" title="Get test tokens (once an hour)" onClick={faucet} disabled={!!s.busy}><Droplets className="i" aria-hidden /></button>
+              <button className="round" aria-label="Get test tokens" title="Get test tokens: 100 tAAPL (hourly) + 20 USDC (daily)" onClick={faucet} disabled={!!s.busy}><Droplets className="i" aria-hidden /></button>
             )}
             {!live ? (
               <span className="wallet" title="No wallet is connected in this demo"><Wallet className="i" aria-hidden />Not connected</span>

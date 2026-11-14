@@ -217,7 +217,7 @@ export const pret = {
 /** Nom affiché du jeton prêté (USDC de Circle, ou tUSDC sur l'ancien pool) */
 export const usdcLabel = chain.usdcCode === 'USDC' ? 'USDC' : 'tUSDC'
 
-export async function obtenirJetons(qui: string, etape: (t: string) => void): Promise<string> {
+export async function obtenirJetons(qui: string, etape: (t: string) => void): Promise<{ hash?: string; text: string }> {
   let c = await lireCompte(qui)
   if (!c.existe) {
     etape('1/3 · Creating the testnet account (Friendbot)…')
@@ -237,12 +237,33 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
     for (const a of manque) b = b.addOperation(Operation.changeTrust({ asset: a }))
     await envoyer(await signer(b.setTimeout(120).build(), qui))
   }
-  etape('3/3 · The faucet sends you 100 tAAPL (your collateral): sign in Varial…')
+  const total = chain.distributeur ? 4 : 3
+  const faits: string[] = []
+  const notes: string[] = []
+  let hash: string | undefined
+  etape(`3/${total} · The faucet sends you 100 tAAPL (your collateral): sign in Varial…`)
   try {
-    return await appeler(qui, chain.robinet, 'recevoir', [addr(qui)])
+    hash = await appeler(qui, chain.robinet, 'recevoir', [addr(qui)])
+    faits.push('100 tAAPL')
   } catch (e) {
-    throw new Error(messageErreur(e, 'robinet'))
+    if (!/Error(Contract, #1)/.test(String(e instanceof Error ? e.message : e))) throw new Error(messageErreur(e, 'robinet'))
+    notes.push('tAAPL already received this hour')
   }
+  if (chain.distributeur) {
+    etape(`4/4 · The USDC dispenser sends you test USDC: sign in Varial…`)
+    try {
+      hash = await appeler(qui, chain.distributeur, 'recevoir', [addr(qui)])
+      faits.push('20 USDC')
+    } catch (e) {
+      const t = String(e instanceof Error ? e.message : e)
+      if (/Error(Contract, #1)/.test(t)) notes.push('USDC already received today')
+      else if (/Error(Contract, #2)/.test(t)) notes.push('USDC reserve empty: get some on faucet.circle.com')
+      else if (/declined|rejected/i.test(t)) notes.push('USDC: signature declined')
+      else notes.push(`USDC: ${messageErreur(e)}`)
+    }
+  }
+  if (!faits.length && !notes.length) throw new Error('Nothing received.')
+  return { hash, text: [faits.length ? `${faits.join(' and ')} received` : '', ...notes].filter(Boolean).join(' · ') }
 }
 
 /* ---------- Historique : les événements publiés par le contrat ---------- */

@@ -7,6 +7,8 @@ const v = (k: string) => String(env[k] ?? '').trim()
 export const chain = {
   pret: v('VITE_PRET_ID'),
   robinet: v('VITE_ROBINET_ID'),
+  /** Distributeur d'USDC de Circle (réserve remplie par l'admin) : facultatif */
+  distributeur: v('VITE_DISTRIBUTEUR_ID'),
   taapl: v('VITE_TAAPL_ID'),
   tusdc: v('VITE_TUSDC_ID'),
   emetteurAapl: v('VITE_EMETTEUR_AAPL'),

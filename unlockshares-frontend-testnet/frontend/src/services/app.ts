@@ -218,9 +218,9 @@ export const actions = {
     const me = need()
     patch({ busy: 'Preparing…' })
     try {
-      const hash = await ch.obtenirJetons(me, (t) => patch({ busy: t }))
+      const r = await ch.obtenirJetons(me, (t) => patch({ busy: t }))
       await refresh()
-      return { text: '100 tAAPL received', hash }
+      return { text: r.text, hash: r.hash }
     } catch (e) {
       throw new Error(ch.messageErreur(e, 'robinet'))
     } finally {
