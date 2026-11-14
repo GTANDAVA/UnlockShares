@@ -18,9 +18,11 @@ export type AppState = Omit<DemoState, 'history'> & {
   /** Le compte a-t-il ses jetons de test (trustlines + autorisation tAAPL) ? */
   ready: boolean
   /** Taux en fractions (0.07 = 7 % par an), lus dans le contrat */
-  market: { totalLent: number; totalBorrowed: number; cash: number; demoOpen: boolean; used: number; borrowRate: number; lendRate: number }
+  market: { totalLent: number; totalBorrowed: number; cash: number; demoOpen: boolean; used: number; borrowRate: number; lendRate: number
+    /** V2 : prix de référence (admin). Chaque position peut avoir son propre prix de démo, au plus égal à celui-ci. */
+    refPrice?: number }
   /** Emprunteurs connus, pour la page Contrôles de démo */
-  borrowers: { address: string; shares: number; debt: number; ltv: number; liquidable: boolean }[]
+  borrowers: { address: string; shares: number; debt: number; ltv: number; liquidable: boolean; price?: number }[]
   /** Action en cours (affichée à l'écran) */
   busy: string | null
   loaded: boolean
@@ -91,7 +93,7 @@ export async function refresh() {
     const positions = await Promise.all(list.map((a) => ch.lirePosition(a).then((p) => ({ a, p })).catch(() => null)))
     const borrowers = positions
       .filter((x): x is { a: string; p: ch.Position } => !!x && (x.p.garantie > 0 || x.p.dette > 0))
-      .map(({ a, p }) => ({ address: a, shares: p.garantie, debt: p.dette, ltv: p.ltv, liquidable: p.liquidable }))
+      .map(({ a, p }) => ({ address: a, shares: p.garantie, debt: p.dette, ltv: p.ltv, liquidable: p.liquidable, price: p.prix }))
     const history: AppEvent[] = evs.map((e) => ({
       date: e.date.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).replace(',', ''),
       action: e.type,
@@ -104,7 +106,7 @@ export async function refresh() {
       price: m.prix,
       market: {
         totalLent: m.totalFourni, totalBorrowed: m.totalEmprunte, cash: m.caisse, demoOpen: m.modeDemo,
-        used: m.utilisation, borrowRate: m.tauxEmprunt, lendRate: m.tauxDepot,
+        used: m.utilisation, borrowRate: m.tauxEmprunt, lendRate: m.tauxDepot, refPrice: m.prix,
       },
       borrowers,
       history,

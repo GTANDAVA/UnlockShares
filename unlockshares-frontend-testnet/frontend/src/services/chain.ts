@@ -175,7 +175,7 @@ export async function lireCompte(qui: string): Promise<Compte> {
     const c: Compte = { existe: true, xlm: 0, aapl: 0, usdc: 0, trustAapl: false, trustUsdc: false, trustTusdc: false, aaplAutorise: false }
     for (const b of a.balances) {
       if (b.asset_type === 'native') c.xlm = Number(b.balance)
-      else if ('asset_code' in b && b.asset_code === 'TAAPL' && b.asset_issuer === chain.emetteurAapl) {
+      else if ('asset_code' in b && b.asset_code === chain.aaplCode && b.asset_issuer === chain.emetteurAapl) {
         c.trustAapl = true
         c.aapl = Number(b.balance)
         c.aaplAutorise = Boolean(b.is_authorized)
@@ -251,7 +251,7 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
     c = await lireCompte(qui)
   }
   const manque = [
-    !c.trustAapl && new Asset('TAAPL', chain.emetteurAapl),
+    !c.trustAapl && new Asset(chain.aaplCode, chain.emetteurAapl),
     !c.trustUsdc && new Asset(chain.usdcCode, chain.emetteurUsdc),
     // Le robinet distribue encore du tUSDC : sans cette trustline, il échouerait.
     !!chain.emetteurTusdc && chain.emetteurTusdc !== chain.emetteurUsdc && !c.trustTusdc && new Asset('TUSDC', chain.emetteurTusdc),
@@ -266,12 +266,13 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
   const faits: string[] = []
   const notes: string[] = []
   let hash: string | undefined
-  etape(`3/${total} · The faucet sends you 100 tAAPL (your collateral): sign in Varial…`)
+  // Le robinet v2 a un montant réglable : on n'affiche pas de chiffre fixe.
+  etape(`3/${total} · The faucet sends you ${V2 ? 'test' : '100'} tAAPL (your collateral): sign in Varial…`)
   try {
     hash = await appeler(qui, chain.robinet, 'recevoir', [addr(qui)])
-    faits.push('100 tAAPL')
+    faits.push(V2 ? 'tAAPL' : '100 tAAPL')
   } catch (e) {
-    if (!/Error(Contract, #1)/.test(String(e instanceof Error ? e.message : e))) throw new Error(messageErreur(e, 'robinet'))
+    if (!/Error\(Contract, #1\)/.test(String(e instanceof Error ? e.message : e))) throw new Error(messageErreur(e, 'robinet'))
     notes.push('tAAPL already received this hour')
   }
   if (chain.distributeur) {
@@ -281,8 +282,8 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
       faits.push('20 USDC')
     } catch (e) {
       const t = String(e instanceof Error ? e.message : e)
-      if (/Error(Contract, #1)/.test(t)) notes.push('USDC already received today')
-      else if (/Error(Contract, #2)/.test(t)) notes.push('USDC reserve empty: get some on faucet.circle.com')
+      if (/Error\(Contract, #1\)/.test(t)) notes.push('USDC already received today')
+      else if (/Error\(Contract, #2\)/.test(t)) notes.push('USDC reserve empty: get some on faucet.circle.com')
       else if (/declined|rejected/i.test(t)) notes.push('USDC: signature declined')
       else notes.push(`USDC: ${messageErreur(e)}`)
     }

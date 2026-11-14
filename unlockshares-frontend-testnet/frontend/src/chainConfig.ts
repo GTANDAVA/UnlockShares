@@ -14,6 +14,8 @@ export const chain = {
   taapl: v('VITE_TAAPL_ID'),
   tusdc: v('VITE_TUSDC_ID'),
   emetteurAapl: v('VITE_EMETTEUR_AAPL'),
+  /** Code du jeton action (TAAPL ; TAAPLS sur le pool de test v2) */
+  aaplCode: v('VITE_AAPL_CODE') || 'TAAPL',
   /** Jeton PRÊTÉ par le pool : code + émetteur (USDC de Circle sur le pool actuel, accepté par MoneyGram) */
   usdcCode: v('VITE_USDC_CODE') || 'TUSDC',
   emetteurUsdc: v('VITE_EMETTEUR_USDC'),
