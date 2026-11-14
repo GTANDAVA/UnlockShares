@@ -230,6 +230,11 @@ export const pret = {
     if (!V2) return appeler(qui, chain.pret, 'liquider', [addr(qui), addr(cible)])
     const max = await lire<bigint>(chain.pret, 'montant_liquidable', [addr(cible)])
     if (max <= 0n) throw new Error('Error(Contract, #4)')
+    // Le liquidateur doit avoir de quoi payer la dette ET les intérêts courus : sinon, message clair avant de signer.
+    const solde = toUnits((await lireCompte(qui)).usdc)
+    if (solde < avecMarge(max)) {
+      throw new Error(`To liquidate this loan you need ${(Number(avecMarge(max)) / UNITE).toFixed(4)} ${usdcLabel} (debt + interest), you have ${(Number(solde) / UNITE).toFixed(4)}.`)
+    }
     return appeler(qui, chain.pret, 'liquider', [addr(qui), addr(cible), i128u(avecMarge(max))])
   },
   /** Démo : fait comme si `secondes` s'étaient écoulées (les intérêts tombent d'un coup). V2 : sur MA position seulement. */
@@ -240,7 +245,7 @@ export const pret = {
 /* ---------- Robinet : tout ce qu'il faut pour démarrer, en 3 étapes ---------- */
 
 /** Nom affiché du jeton prêté (USDC de Circle, ou tUSDC sur l'ancien pool) */
-export const usdcLabel = chain.usdcCode === 'USDC' ? 'USDC' : 'tUSDC'
+export const usdcLabel = chain.usdcCode === 'TUSDC' ? 'tUSDC' : chain.usdcCode
 
 export async function obtenirJetons(qui: string, etape: (t: string) => void): Promise<{ hash?: string; text: string }> {
   let c = await lireCompte(qui)
