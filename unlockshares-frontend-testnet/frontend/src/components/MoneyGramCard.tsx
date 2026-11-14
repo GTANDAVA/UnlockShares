@@ -65,7 +65,8 @@ export function MoneyGramCard({ address }: { address: string }) {
       {err && <p className="co-err"><TriangleAlert className="v-ic" />{err}</p>}
       {hash && <small className="muted">USDC sent to MoneyGram · <a href={lienTx(hash)} target="_blank" rel="noreferrer">see the transaction</a></small>}
       {ref && <p className="co-ok"><Check className="v-ic" />MoneyGram reference number: <code>{ref}</code></p>}
-      <div ref={box} style={{ display: open ? 'block' : 'none', minHeight: open ? 560 : 0 }} />
+      {/* Hauteur EXPLICITE obligatoire : l'iframe du SDK fait height:100%, sinon elle retombe à 150 px. Le widget peut ensuite l'ajuster (RAMPS_HEIGHT). */}
+      <div ref={box} style={{ display: open ? 'block' : 'none', height: 'min(680px, 85vh)', borderRadius: 16, overflow: 'hidden' }} />
     </div>
   )
 }
