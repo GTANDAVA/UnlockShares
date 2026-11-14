@@ -1,5 +1,6 @@
-import { Banknote, Check, CircleAlert, History, KeyRound, Landmark, LoaderCircle, Lock, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { Banknote, Check, History, KeyRound, Landmark, LoaderCircle, Lock, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Choice } from '../components/Choice'
 import { MoneyGramCard } from '../components/MoneyGramCard'
 import { useConnect } from '../components/Onboarding'
 import { useDemo } from '../lib/useDemo'
@@ -57,6 +58,7 @@ export function CashOutPage() {
   const balance = Math.floor(s.usdc * 100) / 100
   const needWallet = s.mode === 'chain' && !s.address
 
+  const [method, setMethod] = useState<'cash' | 'bank'>('cash')
   const [phase, setPhase] = useState<Phase>('amount')
   const [amount, setAmount] = useState('')
   const [auth, setAuth] = useState(0)
@@ -115,39 +117,24 @@ export function CashOutPage() {
 
   return (
     <div className="co">
-      <div className="co-banner" role="note">
-        <CircleAlert className="v-ic" aria-hidden />
-        <span><b>Two ways to cash out.</b> 💵 <b>Cash pickup</b> with MoneyGram runs on the real MoneyGram sandbox (testnet). 🏦 <b>Bank transfer</b> (SEPA) is a simulation of a Stellar anchor (SEP-24). No real money moves in either.</span>
-      </div>
-
       <div className="head">
         <div>
           <h1>Cash out</h1>
-          <p className="muted">Turn your USDC into money: cash at a MoneyGram location, or euros on your bank account.</p>
+          <p className="muted">Turn your USDC into money.</p>
         </div>
-        <div className="kpis">
-          <div className="kpi"><small>USDC in wallet{s.mode === 'demo' ? ' (demo)' : ''}</small><b>{num(balance)}</b></div>
-          <div className="kpi"><small>Bank transfer rate (demo)</small><b>1 USDC = 0,92 €</b></div>
-        </div>
+        <div className="kpis"><div className="kpi"><small>Your USDC{s.mode === 'demo' ? ' (demo)' : ''}</small><b>{num(balance)}</b></div></div>
       </div>
 
       {s.mode === 'chain' && (
-        <>
-          <div className="co-sec">
-            <span className="co-sec-ic" aria-hidden>💵</span>
-            <div><b>Option 1 · Cash pickup at MoneyGram</b><small>Send USDC, collect cash at a MoneyGram location with your reference number.</small></div>
-            <span className="tag">Real · MoneyGram sandbox</span>
-          </div>
-          {s.address ? <MoneyGramCard address={s.address} /> : <div className="empty"><b>Connect your wallet</b><span className="muted">MoneyGram sends the cash against USDC from your Varial wallet.</span><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>}
-        </>
+        <Choice label="Cash out method" value={method} onChange={setMethod} options={[
+          { id: 'cash', icon: Banknote, title: 'Cash', sub: 'Pick up at a MoneyGram location', tag: 'Sandbox' },
+          { id: 'bank', icon: Landmark, title: 'Bank transfer', sub: 'Euros on your IBAN', tag: 'Simulation' },
+        ]} />
       )}
 
-      <div className="co-sec">
-        <span className="co-sec-ic" aria-hidden>🏦</span>
-        <div><b>{s.mode === 'chain' ? 'Option 2 · ' : ''}Bank transfer (SEPA)</b><small>Euros sent to your IBAN by a Stellar anchor (SEP-24).</small></div>
-        <span className="tag">Simulation</span>
-      </div>
-
+      {s.mode === 'chain' && method === 'cash' ? (
+        s.address ? <MoneyGramCard address={s.address} /> : <div className="empty"><b>Connect your wallet</b><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
+      ) : (<>
       <ol className="co-steps">
         {STEPS.map((st, i) => {
           const state = i < step ? 'done' : i === step ? 'now' : ''
@@ -156,7 +143,7 @@ export function CashOutPage() {
           return (
             <li key={st.title} className={state}>
               <span className="co-dot">{spinning ? <LoaderCircle className="spin" /> : <Ic />}</span>
-              <div><b>{st.title}</b><small>{st.sub}</small></div>
+              <div><b>{st.title}</b></div>
             </li>
           )
         })}
@@ -242,7 +229,7 @@ export function CashOutPage() {
               return (
                 <li key={f.st} className={state}>
                   <span className="co-dot">{state === 'done' ? <Check /> : state === 'now' ? <LoaderCircle className="spin" /> : <span className="co-pip" />}</span>
-                  <div><b>{f.label}</b><small><code>{f.st}</code> · {f.sub}</small></div>
+                  <div><b>{f.label}</b></div>
                 </li>
               )
             })}
@@ -261,8 +248,9 @@ export function CashOutPage() {
         </div>
       )}
 
-      <div className="co-card">
-        <div className="co-row"><b><History className="v-ic" /> Simulated withdrawals</b>{history.length > 0 && <button className="btn" onClick={clearHistory}>Clear</button>}</div>
+      <details className="co-card co-details">
+        <summary><b><History className="v-ic" /> Past bank transfers (simulated)</b></summary>
+        <div className="co-row">{history.length > 0 && <button className="btn" onClick={clearHistory}>Clear</button>}</div>
         {history.length === 0 ? (
           <span className="muted">None yet. They are kept in this browser only.</span>
         ) : (
@@ -275,7 +263,8 @@ export function CashOutPage() {
             ))}
           </ul>
         )}
-      </div>
+      </details>
+      </>)}
     </div>
   )
 }

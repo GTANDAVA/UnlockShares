@@ -1,4 +1,4 @@
-import { Check, Landmark, LoaderCircle, TriangleAlert } from 'lucide-react'
+import { Check, LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { lienTx, messageErreur } from '../services/chain'
 import { addUsdcTrustline, openMoneyGram, usdcBalance, type RampMode } from '../services/moneygram'
@@ -49,14 +49,7 @@ export function MoneyGramCard({ address, mode = 'off-ramp' }: { address: string;
 
   return (
     <div className="co-card">
-      <b><Landmark className="v-ic" /> {cashIn ? 'Cash in with MoneyGram' : 'Real cash out with MoneyGram'} <span className="tag">Sandbox · testnet</span></b>
-      <span className="muted">{cashIn
-        ? 'Pay cash at a MoneyGram location and receive Circle USDC in your wallet. No real money moves in the sandbox.'
-        : 'Uses the Circle testnet USDC you borrow on UnlockShares (or free on faucet.circle.com). No real money moves in the sandbox.'}</span>
-      <div className="co-kv">
-        <span>USDC (Circle) in wallet</span>
-        <b>{usdc === undefined ? '…' : usdc === null ? 'No USDC trustline yet' : usdc.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b>
-      </div>
+      <span className="muted">{cashIn ? 'Choose a MoneyGram location, pay cash there, receive USDC.' : 'Send USDC, collect cash at MoneyGram with your reference number.'}</span>
       <div className="chips">
         {usdc === null ? (
           <button className="btn primary" onClick={() => void trust()} disabled={busy}>{busy ? <LoaderCircle className="i spin" /> : null}Add USDC trustline</button>
@@ -65,7 +58,6 @@ export function MoneyGramCard({ address, mode = 'off-ramp' }: { address: string;
         ) : (
           <button className="btn primary" onClick={() => void start()} disabled={busy || (!cashIn && !usdc)}>{busy ? <LoaderCircle className="i spin" /> : null}{cashIn ? 'Cash in with MoneyGram' : 'Cash out with MoneyGram'}</button>
         )}
-        {!cashIn && <a className="btn" href="https://faucet.circle.com" target="_blank" rel="noreferrer">Get test USDC</a>}
       </div>
       {err && <p className="co-err"><TriangleAlert className="v-ic" />{err}</p>}
       {hash && <small className="muted">USDC sent to MoneyGram · <a href={lienTx(hash)} target="_blank" rel="noreferrer">see the transaction</a></small>}

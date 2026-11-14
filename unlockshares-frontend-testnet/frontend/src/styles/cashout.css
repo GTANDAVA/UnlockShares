@@ -84,3 +84,14 @@
 .co-sec small { color: var(--muted, #8a8a8a); }
 .co-sec-ic { font-size: 26px; line-height: 1; }
 @media (max-width: 520px) { .co-sec { flex-wrap: wrap; } }
+
+/* Tuiles de choix (espèces / virement) */
+.co-choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.co-choice button { display: flex; align-items: center; gap: 12px; text-align: left; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; }
+.co-choice button:hover { border-color: var(--ink); }
+.co-choice button.on { border: 2px solid var(--ink); padding: 15px; }
+.co-choice button > span:first-of-type { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.co-choice small { color: var(--muted, #8a8a8a); }
+.co-choice-ic { width: 26px; height: 26px; flex: none; }
+.co-details summary { cursor: pointer; list-style: none; }
+.co-details summary::-webkit-details-marker { display: none; }

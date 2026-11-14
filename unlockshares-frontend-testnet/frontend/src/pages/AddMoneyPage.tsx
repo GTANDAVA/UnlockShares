@@ -1,38 +1,38 @@
-import { CircleAlert } from 'lucide-react'
+import { Banknote, Landmark } from 'lucide-react'
+import { useState } from 'react'
 import { AnchorDepositCard } from '../components/AnchorDepositCard'
+import { Choice } from '../components/Choice'
 import { MoneyGramCard } from '../components/MoneyGramCard'
 import { useConnect } from '../components/Onboarding'
 import { useDemo } from '../lib/useDemo'
 import '../styles/cashout.css'
 
-// On-ramp : plusieurs façons de faire entrer de l'argent (espèces, banque…) sous forme d'USDC de Circle.
-// Analogie : une galerie de bureaux de change ; chaque carte est un guichet.
+// On-ramp : un titre, deux guichets au choix, une seule carte affichée.
 export function AddMoneyPage() {
   const s = useDemo()
   const connect = useConnect()
+  const [method, setMethod] = useState<'cash' | 'bank'>('bank')
 
   return (
     <div className="co">
-      <div className="co-banner" role="note">
-        <CircleAlert className="v-ic" aria-hidden />
-        <span><b>Testnet & sandbox — no real money moves.</b> Each option below brings Circle USDC to your wallet, ready to lend or to pay back a loan.</span>
-      </div>
-
       <div className="head">
         <div>
           <h1>Add money</h1>
-          <p className="muted">Turn cash or a bank transfer into USDC on Stellar.</p>
+          <p className="muted">Get USDC in your wallet. Testnet: no real money moves.</p>
         </div>
       </div>
 
       {s.mode !== 'chain' ? (
-        <div className="empty"><b>Testnet only</b><span className="muted">These on-ramps use real testnet transactions. Switch the app to testnet mode to try them.</span></div>
+        <div className="empty"><b>Available on testnet only</b></div>
       ) : !s.address ? (
-        <div className="empty"><b>Connect your wallet</b><span className="muted">The USDC is sent to your Varial wallet.</span><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
+        <div className="empty"><b>Connect your wallet</b><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
       ) : (
         <>
-          <MoneyGramCard address={s.address} mode="on-ramp" />
-          <AnchorDepositCard address={s.address} />
+          <Choice label="Deposit method" value={method} onChange={setMethod} options={[
+            { id: 'bank', icon: Landmark, title: 'Bank transfer', sub: 'Through a Stellar anchor', tag: 'Testnet' },
+            { id: 'cash', icon: Banknote, title: 'Cash', sub: 'At a MoneyGram location', tag: 'Sandbox' },
+          ]} />
+          {method === 'bank' ? <AnchorDepositCard address={s.address} /> : <MoneyGramCard address={s.address} mode="on-ramp" />}
         </>
       )}
     </div>

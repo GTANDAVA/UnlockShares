@@ -1,6 +1,6 @@
-import { Building2, Check, LoaderCircle, TriangleAlert } from 'lucide-react'
+import { Check, LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ANCHOR_DOMAIN, demarrerDepot, lireRetrait, type Sep24Tx } from '../services/anchor'
+import { demarrerDepot, lireRetrait, type Sep24Tx } from '../services/anchor'
 import { lienTx, messageErreur } from '../services/chain'
 import { addUsdcTrustline, usdcBalance } from '../services/moneygram'
 import { tagTx } from '../services/movements'
@@ -74,17 +74,12 @@ export function AnchorDepositCard({ address }: { address: string }) {
 
   return (
     <div className="co-card">
-      <b><Building2 className="v-ic" /> Deposit from your bank with a Stellar anchor <span className="tag">SEP-24 · testnet</span></b>
-      <span className="muted">Uses the Stellar standard for on-ramps: one integration works with any licensed anchor. Here: the SDF test anchor ({ANCHOR_DOMAIN}), which sends real Circle testnet USDC. No real money moves.</span>
-      <div className="co-kv">
-        <span>USDC (Circle) in wallet</span>
-        <b>{usdc === undefined ? '…' : usdc === null ? 'No USDC trustline yet' : usdc.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b>
-      </div>
+      <span className="muted">The Stellar test anchor sends you real testnet USDC (1 to 10 per deposit).</span>
       {usdc === null ? (
         <div className="chips"><button className="btn primary" onClick={() => void trust()} disabled={busy}>{busy ? <LoaderCircle className="i spin" /> : null}Add USDC trustline</button></div>
       ) : (
         <>
-          <label className="co-label" htmlFor="dep-amount">Amount to deposit (1 to 10 USDC on the test anchor)</label>
+          <label className="co-label" htmlFor="dep-amount">Amount</label>
           <div className="co-amount">
             <input id="dep-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-invalid={!amountOk} />
             <span>USDC</span>
@@ -94,13 +89,12 @@ export function AnchorDepositCard({ address }: { address: string }) {
               {busy ? <LoaderCircle className="i spin" /> : null}Deposit with the anchor
             </button>
           </div>
-          <small className="muted">Varial asks you to sign a login challenge (SEP-10: no money moves), then the anchor’s form opens in a new window.</small>
         </>
       )}
       {tx && (
         <p className={done ? 'co-ok' : 'muted'}>
           {done ? <Check className="v-ic" /> : FINAL.includes(tx.status) ? <TriangleAlert className="v-ic" /> : <LoaderCircle className="v-ic spin" />}
-          {LABEL[tx.status] ?? tx.status} <code>{tx.status}</code>
+          {LABEL[tx.status] ?? tx.status}
           {tx.amount_out && <> · {tx.amount_out} USDC</>}
         </p>
       )}
