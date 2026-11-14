@@ -103,7 +103,7 @@ export function Jar() {
         {d.liquidable ? (
           <><em className="s-danger">Your loan is above 80 % of your shares’ value.</em> A liquidator can now pay it back and take shares.</>
         ) : d.available > 0 ? (
-          <>You have borrowed <em className={d.zone.cls}>{usd(s.debt)}</em> and can still receive <em>{usd(d.available)}</em>.</>
+          <>You have borrowed <em className={d.zone.cls}>{usd(s.debt)}</em> and can still borrow <em>{usd(d.available)}</em>.</>
         ) : (
           <>You have borrowed <em className={d.zone.cls}>{usd(s.debt)}</em>, your maximum: pay back a little to stay safe.</>
         )}
