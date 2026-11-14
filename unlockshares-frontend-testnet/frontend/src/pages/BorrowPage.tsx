@@ -1,4 +1,4 @@
-import { Coin, eur, Filters, Pill, Ring, Term, usdc, useDemoUi } from '../components/demo'
+import { Coin, usd, Filters, Pill, Ring, Term, usdc, useDemoUi } from '../components/demo'
 import { StellarLogo, TokenLogo } from '../components/logos'
 import { useDemo } from '../lib/useDemo'
 import { DEMO, derive } from '../services/mockDemo'
@@ -58,7 +58,7 @@ export function BorrowPage() {
           <tbody>
             <tr>
               <td><div className="asset"><Coin kind="aapl">AAPL</Coin><div>Apple<small>tokenized share</small></div></div></td>
-              <td>{s.shares} AAPL as guarantee<small>{eur(d.value)} · {s.walletShares} AAPL in wallet</small></td><td>50 % of value</td><td>80 % of value</td><td><div className="chips"><Pill cls="s-safe">Live</Pill><button className="btn" onClick={() => open('deposit')} disabled={!s.walletShares}>Use as guarantee</button></div></td>
+              <td>{s.shares} AAPL as guarantee<small>{usd(d.value)} · {s.walletShares} AAPL in wallet</small></td><td>50 % of value</td><td>80 % of value</td><td><div className="chips"><Pill cls="s-safe">Live</Pill><button className="btn" onClick={() => open('deposit')} disabled={!s.walletShares}>Use as guarantee</button></div></td>
             </tr>
             {ROADMAP.map((r) => (
               <tr key={r.code} className="soon">

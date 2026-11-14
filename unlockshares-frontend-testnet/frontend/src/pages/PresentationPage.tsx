@@ -18,7 +18,7 @@ const ease = (x: number) => 1 - (1 - x) ** 3
 /** Progression adoucie entre les instants a et b de la scène */
 const k = (p: number, a: number, b: number) => ease(clamp((p - a) / (b - a)))
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
-const eur = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} €`
+const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
 
 /** Entrée : fondu + glissement depuis le bas (ou un autre côté) */
 const enter = (t: number, dx = 0, dy = 3): CSSProperties => ({
@@ -64,10 +64,10 @@ function Intro(p: number) {
         })}
       </div>
       <div className="v-big" style={enter(k(p, 0.3, 0.45))}>
-        Léa owns <span className="v-hl">1 000 €</span> of Apple shares.
+        Léa owns <span className="v-hl">$1,000</span> of Apple shares.
       </div>
       <div className="v-sub" style={enter(k(p, 0.55, 0.7))}>
-        But her wallet is empty: <b className="v-wallet0" style={{ transform: `translateX(${Math.sin(p * 90) * k(p, 0.7, 0.75) * (1 - k(p, 0.85, 0.9)) * 0.6}cqw)` }}>0 €</b>
+        But her wallet is empty: <b className="v-wallet0" style={{ transform: `translateX(${Math.sin(p * 90) * k(p, 0.7, 0.75) * (1 - k(p, 0.85, 0.9)) * 0.6}cqw)` }}>$0</b>
       </div>
       <div className="v-sub muted" style={enter(k(p, 0.75, 0.88))}>Shares are worth money… but you can’t pay with them.</div>
     </div>
@@ -75,10 +75,10 @@ function Intro(p: number) {
 }
 
 const BESOINS = [
-  { icon: Briefcase, titre: 'Cash advance', ex: 'A client pays in 60 days, salaries are due Friday.', m: '3 000 €' },
-  { icon: Car, titre: 'Emergency', ex: 'Car repair, dentist, a leaking roof.', m: '400 €' },
-  { icon: TrendingUp, titre: 'Investment', ex: 'A deal or a flat deposit you don’t want to miss.', m: '5 000 €' },
-  { icon: Banknote, titre: 'Off-ramp', ex: 'Pay rent in euros while your savings stay invested.', m: '900 €' },
+  { icon: Briefcase, titre: 'Cash advance', ex: 'A client pays in 60 days, salaries are due Friday.', m: '$3,000' },
+  { icon: Car, titre: 'Emergency', ex: 'Car repair, dentist, a leaking roof.', m: '$400' },
+  { icon: TrendingUp, titre: 'Investment', ex: 'A deal or a flat deposit you don’t want to miss.', m: '$5,000' },
+  { icon: Banknote, titre: 'Off-ramp', ex: 'Pay rent in euros while your savings stay invested.', m: '$900' },
 ]
 
 /** 1. Le besoin */
@@ -135,7 +135,7 @@ function Solution(p: number) {
               const t = k(p, 0.5 + i * 0.05, 0.62 + i * 0.05)
               return <span key={i} className="v-coin" style={{ opacity: t <= 0 ? 0 : t < 0.8 ? 1 : (1 - t) / 0.2, transform: `translateX(${(t - 1) * 30}cqw) translateY(${-Math.sin(t * Math.PI) * 4}cqw)` }}>$</span>
             })}
-            <b>{eur(cash)}</b>
+            <b>{usd(cash)}</b>
           </div>
           <small>Léa’s wallet</small>
         </div>
@@ -159,7 +159,7 @@ function Comparaison(p: number) {
     ))
   return (
     <>
-      <Title p={p} kicker="03 · Why not just sell?">Selling vs. borrowing 400 €</Title>
+      <Title p={p} kicker="03 · Why not just sell?">Selling vs. borrowing $400</Title>
       <div className="v-duel">
         <div className="v-side ko" style={enter(k(p, 0.06, 0.16), -4, 0)}>
           <b>Sell 4 shares</b>
@@ -172,7 +172,7 @@ function Comparaison(p: number) {
           <span className="v-stamp" style={{ opacity: k(p, 0.4, 0.46), transform: `rotate(-12deg) scale(${lerp(2, 1, k(p, 0.4, 0.46))})` }}>SOLD</span>
         </div>
         <div className="v-side ok" style={enter(k(p, 0.3, 0.42), 4, 0)}>
-          <b>Borrow 400 €</b>
+          <b>Borrow $400</b>
           <div className="v-row sm">{Array.from({ length: 10 }, (_, i) => <Share key={i} locked={verrou > 0.5} />)}</div>
           <ul>{liste(['All 10 shares still yours', 'No sale, no tax on a sale*', '100 % of the upside kept'], true, 0.6)}</ul>
           <span className="v-stamp ok" style={{ opacity: k(p, 0.82, 0.88), transform: `rotate(-8deg) scale(${lerp(2, 1, k(p, 0.82, 0.88))})` }}>STILL YOURS</span>
@@ -185,9 +185,9 @@ function Comparaison(p: number) {
 
 /** 4. Remboursement flexible */
 const PAIEMENTS = [
-  { quand: 'Month 1', quoi: 'pays 50 €', reste: 350 },
-  { quand: 'Month 3', quoi: 'pays 0 €, no penalty', reste: 350 },
-  { quand: 'Month 7', quoi: 'pays 200 €', reste: 150 },
+  { quand: 'Month 1', quoi: 'pays $50', reste: 350 },
+  { quand: 'Month 3', quoi: 'pays $0, no penalty', reste: 350 },
+  { quand: 'Month 7', quoi: 'pays $200', reste: 150 },
   { quand: 'Whenever', quoi: 'repays the rest', reste: 0 },
 ]
 function Flexibilite(p: number) {
@@ -200,7 +200,7 @@ function Flexibilite(p: number) {
       <div className="v-flex">
         <div className="v-debt">
           <small>Debt</small>
-          <b>{eur(dette)}</b>
+          <b>{usd(dette)}</b>
           <div className="v-bar"><span style={{ width: `${(dette / 400) * 100}%` }} /></div>
           <div className="v-row sm">{Array.from({ length: 10 }, (_, i) => <Share key={i} locked={libre < 0.5} style={{ transform: `translateY(${-Math.sin(libre * Math.PI) * (i % 2 ? 1.5 : 2.5)}cqw)` }} />)}</div>
           <small style={{ opacity: libre }}>Shares unlocked: back in Léa’s wallet.</small>
@@ -233,10 +233,10 @@ function UnAnPlusTard(p: number) {
   const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x * 37.5},${(130 - y) * 6}`).join(' ')
   return (
     <>
-      <Title p={p} kicker="05 · One year later">Apple went from 100 € to 120 €.</Title>
+      <Title p={p} kicker="05 · One year later">Apple went from $100 to $120.</Title>
       <div className="v-split">
         <div className="v-chart">
-          <span className="v-price up">Apple {eur(prix)}</span>
+          <span className="v-price up">Apple {usd(prix)}</span>
           <svg viewBox="0 0 300 240" preserveAspectRatio="none" aria-hidden>
             <path d={d} pathLength={1} fill="none" stroke="var(--safe)" strokeWidth="4" strokeLinejoin="round" strokeDasharray="1" strokeDashoffset={1 - trace} vectorEffect="non-scaling-stroke" />
           </svg>
@@ -245,14 +245,14 @@ function UnAnPlusTard(p: number) {
           <div className="v-res">
             <span>If she had sold</span>
             <div className="v-hbar"><span style={{ width: `${barres * (720 / 785) * 100}%` }} /></div>
-            <b>{eur(lerp(0, 720, barres))}</b><small>6 shares × 120 €</small>
+            <b>{usd(lerp(0, 720, barres))}</b><small>6 shares × $120</small>
           </div>
           <div className="v-res win">
             <span>She borrowed</span>
             <div className="v-hbar win"><span style={{ width: `${barres * 100}%` }} /></div>
-            <b>{eur(lerp(0, 785, barres))}</b><small>10 shares × 120 € − 415 € repaid (400 € + 3,75 % interest)</small>
+            <b>{usd(lerp(0, 785, barres))}</b><small>10 shares × $120 − $415 repaid ($400 + 3,75 % interest)</small>
           </div>
-          <div className="v-win" style={pop(k(p, 0.75, 0.85))}>+65 € and she still owns her 10 shares</div>
+          <div className="v-win" style={pop(k(p, 0.75, 0.85))}>+$65 and she still owns her 10 shares</div>
         </div>
       </div>
     </>
@@ -270,12 +270,12 @@ function Chute(p: number) {
       <Title p={p} kicker="06 · What if the share falls?">A safety net, in three zones.</Title>
       <div className="v-split">
         <div className="v-drop">
-          <span className={`v-price ${prix < 100 ? 'down' : ''}`}>Apple {eur(prix)}</span>
+          <span className={`v-price ${prix < 100 ? 'down' : ''}`}>Apple {usd(prix)}</span>
           <div className="v-gauge">
             <span className="v-zone z1">Safe</span><span className="v-zone z2">Watch</span><span className="v-zone z3">Protection</span>
             <span className={`v-needle ${zone}`} style={{ left: `${Math.min(100, ltv * 100)}%` }}><i>{Math.round(ltv * 100)} %</i></span>
           </div>
-          <small className="muted">Debt (415 €) ÷ value of her 10 shares</small>
+          <small className="muted">Debt ($415) ÷ value of her 10 shares</small>
           <div className="v-row sm">
             {Array.from({ length: 10 }, (_, i) => (
               <Share key={i} locked style={i < 6.5 ? { opacity: 1 - liquide * (i < 6 ? 1 : 0.5), transform: `translateX(${liquide * -4}cqw)` } : undefined} />
@@ -287,13 +287,13 @@ function Chute(p: number) {
             <ShieldCheck className="v-ic" /><span><b>Big cushion.</b> She borrowed at most 50 %: Apple must fall about 48 % before anything happens.</span>
           </div>
           <div className="v-msg watch" style={enter(k(p, 0.38, 0.48), 3, 0)}>
-            <TriangleAlert className="v-ic" /><span><b>At 70 € (59 %): watch zone.</b> She can pay back a little or add shares, whenever she wants.</span>
+            <TriangleAlert className="v-ic" /><span><b>At $70 (59 %): watch zone.</b> She can pay back a little or add shares, whenever she wants.</span>
           </div>
           <div className="v-msg danger" style={enter(k(p, 0.78, 0.86), 3, 0)}>
-            <ArrowDown className="v-ic" /><span><b>At 50 € (83 %): protection sale.</b> A liquidator repays 311 € of her debt and receives 6,5 shares (+5 % bonus).</span>
+            <ArrowDown className="v-ic" /><span><b>At $50 (83 %): protection sale.</b> A liquidator repays $311 of her debt and receives 6,5 shares (+5 % bonus).</span>
           </div>
           <div className="v-msg" style={enter(k(p, 0.88, 0.95), 3, 0)}>
-            <House className="v-ic" /><span><b>Léa keeps</b> the 400 € she borrowed, 3,5 shares and a healthy loan back at 60 %. Never more than her shares are lost.</span>
+            <House className="v-ic" /><span><b>Léa keeps</b> the $400 she borrowed, 3,5 shares and a healthy loan back at 60 %. Never more than her shares are lost.</span>
           </div>
         </div>
       </div>

@@ -1,11 +1,10 @@
 import { RotateCcw } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { eur, Gauge, Pill, Term, usdc, useDemoUi } from '../components/demo'
+import { usd, Gauge, Term, useDemoUi } from '../components/demo'
 import { useDemo } from '../lib/useDemo'
 import { actions } from '../services/app'
 import { chain } from '../chainConfig'
-import { court, lienCompte } from '../services/chain'
-import { derive, zoneOf } from '../services/mockDemo'
+import { derive } from '../services/mockDemo'
 
 const pctRate = (x: number) => `${(x * 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`
 
@@ -43,18 +42,18 @@ export function DemoPage() {
         {demo && <button className="btn" onClick={() => { actions.reset(); toast('Demo reset') }}><RotateCcw className="i" aria-hidden />Reset</button>}
       </div>
       <div className="pos">
-        <div className="line"><span className="muted">{perso ? 'My demo Apple price' : 'Apple share price'}<Term>{perso ? 'fixer_prix_demo()' : 'fixer_prix()'}</Term></span><span style={{ fontSize: 26 }}>{eur(demo ? s.price : price)}</span></div>
+        <div className="line"><span className="muted">{perso ? 'My demo Apple price' : 'Apple share price'}<Term>{perso ? 'fixer_prix_demo()' : 'fixer_prix()'}</Term></span><span style={{ fontSize: 26 }}>{usd(demo ? s.price : price)}</span></div>
         <input
           type="range" min={5} max={maxPrice} step={5} value={demo ? s.price : price}
           onChange={(e) => (demo ? actions.setPrice(Number(e.target.value)) : setPrice(Number(e.target.value)))}
           aria-label="Apple price" style={{ width: '100%', accentColor: 'var(--accent)' }}
         />
         <div className="chips">
-          {(demo ? [200, 130, 95, 70] : [150, 100, 70, 40]).filter((p) => p <= maxPrice).map((p) => <button key={p} className="btn" disabled={sending} onClick={() => apply(p)}>{eur(p)}</button>)}
-          {!demo && <button className="btn primary" disabled={sending || !s.address || price === s.price} onClick={() => apply(price)}>Apply {eur(price)} on Stellar</button>}
+          {(demo ? [200, 130, 95, 70] : [150, 100, 70, 40]).filter((p) => p <= maxPrice).map((p) => <button key={p} className="btn" disabled={sending} onClick={() => apply(p)}>{usd(p)}</button>)}
+          {!demo && <button className="btn primary" disabled={sending || !s.address || price === s.price} onClick={() => apply(price)}>Apply {usd(price)} on Stellar</button>}
         </div>
-        {!demo && <small className="muted">Current price on Stellar: <b>{eur(s.price)}</b>. {perso
-          ? <>Changing it is a transaction signed in Varial. It applies <b>only to your loan</b>, never to other users, and cannot go above the reference price ({eur(s.market.refPrice ?? 0)}).</>
+        {!demo && <small className="muted">Current price on Stellar: <b>{usd(s.price)}</b>. {perso
+          ? <>Changing it is a transaction signed in Varial. It applies <b>only to your loan</b>, never to other users, and cannot go above the reference price ({usd(s.market.refPrice ?? 0)}).</>
           : 'Changing it is a transaction signed in Varial, and it applies to everyone.'}</small>}
         {!demo && d.liquidable && (
           <button className="btn primary" disabled={sending} onClick={() => go(() => actions.liquidate(s.address ?? undefined))} style={{ alignSelf: 'flex-start' }}>
@@ -71,39 +70,7 @@ export function DemoPage() {
         {s.shares ? <Gauge ltv={d.ltv} /> : <p className="muted">{demo ? 'Léa has no loan right now.' : 'You have no loan right now.'}</p>}
       </div>
 
-      <div className="divider" />
-      <h2>Borrower positions</h2>
-      <p className="small muted">When a loan goes above 80 % of the shares’ value, anyone can act as liquidator: they pay back just enough debt to bring the loan back to 60 %, and receive shares worth that amount + 5 %. Above about 95 %, they pay back the whole debt.</p>
-      {s.borrowers.length ? (
-        <div className="tbl"><table>
-          <thead><tr><th>Borrower</th><th>Guarantee</th><th>Loan</th><th>Share of value<Term>LTV</Term></th><th /></tr></thead>
-          <tbody>
-            {s.borrowers.map((b) => {
-              const z = zoneOf(b.ltv)
-              const me = b.address === s.address
-              return (
-                <tr key={b.address}>
-                  <td>{demo ? b.address : <a href={lienCompte(b.address)} target="_blank" rel="noreferrer">{court(b.address)}{me ? ' (you)' : ''}</a>}</td>
-                  <td>{b.shares.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} AAPL<small>{eur(b.shares * (b.price ?? s.price))}</small></td>
-                  <td>{usdc(b.debt)}</td>
-                  <td><Pill cls={z.cls}>{Math.round(b.ltv * 100)} % · {z.label}</Pill></td>
-                  <td>
-                    <button
-                      className="btn primary" disabled={!b.liquidable || sending || (!demo && !s.address)}
-                      onClick={() => go(async () => { const r = await actions.liquidate(demo ? undefined : b.address); if (demo) window.location.hash = 'accueil'; return r })}
-                    >
-                      Liquidator steps in<Term>liquider()</Term>
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table></div>
-      ) : (
-        <div className="empty"><b>No open loan</b><span className="muted">Use shares as a guarantee and borrow to see your position here.</span></div>
-      )}
-      {!demo && <p className="small muted">To liquidate you need testnet USDC (free on faucet.circle.com) and an account allowed to hold tAAPL.</p>}
+      <p className="small muted">Positions that can be liquidated, yours and other users’, are on the <a href="#liquidations" style={{ textDecoration: 'underline' }}>Liquidations</a> page.</p>
     </>
   )
 }

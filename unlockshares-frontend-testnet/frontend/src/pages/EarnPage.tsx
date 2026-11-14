@@ -1,4 +1,4 @@
-import { Coin, eur, Filters, Term, usdc, useDemoUi } from '../components/demo'
+import { Coin, usd, Filters, Term, usdc, useDemoUi } from '../components/demo'
 import { StellarLogo } from '../components/logos'
 import { useDemo } from '../lib/useDemo'
 import { DEMO } from '../services/mockDemo'
@@ -25,7 +25,7 @@ export function EarnPage() {
           <thead><tr><th>Asset</th><th>Wallet balance</th><th>Lent</th><th>Yearly yield<Term>APY</Term></th><th>Total deposits</th><th /></tr></thead>
           <tbody><tr>
             <td><div className="asset"><Coin kind="usdc">$</Coin><div>USD Coin<small>USDC</small></div></div></td>
-            <td>{usdc(s.usdc)}<small>{eur(s.usdc)}</small></td>
+            <td>{usdc(s.usdc)}<small>{usd(s.usdc)}</small></td>
             <td>{s.lent ? usdc(s.lent) : '–'}</td>
             <td>{rate}</td>
             <td>{deposits}</td>

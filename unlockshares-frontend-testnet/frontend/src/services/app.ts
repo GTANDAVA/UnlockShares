@@ -210,7 +210,7 @@ export const actions = {
     }
     const me = need()
     const hash = await tx('New price', () => ch.pret.fixerPrix(me, price))
-    return { text: `Apple price set to ${price} € on Stellar`, hash }
+    return { text: `Apple price set to $${price} on Stellar`, hash }
   },
   async liquidate(target?: string): Promise<Done> {
     if (!chainReady) return { text: `${demoActions.liquidate()} (simulation)` }

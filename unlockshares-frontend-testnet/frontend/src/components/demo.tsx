@@ -7,7 +7,8 @@ import { actions, chainReady, type Done, type Kind } from '../services/app'
 import { lienTx } from '../services/chain'
 import { DEMO, derive, zoneOf } from '../services/mockDemo'
 
-export const eur = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} €`
+/** Montants en dollars : 1 USDC = 1 $ (hypothèse affichée dans le bandeau du haut) */
+export const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
 export const usdc = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} USDC`
 
 /** Terme DeFi affiché seulement quand l'option « Afficher les termes DeFi » est cochée */
@@ -101,21 +102,21 @@ export function Jar() {
         {d.liquidable ? (
           <><em className="s-danger">Your cash is bigger than your limit.</em> The protection sale starts.</>
         ) : d.available > 0 ? (
-          <>You own <em className={d.zone.cls}>{eur(d.net)}</em> and can still receive <em>{eur(d.available)}</em>.</>
+          <>You own <em className={d.zone.cls}>{usd(d.net)}</em> and can still receive <em>{usd(d.available)}</em>.</>
         ) : (
-          <>You own <em className={d.zone.cls}>{eur(d.net)}</em>. Pay back a little to stay safe.</>
+          <>You own <em className={d.zone.cls}>{usd(d.net)}</em>. Pay back a little to stay safe.</>
         )}
       </p>
       <div className="jar">
         {parts.map(([x, c, t]) => (
-          <div key={t} style={{ flexBasis: `${(x / total) * 100}%`, background: c }}>{x / Math.max(d.value, 1) > 0.18 ? eur(x) : ''}</div>
+          <div key={t} style={{ flexBasis: `${(x / total) * 100}%`, background: c }}>{x / Math.max(d.value, 1) > 0.18 ? usd(x) : ''}</div>
         ))}
       </div>
       <div className="jarleg">
         {parts.map(([x, c, t, k]) => (
-          <div key={t}><span><i style={{ background: c }} />{t}<Term>{k}</Term></span><span>{eur(x)}</span></div>
+          <div key={t}><span><i style={{ background: c }} />{t}<Term>{k}</Term></span><span>{usd(x)}</span></div>
         ))}
-        <div className="small muted"><span>{s.shares} Apple shares at {eur(s.price)}</span><span>{eur(d.value)}</span></div>
+        <div className="small muted"><span>{s.shares} Apple shares at {usd(s.price)}</span><span>{usd(d.value)}</span></div>
       </div>
     </>
   )

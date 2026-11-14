@@ -358,7 +358,7 @@ export async function lireEvenements(): Promise<Evenement[]> {
     let n: number | undefined
     if (nom === 'depose' || nom === 'garantie_retiree') montant = nombre(fromUnits(data.montant as bigint), 'AAPL')
     else if (nom === 'prix_fixe') {
-      montant = nombre(fromUnits(data.prix as bigint), '€')
+      montant = nombre(fromUnits(data.prix as bigint), 'USDC')
       qui = String(data.par)
     } else if (nom === 'liquide') {
       cible = qui
