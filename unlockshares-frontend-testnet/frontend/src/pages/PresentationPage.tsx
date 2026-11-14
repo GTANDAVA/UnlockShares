@@ -61,14 +61,14 @@ function Intro(p: number) {
       <div className="v-row v-shares10">
         {Array.from({ length: 10 }, (_, i) => {
           const t = k(p, 0.05 + i * 0.025, 0.2 + i * 0.025)
-          return <Share key={i} style={{ opacity: t, transform: `translateY(${(1 - t) * -8}cqw) rotate(${(1 - t) * (i % 2 ? 12 : -12)}deg)` }} />
+          return <Share key={i} style={{ opacity: t, transform: `translateY(${(1 - t) * -3}cqw)` }} />
         })}
       </div>
       <div className="v-big" style={enter(k(p, 0.3, 0.45))}>
         Léa owns <span className="v-hl">$1,000</span> of Apple shares.
       </div>
       <div className="v-sub" style={enter(k(p, 0.55, 0.7))}>
-        But her wallet is empty: <b className="v-wallet0" style={{ transform: `translateX(${Math.sin(p * 90) * k(p, 0.7, 0.75) * (1 - k(p, 0.85, 0.9)) * 0.6}cqw)` }}>$0</b>
+        But her wallet is empty: <b className="v-wallet0">$0</b>
       </div>
       <div className="v-sub muted" style={enter(k(p, 0.75, 0.88))}>Shares are worth money… but you can’t pay with them.</div>
     </div>
@@ -341,7 +341,7 @@ function Stage({ t }: { t: number }) {
   const fondu = (i === 0 ? 1 : k(p, 0, 0.05)) * (i === SCENES.length - 1 ? 1 : 1 - k(p, 0.95, 1))
   return (
     <div className="v-stage" key={SCENES[i].id}>
-      <div className="v-scene" style={{ opacity: fondu, transform: `scale(${lerp(0.97, 1, fondu)})` }}>{SCENES[i].render(p)}</div>
+      <div className="v-scene" style={{ opacity: fondu }}>{SCENES[i].render(p)}</div>
       <div className="v-glow" style={{ transform: `translateX(${(t / TOTAL) * 60 - 30}cqw)` }} />
     </div>
   )
