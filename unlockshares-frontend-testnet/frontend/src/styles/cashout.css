@@ -1,6 +1,6 @@
 /* Page Cash out (off-ramp SEP-24 simulé) */
 .co { display: flex; flex-direction: column; gap: 18px; }
-.co-explain { border-left: 3px solid var(--yellow); padding: 4px 0 4px 14px; display: flex; flex-direction: column; gap: 4px; max-width: 720px; }
+.co-explain { border-left: 3px solid var(--yellow); padding: 4px 0 4px 14px; display: flex; flex-direction: column; gap: 4px; }
 .co-explain em { font-style: normal; color: var(--ink); font-weight: 600; }
 .co-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 760px) { .co-steps { grid-template-columns: 1fr 1fr; } }
@@ -31,7 +31,7 @@
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 .co-banner { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--watch); background: color-mix(in srgb, var(--watch) 12%, transparent); color: var(--ink); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
 .co-banner .v-ic { color: var(--watch); margin-top: 2px; }
-.co-card { max-width: 720px; }
+.co-card { width: 100%; }
 .co-amount { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); padding: 6px 6px 6px 14px; }
 .co-amount input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--ink); font: 600 26px var(--font); font-variant-numeric: tabular-nums; }
 .co-amount > span { color: var(--muted); font: 600 13px var(--mono); }
