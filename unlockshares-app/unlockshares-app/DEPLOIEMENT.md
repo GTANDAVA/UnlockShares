@@ -120,3 +120,20 @@ Copie les 6 lignes dans le fil : je les mets dans l'appli.
 | `Error(Auth, ...)` | Le mauvais compte signe | Vérifie le `--source-account` |
 
 Rappel : redéployer crée un **nouveau** contrat, vide, avec une nouvelle adresse.
+
+---
+
+## Pool en USDC de Circle (pour le retrait MoneyGram)
+
+MoneyGram n'accepte que l'USDC de Circle (testnet : `USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`, SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`).
+Même contrat `pret`, seul le jeton prêté change. L'ancien pool tUSDC (`CC2I…564BS`) reste en ligne.
+
+```powershell
+stellar contract deploy --wasm target\wasm32v1-none\release\pret.wasm --source-account greg --network testnet --alias unlockshares-usdc -- --admin greg --jeton_garantie $TAAPL --jeton_pret CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA --prix 1000000000 --mode_demo true
+$PRET = stellar contract alias show unlockshares-usdc --network testnet
+stellar contract invoke --id robinet --source-account greg --network testnet -- autoriser --qui $PRET
+```
+
+Adresse : `CAMRWYRLSSFF5VJB6FKZSJO3QG3CQQDMJS77LTY3E5H7C67R2NYMUDVQ`.
+Caisse : on la remplit avec de l'USDC du faucet Circle (faucet.circle.com, 20 USDC / 2 h), via la page **Earn → Lend** de l'appli.
+Le robinet donne toujours du tAAPL (garantie) et du tUSDC (inutile pour ce pool).

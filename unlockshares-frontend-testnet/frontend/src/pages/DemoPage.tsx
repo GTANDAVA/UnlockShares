@@ -97,7 +97,7 @@ export function DemoPage() {
       ) : (
         <div className="empty"><b>No open loan</b><span className="muted">Use shares as a guarantee and borrow to see your position here.</span></div>
       )}
-      {!demo && <p className="small muted">To liquidate you need tUSDC (the faucet gives 5,000) and an account allowed to hold tAAPL.</p>}
+      {!demo && <p className="small muted">To liquidate you need testnet USDC (free on faucet.circle.com) and an account allowed to hold tAAPL.</p>}
     </>
   )
 }

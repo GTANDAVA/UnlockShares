@@ -157,28 +157,30 @@ export async function lireFourni(qui: string): Promise<number> {
   return fromUnits(await lire<bigint>(chain.pret, 'fourni', [addr(qui)]))
 }
 
-export type Compte = { existe: boolean; xlm: number; aapl: number; usdc: number; trustAapl: boolean; trustUsdc: boolean; aaplAutorise: boolean }
+export type Compte = { existe: boolean; xlm: number; aapl: number; usdc: number; trustAapl: boolean; trustUsdc: boolean; trustTusdc: boolean; aaplAutorise: boolean }
 
 /** Soldes du portefeuille (via Horizon, qui connaît les trustlines) */
 export async function lireCompte(qui: string): Promise<Compte> {
   try {
     const a = await horizon.loadAccount(qui)
-    const c: Compte = { existe: true, xlm: 0, aapl: 0, usdc: 0, trustAapl: false, trustUsdc: false, aaplAutorise: false }
+    const c: Compte = { existe: true, xlm: 0, aapl: 0, usdc: 0, trustAapl: false, trustUsdc: false, trustTusdc: false, aaplAutorise: false }
     for (const b of a.balances) {
       if (b.asset_type === 'native') c.xlm = Number(b.balance)
       else if ('asset_code' in b && b.asset_code === 'TAAPL' && b.asset_issuer === chain.emetteurAapl) {
         c.trustAapl = true
         c.aapl = Number(b.balance)
         c.aaplAutorise = Boolean(b.is_authorized)
-      } else if ('asset_code' in b && b.asset_code === 'TUSDC' && b.asset_issuer === chain.emetteurUsdc) {
+      } else if ('asset_code' in b && b.asset_code === chain.usdcCode && b.asset_issuer === chain.emetteurUsdc) {
         c.trustUsdc = true
         c.usdc = Number(b.balance)
+      } else if ('asset_code' in b && b.asset_code === 'TUSDC' && b.asset_issuer === chain.emetteurTusdc) {
+        c.trustTusdc = true
       }
     }
     return c
   } catch (e) {
     if (e instanceof Error && /not found|404/i.test(e.message + String((e as { response?: { status?: number } }).response?.status))) {
-      return { existe: false, xlm: 0, aapl: 0, usdc: 0, trustAapl: false, trustUsdc: false, aaplAutorise: false }
+      return { existe: false, xlm: 0, aapl: 0, usdc: 0, trustAapl: false, trustUsdc: false, trustTusdc: false, aaplAutorise: false }
     }
     throw e
   }
@@ -212,6 +214,9 @@ export const pret = {
 
 /* ---------- Robinet : tout ce qu'il faut pour démarrer, en 3 étapes ---------- */
 
+/** Nom affiché du jeton prêté (USDC de Circle, ou tUSDC sur l'ancien pool) */
+export const usdcLabel = chain.usdcCode === 'USDC' ? 'USDC' : 'tUSDC'
+
 export async function obtenirJetons(qui: string, etape: (t: string) => void): Promise<string> {
   let c = await lireCompte(qui)
   if (!c.existe) {
@@ -222,15 +227,17 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
   }
   const manque = [
     !c.trustAapl && new Asset('TAAPL', chain.emetteurAapl),
-    !c.trustUsdc && new Asset('TUSDC', chain.emetteurUsdc),
+    !c.trustUsdc && new Asset(chain.usdcCode, chain.emetteurUsdc),
+    // Le robinet distribue encore du tUSDC : sans cette trustline, il échouerait.
+    !!chain.emetteurTusdc && chain.emetteurTusdc !== chain.emetteurUsdc && !c.trustTusdc && new Asset('TUSDC', chain.emetteurTusdc),
   ].filter(Boolean) as Asset[]
   if (manque.length) {
-    etape('2/3 · Adding tAAPL and tUSDC to your account: sign in Varial…')
+    etape(`2/3 · Adding tAAPL and ${usdcLabel} to your account: sign in Varial…`)
     let b = new TransactionBuilder(await server.getAccount(qui), { fee: BASE_FEE, networkPassphrase: PASS })
     for (const a of manque) b = b.addOperation(Operation.changeTrust({ asset: a }))
     await envoyer(await signer(b.setTimeout(120).build(), qui))
   }
-  etape('3/3 · The faucet sends you 100 tAAPL and 5,000 tUSDC: sign in Varial…')
+  etape('3/3 · The faucet sends you 100 tAAPL (your collateral): sign in Varial…')
   try {
     return await appeler(qui, chain.robinet, 'recevoir', [addr(qui)])
   } catch (e) {
@@ -240,7 +247,7 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
 
 /* ---------- Historique : les événements publiés par le contrat ---------- */
 
-export type Evenement = { id: string; date: Date; type: string; qui: string; montant: string; hash: string; cible?: string; /** Montant brut (tUSDC) quand il y en a un */ n?: number }
+export type Evenement = { id: string; date: Date; type: string; qui: string; montant: string; hash: string; cible?: string; /** Montant brut (USDC) quand il y en a un */ n?: number }
 
 const NOMS: Record<string, string> = {
   fourni: 'Lend',

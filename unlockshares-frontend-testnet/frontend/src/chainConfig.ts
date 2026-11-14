@@ -10,7 +10,11 @@ export const chain = {
   taapl: v('VITE_TAAPL_ID'),
   tusdc: v('VITE_TUSDC_ID'),
   emetteurAapl: v('VITE_EMETTEUR_AAPL'),
+  /** Jeton PRÊTÉ par le pool : code + émetteur (USDC de Circle sur le pool actuel, accepté par MoneyGram) */
+  usdcCode: v('VITE_USDC_CODE') || 'TUSDC',
   emetteurUsdc: v('VITE_EMETTEUR_USDC'),
+  /** Jeton dollar du robinet (tUSDC) s'il diffère du jeton prêté : il faut aussi sa trustline pour recevoir le robinet */
+  emetteurTusdc: v('VITE_EMETTEUR_TUSDC'),
   rpcUrl: v('VITE_RPC_URL') || 'https://soroban-testnet.stellar.org',
   horizonUrl: v('VITE_HORIZON_URL') || 'https://horizon-testnet.stellar.org',
   friendbotUrl: 'https://friendbot.stellar.org',

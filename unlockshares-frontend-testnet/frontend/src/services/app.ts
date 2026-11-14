@@ -220,7 +220,7 @@ export const actions = {
     try {
       const hash = await ch.obtenirJetons(me, (t) => patch({ busy: t }))
       await refresh()
-      return { text: '100 tAAPL and 5,000 tUSDC received', hash }
+      return { text: '100 tAAPL received', hash }
     } catch (e) {
       throw new Error(ch.messageErreur(e, 'robinet'))
     } finally {

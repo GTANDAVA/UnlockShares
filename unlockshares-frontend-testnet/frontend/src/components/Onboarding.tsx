@@ -51,7 +51,7 @@ export function Onboarding() {
     return (
       <div className="pos onboard">
         <b>Step 2 of 3 · Get your test tokens</b>
-        <span className="muted">One click gives you 100 test Apple shares (tAAPL) and 5,000 test dollars (tUSDC). Varial asks you to sign twice: once to add the tokens to your account, once to receive them.</span>
+        <span className="muted">One click gives you 100 test Apple shares (tAAPL) to use as collateral, and adds USDC to your account so you can borrow it. Varial asks you to sign twice: once to add the tokens to your account, once to receive them.</span>
         <button className="btn primary" onClick={faucet}><Droplets className="i" aria-hidden />Get test tokens</button>
       </div>
     )

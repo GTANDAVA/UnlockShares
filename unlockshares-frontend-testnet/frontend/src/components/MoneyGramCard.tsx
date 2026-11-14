@@ -47,7 +47,7 @@ export function MoneyGramCard({ address }: { address: string }) {
   return (
     <div className="co-card">
       <b><Landmark className="v-ic" /> Real cash out with MoneyGram <span className="tag">Sandbox · testnet</span></b>
-      <span className="muted">Uses Circle testnet USDC (free on faucet.circle.com), not tUSDC. No real money moves in the sandbox.</span>
+      <span className="muted">Uses the Circle testnet USDC you borrow on UnlockShares (or free on faucet.circle.com). No real money moves in the sandbox.</span>
       <div className="co-kv">
         <span>USDC (Circle) in wallet</span>
         <b>{usdc === undefined ? '…' : usdc === null ? 'No USDC trustline yet' : usdc.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b>
