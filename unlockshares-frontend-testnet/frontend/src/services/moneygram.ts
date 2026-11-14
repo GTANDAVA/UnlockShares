@@ -43,11 +43,12 @@ async function openSession(address: string): Promise<{ sessionToken: string; wid
 async function pay(address: string, p: SignPayload): Promise<string> {
   if (p.requiredNetwork && p.requiredNetwork !== 'testnet') throw new Error(`MoneyGram asks for ${p.requiredNetwork}, the app runs on testnet.`)
   if ((p.asset ?? 'USDC') !== 'USDC') throw new Error(`Unsupported asset ${p.asset}.`)
-  const memo = p.memo === undefined || p.memo === null || p.memo === '' ? null : String(p.memo)
+  const memo = p.memo === undefined || p.memo === null || String(p.memo).trim() === '' ? null : String(p.memo).trim()
   if (memo !== null && !/^\d+$/.test(memo)) throw new Error('MoneyGram memo must be numeric.')
   const src = await horizon.loadAccount(address)
+  // Doc MoneyGram : tokenAddress = code de l'actif (USDC) ; issuer du payload en priorité, sinon l'émetteur Circle testnet.
   let b = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: PASS })
-    .addOperation(Operation.payment({ destination: p.to, asset: new Asset('USDC', p.issuer || USDC_ISSUER), amount: p.amount }))
+    .addOperation(Operation.payment({ destination: p.to, asset: new Asset(p.tokenAddress || 'USDC', p.issuer || USDC_ISSUER), amount: p.amount }))
     .setTimeout(180)
   if (memo !== null) b = b.addMemo(Memo.id(memo)) // OBLIGATOIRE : sans lui MoneyGram ne retrouve pas le retrait
   const signed = await signerFreighter(b.build(), address)
