@@ -1,5 +1,6 @@
 import { Banknote, Check, CircleAlert, History, KeyRound, Landmark, LoaderCircle, Lock, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { MoneyGramCard } from '../components/MoneyGramCard'
 import { useConnect } from '../components/Onboarding'
 import { useDemo } from '../lib/useDemo'
 import '../styles/cashout.css'
@@ -129,6 +130,8 @@ export function CashOutPage() {
           <div className="kpi"><small>Demo rate</small><b>1 USDC = 0,92 €</b></div>
         </div>
       </div>
+
+      {s.mode === 'chain' && s.address && <MoneyGramCard address={s.address} />}
 
       <ol className="co-steps">
         {STEPS.map((st, i) => {
