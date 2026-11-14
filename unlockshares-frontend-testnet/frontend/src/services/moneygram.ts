@@ -78,7 +78,12 @@ export async function openMoneyGram(container: HTMLElement, address: string, h: 
       h.onPaid?.(hash)
       return hash
     },
-    onComplete: (r: { referenceNumber?: string }) => h.onComplete(r?.referenceNumber ?? ''),
+    onComplete: (r: Record<string, unknown> | undefined) => {
+      // Off-ramp : referenceNumber. On-ramp : la référence peut porter un autre nom (numéro de compte du dépôt…) → on prend le premier présent.
+      console.info('[MoneyGram] transaction complete', r)
+      const v = ['referenceNumber', 'accountNumber', 'reference', 'depositAccountNumber', 'transactionId', 'id'].map((k) => r?.[k]).find((x) => typeof x === 'string' || typeof x === 'number')
+      h.onComplete(v === undefined ? '' : String(v))
+    },
     onError: (e: unknown) => h.onError(e instanceof Error ? e.message : typeof e === 'string' ? e : 'MoneyGram widget error.'),
   })
   ramps.open()
