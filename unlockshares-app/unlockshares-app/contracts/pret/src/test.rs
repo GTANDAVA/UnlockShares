@@ -97,8 +97,10 @@ fn rembourser_puis_retirer_ses_actions() {
     d.pret.emprunter(&d.lea, &(300 * U));
     // Avec 300 de dette, elle ne peut pas tout reprendre.
     assert_eq!(d.pret.try_retirer(&d.lea, &(10 * U)), Err(Ok(Erreur::GarantieInsuffisante)));
-    // Un montant trop grand est ramené à la dette.
+    // V2 : un montant trop grand est débité puis l'excédent est rendu.
+    StellarAssetClient::new(&d.env, &d.usdc.address).mint(&d.lea, &(100 * U));
     assert_eq!(d.pret.rembourser(&d.lea, &(400 * U)), 300 * U);
+    assert_eq!(d.usdc.balance(&d.lea), 100 * U);
     assert_eq!(d.pret.try_rembourser(&d.lea, &U), Err(Ok(Erreur::PasDeDette)));
     d.pret.retirer(&d.lea, &(10 * U));
     assert_eq!(d.aapl.balance(&d.lea), 10 * U);
@@ -129,11 +131,11 @@ fn scenario_complet_de_liquidation() {
     d.pret.emprunter(&d.lea, &(500 * U));
     // À 70, LTV = 71 % : pas encore liquidable.
     d.pret.fixer_prix(&(70 * U));
-    assert_eq!(d.pret.try_liquider(&d.liquidateur, &d.lea), Err(Ok(Erreur::PasLiquidable)));
+    assert_eq!(d.pret.try_liquider(&d.liquidateur, &d.lea, &U), Err(Ok(Erreur::PasLiquidable)));
     // Le prix s'effondre à 40 : LTV = 125 %.
     d.pret.fixer_prix(&(40 * U));
     assert!(d.pret.position(&d.lea).liquidable);
-    let saisie = d.pret.liquider(&d.liquidateur, &d.lea);
+    let saisie = d.pret.liquider(&d.liquidateur, &d.lea, &d.pret.montant_liquidable(&d.lea));
     // Il faudrait 500 × 1,05 / 40 = 13,125 actions : plafonné aux 10 déposées.
     assert_eq!(saisie, 10 * U);
     assert_eq!(d.aapl.balance(&d.liquidateur), 10 * U);
@@ -152,7 +154,7 @@ fn liquidation_partielle_ramene_a_60_pourcent() {
     d.pret.deposer(&d.lea, &(10 * U));
     d.pret.emprunter(&d.lea, &(500 * U));
     d.pret.fixer_prix(&(60 * U)); // valeur 600, LTV 83 %
-    let saisie = d.pret.liquider(&d.liquidateur, &d.lea);
+    let saisie = d.pret.liquider(&d.liquidateur, &d.lea, &d.pret.montant_liquidable(&d.lea));
     // Remboursé : (500 - 60 % × 600) / (1 - 0,63) = 378,38 USDC ; saisie : 378,38 × 1,05 / 60 = 6,62 actions.
     let rembourse = 1_000 * U - d.usdc.balance(&d.liquidateur);
     assert_eq!(rembourse, 3_783_783_784);
@@ -164,7 +166,7 @@ fn liquidation_partielle_ramene_a_60_pourcent() {
     // Léa garde un prêt sain à 60 %.
     assert!(v.ltv_bps >= 5_990 && v.ltv_bps <= 6_000, "ltv {}", v.ltv_bps);
     assert!(!v.liquidable);
-    assert_eq!(d.pret.try_liquider(&d.liquidateur, &d.lea), Err(Ok(Erreur::PasLiquidable)));
+    assert_eq!(d.pret.try_liquider(&d.liquidateur, &d.lea, &U), Err(Ok(Erreur::PasLiquidable)));
     assert_eq!(d.pret.marche().total_emprunte, v.dette);
 }
 
@@ -174,7 +176,7 @@ fn au_dela_de_95_pourcent_liquidation_totale() {
     d.pret.deposer(&d.lea, &(10 * U));
     d.pret.emprunter(&d.lea, &(500 * U));
     d.pret.fixer_prix(&(52 * U)); // valeur 520, LTV 96 %
-    let saisie = d.pret.liquider(&d.liquidateur, &d.lea);
+    let saisie = d.pret.liquider(&d.liquidateur, &d.lea, &d.pret.montant_liquidable(&d.lea));
     // Revenir à 60 % est impossible : toute la dette est payée, 500 × 1,05 / 52 = 10,096 > 10 actions.
     assert_eq!(saisie, 10 * U);
     assert_eq!(d.usdc.balance(&d.liquidateur), 500 * U);
@@ -188,7 +190,7 @@ fn liquidation_partielle_a_92_pourcent() {
     d.pret.deposer(&d.lea, &(10 * U));
     d.pret.emprunter(&d.lea, &(500 * U));
     d.pret.fixer_prix(&(54 * U)); // valeur 540, LTV 92,6 % : partiel encore possible
-    d.pret.liquider(&d.liquidateur, &d.lea);
+    d.pret.liquider(&d.liquidateur, &d.lea, &d.pret.montant_liquidable(&d.lea));
     let v = d.pret.position(&d.lea);
     assert!(v.dette > 0 && v.ltv_bps <= 6_000);
 }
@@ -246,7 +248,8 @@ fn un_an_d_interets_puis_tout_le_monde_est_paye() {
     assert_eq!((m.total_emprunte, m.reserve), (5_187_500_000, 18_750_000));
     // Léa rembourse tout, intérêts compris.
     StellarAssetClient::new(&d.env, &d.usdc.address).mint(&d.lea, &(19 * U));
-    assert_eq!(d.pret.rembourser(&d.lea, &(1_000 * U)), 5_187_500_000);
+    assert_eq!(d.pret.rembourser(&d.lea, &(519 * U)), 5_187_500_000); // 0,25 d'excédent rendu
+    assert_eq!(d.usdc.balance(&d.lea), 25 * U / 100);
     assert_eq!(d.pret.position(&d.lea).dette, 0);
     // La réserve reste en caisse : le prêteur ne peut pas prendre 1 centime de plus que sa part.
     assert_eq!(d.pret.try_retirer_fonds(&d.preteur, &(10_168_750_001)), Err(Ok(Erreur::SoldeInsuffisant)));
@@ -268,7 +271,7 @@ fn la_reserve_ne_peut_pas_etre_empruntee() {
     d.pret.emprunter(&d.lea, &(500 * U));
     avancer(&d, ANNEE);
     StellarAssetClient::new(&d.env, &d.usdc.address).mint(&d.lea, &(19 * U));
-    d.pret.rembourser(&d.lea, &(1_000 * U));
+    d.pret.rembourser(&d.lea, &(519 * U));
     // Caisse : 1 018,75 dont 1,875 de réserve → on peut emprunter 1 016,875, pas plus.
     assert_eq!(d.pret.try_emprunter(&d.lea, &10_168_750_001), Err(Ok(Erreur::CaisseVide)));
     d.pret.emprunter(&d.lea, &10_168_750_000);
@@ -292,7 +295,7 @@ fn les_interets_peuvent_rendre_liquidable() {
     avancer(&d, 17 * ANNEE); // 500 × (1 + 3,75 % × 17) = 818,75 > 800
     assert_eq!(d.pret.position(&d.lea).dette, 8_187_500_000);
     assert!(d.pret.position(&d.lea).liquidable);
-    d.pret.liquider(&d.liquidateur, &d.lea);
+    d.pret.liquider(&d.liquidateur, &d.lea, &d.pret.montant_liquidable(&d.lea));
     assert!(!d.pret.position(&d.lea).liquidable);
 }
 
@@ -373,7 +376,7 @@ fn liquidation_reelle_au_prix_demo_sans_vider_la_caisse() {
     let bob_avant = d.pret.position(&bob);
     let caisse_avant = d.pret.marche().caisse;
     d.pret.fixer_prix_demo(&d.lea, &(35 * U));
-    let saisie = d.pret.liquider(&d.liquidateur, &d.lea);
+    let saisie = d.pret.liquider(&d.liquidateur, &d.lea, &d.pret.montant_liquidable(&d.lea));
     assert!(saisie > 0);
     // Le liquidateur a payé en USDC : la caisse augmente, elle ne baisse jamais.
     assert!(d.pret.marche().caisse > caisse_avant);
@@ -383,7 +386,7 @@ fn liquidation_reelle_au_prix_demo_sans_vider_la_caisse() {
     assert_eq!((bob_apres.garantie, bob_apres.dette, bob_apres.prix), (bob_avant.garantie, bob_avant.dette, bob_avant.prix));
     assert!(!bob_apres.liquidable);
     // Au prix de référence, Bob n'est pas liquidable.
-    assert_eq!(d.pret.try_liquider(&d.liquidateur, &bob), Err(Ok(Erreur::PasLiquidable)));
+    assert_eq!(d.pret.try_liquider(&d.liquidateur, &bob, &U), Err(Ok(Erreur::PasLiquidable)));
 }
 
 #[test]
@@ -416,7 +419,7 @@ fn temps_perso_ne_touche_ni_les_autres_ni_les_taux() {
     assert_eq!(d.pret.fourni(&d.preteur), 1_000 * U);
     // Remboursement : les intérêts de démo vont à la réserve.
     StellarAssetClient::new(&d.env, &d.usdc.address).mint(&d.lea, &(14 * U));
-    d.pret.rembourser(&d.lea, &(1_000 * U));
+    d.pret.rembourser(&d.lea, &(314 * U));
     let m = d.pret.marche();
     assert_eq!(m.reserve, 135_000_000);
     assert_eq!(d.pret.position(&d.lea).dette, 0);
@@ -433,7 +436,7 @@ fn temps_perso_peut_rendre_liquidable_et_paie_la_reserve() {
     d.pret.fixer_prix_demo(&d.lea, &(80 * U)); // valeur 800 : 83,6 % > 80 %
     assert!(d.pret.position(&d.lea).liquidable);
     let reserve_avant = d.pret.marche().reserve;
-    d.pret.liquider(&d.liquidateur, &d.lea);
+    d.pret.liquider(&d.liquidateur, &d.lea, &d.pret.montant_liquidable(&d.lea));
     // La part « démo » remboursée par le liquidateur part en réserve, jamais chez les prêteurs.
     assert!(d.pret.marche().reserve > reserve_avant);
     assert_eq!(d.pret.fourni(&d.preteur), 1_000 * U);
@@ -502,4 +505,34 @@ fn interets_seconde_par_seconde() {
     let dette = d.pret.position(&d.lea).dette;
     // 500 × 3,75 % × 500 s / 1 an ≈ 2 973 unités d'intérêts, moins les 100 unités remboursées.
     assert!(dette > 500 * U + 2_700 && dette < 500 * U + 3_100, "dette {}", dette);
+}
+
+// ---------- V2 : montants exacts (compatibles avec les signatures Soroban) ----------
+
+#[test]
+fn liquidation_au_montant_exact_et_borne() {
+    let d = decor(false);
+    d.pret.deposer(&d.lea, &(10 * U));
+    d.pret.emprunter(&d.lea, &(500 * U));
+    d.pret.fixer_prix(&(60 * U));
+    let max = d.pret.montant_liquidable(&d.lea);
+    assert_eq!(max, 3_783_783_784);
+    assert_eq!(d.pret.try_liquider(&d.liquidateur, &d.lea, &0), Err(Ok(Erreur::MontantInvalide)));
+    // L'appli envoie le montant lu + une marge : seul `max` est réellement payé, l'excédent est rendu.
+    d.pret.liquider(&d.liquidateur, &d.lea, &(max + 1_000));
+    assert_eq!(1_000 * U - d.usdc.balance(&d.liquidateur), max);
+    assert_eq!(d.pret.montant_liquidable(&d.lea), 0);
+    assert_eq!(d.pret.try_liquider(&d.liquidateur, &d.lea, &U), Err(Ok(Erreur::PasLiquidable)));
+}
+
+#[test]
+fn rembourser_plus_que_la_dette_rend_l_excedent() {
+    let d = decor(false);
+    d.pret.deposer(&d.lea, &(10 * U));
+    d.pret.emprunter(&d.lea, &(100 * U));
+    StellarAssetClient::new(&d.env, &d.usdc.address).mint(&d.lea, &(5 * U));
+    assert_eq!(d.pret.rembourser(&d.lea, &(105 * U)), 100 * U);
+    assert_eq!(d.usdc.balance(&d.lea), 5 * U);
+    assert_eq!(d.pret.position(&d.lea).dette, 0);
+    assert_eq!(d.pret.marche().caisse, 1_000 * U);
 }

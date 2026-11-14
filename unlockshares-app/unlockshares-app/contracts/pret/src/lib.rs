@@ -314,6 +314,20 @@ fn est_liquidable(dette: i128, garantie: i128, px: i128) -> bool {
     dette > 0 && dette * BPS > valeur_a(garantie, px) * SEUIL_LIQUIDATION_BPS
 }
 
+/// Montant que le liquidateur peut rembourser : ce qu'il faut pour ramener la dette à 60 % de la valeur,
+/// ou toute la dette si c'est impossible (au-delà d'environ 95 %). 0 si la position n'est pas liquidable.
+fn montant_liquidable_calc(dette: i128, garantie: i128, px: i128) -> i128 {
+    if !est_liquidable(dette, garantie, px) {
+        return 0;
+    }
+    let v = valeur_a(garantie, px);
+    // (dette - x) = 60 % × (valeur - 105 % × x)  =>  x = (dette - 60 % × valeur) / (1 - 60 % × 105 %)
+    let denominateur = BPS - CIBLE_APRES_LIQUIDATION_BPS * (BPS + BONUS_LIQUIDATION_BPS) / BPS;
+    let partiel = (dette * BPS - CIBLE_APRES_LIQUIDATION_BPS * v + denominateur - 1) / denominateur;
+    let saisie_partielle = partiel * (BPS + BONUS_LIQUIDATION_BPS) * UNITE / (BPS * px);
+    if partiel > 0 && partiel < dette && saisie_partielle < garantie { partiel } else { dette }
+}
+
 /// Répartit un paiement : d'abord les intérêts de démo (vers la réserve), puis la dette indexée.
 /// Renvoie (part démo, parts de dette à brûler).
 fn repartir_paiement(paye: i128, p: &Position, index: i128) -> (i128, i128) {
@@ -735,7 +749,9 @@ impl UnlockShares {
         Ok(())
     }
 
-    /// Léa rembourse tout ou partie de sa dette (intérêts compris). Un montant trop grand est ramené à la dette.
+    /// Léa rembourse tout ou partie de sa dette (intérêts compris).
+    /// V2 : exactement `montant` est débité (une signature Soroban porte sur un montant précis, alors que la dette
+    /// grandit entre la préparation et l'exécution) ; l'excédent éventuel est rendu immédiatement.
     pub fn rembourser(env: Env, emprunteur: Address, montant: i128) -> Result<i128, Erreur> {
         emprunteur.require_auth();
         positif(montant)?;
@@ -746,7 +762,11 @@ impl UnlockShares {
             return Err(Erreur::PasDeDette);
         }
         let paye = if montant > dette { dette } else { montant };
-        jeton_pret(&env).transfer(&emprunteur, &env.current_contract_address(), &paye);
+        let pret = jeton_pret(&env);
+        pret.transfer(&emprunteur, &env.current_contract_address(), &montant);
+        if montant > paye {
+            pret.transfer(&env.current_contract_address(), &emprunteur, &(montant - paye));
+        }
         let (vers_demo, brulees) = repartir_paiement(paye, &p, e.index_emprunt);
         p.dette_demo -= vers_demo;
         e.reserve += vers_demo;
@@ -761,34 +781,34 @@ impl UnlockShares {
 
     // ---------- le liquidateur ----------
 
-    /// Si la dette (intérêts compris) dépasse 80 % : le liquidateur rembourse juste ce qu'il faut
-    /// pour ramener la dette à 60 % de la valeur, et reçoit des actions valant
-    /// ce montant + 5 %. Si c'est impossible (dette au-delà d'environ 95 %),
-    /// il rembourse toute la dette et reçoit au plus toute la garantie.
-    pub fn liquider(env: Env, liquidateur: Address, emprunteur: Address) -> Result<i128, Erreur> {
+    /// Si la dette (intérêts compris) dépasse 80 % de la valeur (au prix de la position) : le liquidateur
+    /// rembourse au plus le montant liquidable et reçoit des actions valant ce montant + 5 %,
+    /// dans la limite de la garantie.
+    /// V2 : `montant` est débité EXACTEMENT (une signature Soroban porte sur un montant précis), puis l'excédent
+    /// est rendu. L'appli envoie le montant lu avec `montant_liquidable` + une petite marge : la dette grandit de
+    /// quelques unités entre la lecture et l'exécution ; la marge garantit le même chemin qu'à la simulation.
+    pub fn liquider(env: Env, liquidateur: Address, emprunteur: Address, montant: i128) -> Result<i128, Erreur> {
         liquidateur.require_auth();
+        positif(montant)?;
         let mut e = actualiser(&env);
         let mut p = position(&env, &emprunteur);
         let dette_totale = dette_totale(&p, e.index_emprunt);
         let px = prix_pour(&env, &emprunteur);
-        if !est_liquidable(dette_totale, p.garantie, px) {
+        let max = montant_liquidable_calc(dette_totale, p.garantie, px);
+        if max == 0 {
             return Err(Erreur::PasLiquidable);
         }
-        let v = valeur_a(p.garantie, px);
-        // (dette - x) = 60 % × (valeur - 105 % × x)  =>  x = (dette - 60 % × valeur) / (1 - 60 % × 105 %)
-        let denominateur = BPS - CIBLE_APRES_LIQUIDATION_BPS * (BPS + BONUS_LIQUIDATION_BPS) / BPS;
-        let partiel = (dette_totale * BPS - CIBLE_APRES_LIQUIDATION_BPS * v + denominateur - 1) / denominateur;
-        let saisie_partielle = partiel * (BPS + BONUS_LIQUIDATION_BPS) * UNITE / (BPS * px);
-        let (dette, mut saisie) = if partiel > 0 && partiel < dette_totale && saisie_partielle < p.garantie {
-            (partiel, saisie_partielle)
-        } else {
-            (dette_totale, dette_totale * (BPS + BONUS_LIQUIDATION_BPS) * UNITE / (BPS * px))
-        };
+        let paye = if montant > max { max } else { montant };
+        let mut saisie = paye * (BPS + BONUS_LIQUIDATION_BPS) * UNITE / (BPS * px);
         if saisie > p.garantie {
             saisie = p.garantie;
         }
-        jeton_pret(&env).transfer(&liquidateur, &env.current_contract_address(), &dette);
-        let (vers_demo, brulees) = repartir_paiement(dette, &p, e.index_emprunt);
+        let pret = jeton_pret(&env);
+        pret.transfer(&liquidateur, &env.current_contract_address(), &montant);
+        if montant > paye {
+            pret.transfer(&env.current_contract_address(), &liquidateur, &(montant - paye));
+        }
+        let (vers_demo, brulees) = repartir_paiement(paye, &p, e.index_emprunt);
         p.dette_demo -= vers_demo;
         e.reserve += vers_demo;
         p.parts_dette -= brulees;
@@ -798,8 +818,15 @@ impl UnlockShares {
         ecrire_etat(&env, &e);
         garder_en_vie(&env);
         jeton_garantie(&env).transfer(&env.current_contract_address(), &liquidateur, &saisie);
-        Liquide { emprunteur, liquidateur, dette, garantie_saisie: saisie }.publish(&env);
+        Liquide { emprunteur, liquidateur, dette: paye, garantie_saisie: saisie }.publish(&env);
         Ok(saisie)
+    }
+
+    /// Montant qu'un liquidateur peut rembourser maintenant (0 si la position n'est pas liquidable).
+    pub fn montant_liquidable(env: Env, emprunteur: Address) -> i128 {
+        let e = calculer(&env);
+        let p = position(&env, &emprunteur);
+        montant_liquidable_calc(dette_totale(&p, e.index_emprunt), p.garantie, prix_pour(&env, &emprunteur))
     }
 
     // ---------- lectures (gratuites, intérêts calculés jusqu'à maintenant) ----------
