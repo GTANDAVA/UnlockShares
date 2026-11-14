@@ -117,21 +117,36 @@ export function CashOutPage() {
     <div className="co">
       <div className="co-banner" role="note">
         <CircleAlert className="v-ic" aria-hidden />
-        <span><b>Demo simulation — no real money moves.</b> In production this step uses a licensed Stellar anchor (SEP-24), e.g. MoneyGram.</span>
+        <span><b>Two ways to cash out.</b> 💵 <b>Cash pickup</b> with MoneyGram runs on the real MoneyGram sandbox (testnet). 🏦 <b>Bank transfer</b> (SEPA) is a simulation of a Stellar anchor (SEP-24). No real money moves in either.</span>
       </div>
 
       <div className="head">
         <div>
           <h1>Cash out</h1>
-          <p className="muted">Turn your borrowed USDC into euros on your bank account, through a Stellar anchor.</p>
+          <p className="muted">Turn your USDC into money: cash at a MoneyGram location, or euros on your bank account.</p>
         </div>
         <div className="kpis">
           <div className="kpi"><small>USDC in wallet{s.mode === 'demo' ? ' (demo)' : ''}</small><b>{num(balance)}</b></div>
-          <div className="kpi"><small>Demo rate</small><b>1 USDC = 0,92 €</b></div>
+          <div className="kpi"><small>Bank transfer rate (demo)</small><b>1 USDC = 0,92 €</b></div>
         </div>
       </div>
 
-      {s.mode === 'chain' && s.address && <MoneyGramCard address={s.address} />}
+      {s.mode === 'chain' && (
+        <>
+          <div className="co-sec">
+            <span className="co-sec-ic" aria-hidden>💵</span>
+            <div><b>Option 1 · Cash pickup at MoneyGram</b><small>Send USDC, collect cash at a MoneyGram location with your reference number.</small></div>
+            <span className="tag">Real · MoneyGram sandbox</span>
+          </div>
+          {s.address ? <MoneyGramCard address={s.address} /> : <div className="empty"><b>Connect your wallet</b><span className="muted">MoneyGram sends the cash against USDC from your Varial wallet.</span><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>}
+        </>
+      )}
+
+      <div className="co-sec">
+        <span className="co-sec-ic" aria-hidden>🏦</span>
+        <div><b>{s.mode === 'chain' ? 'Option 2 · ' : ''}Bank transfer (SEPA)</b><small>Euros sent to your IBAN by a Stellar anchor (SEP-24).</small></div>
+        <span className="tag">Simulation</span>
+      </div>
 
       <ol className="co-steps">
         {STEPS.map((st, i) => {

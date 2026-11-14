@@ -76,3 +76,11 @@
 .co-borrowed { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border: 1px solid var(--safe); border-radius: 14px; padding: 12px 16px; background: color-mix(in srgb, var(--safe) 10%, transparent); }
 .co-check span, .co-row b { display: inline-flex; align-items: center; gap: 6px; }
 @media (max-width: 520px) { .co-hist-r { text-align: left; } .co-kv { grid-template-columns: 1fr; } .co-kv b, .co-kv code { text-align: left; } }
+
+/* En-têtes des deux options de retrait (espèces MoneyGram / virement) */
+.co-sec { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.co-sec > div { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.co-sec b { font-size: 18px; }
+.co-sec small { color: var(--muted, #8a8a8a); }
+.co-sec-ic { font-size: 26px; line-height: 1; }
+@media (max-width: 520px) { .co-sec { flex-wrap: wrap; } }
