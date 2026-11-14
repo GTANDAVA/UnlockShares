@@ -176,7 +176,10 @@ fn au_dela_de_95_pourcent_liquidation_totale() {
     d.pret.deposer(&d.lea, &(10 * U));
     d.pret.emprunter(&d.lea, &(500 * U));
     d.pret.fixer_prix(&(52 * U)); // valeur 520, LTV 96 %
-    let saisie = d.pret.liquider(&d.liquidateur, &d.lea, &d.pret.montant_liquidable(&d.lea));
+    let max = d.pret.montant_liquidable(&d.lea);
+    // Payer un peu moins que toute la dette prendrait toute la garantie et laisserait une dette sans garantie : refusé.
+    assert_eq!(d.pret.try_liquider(&d.liquidateur, &d.lea, &(max - 10)), Err(Ok(Erreur::MontantInvalide)));
+    let saisie = d.pret.liquider(&d.liquidateur, &d.lea, &(max + 1_000));
     // Revenir à 60 % est impossible : toute la dette est payée, 500 × 1,05 / 52 = 10,096 > 10 actions.
     assert_eq!(saisie, 10 * U);
     assert_eq!(d.usdc.balance(&d.liquidateur), 500 * U);

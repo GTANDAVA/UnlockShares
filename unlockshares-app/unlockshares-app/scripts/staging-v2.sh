@@ -76,13 +76,15 @@ echo "A prix démo 25 -> OK (LTV 49/50 = 98 %):";          run stellar contract 
 POS_B2=$(stellar contract invoke --id $PRET --source-account stg-b $N --send=no -- position --emprunteur stg-b 2>/dev/null | tail -1)
 M2=$(stellar contract invoke --id $PRET --source-account stg-b $N --send=no -- marche 2>/dev/null | tail -1)
 echo "position A: $(stellar contract invoke --id $PRET --source-account stg-a $N --send=no -- position --emprunteur stg-a 2>/dev/null | tail -1)"
-[ "$POS_B1" = "$POS_B2" ] && echo "CHECK position B identique: OUI" || echo "CHECK position B identique: NON ($POS_B1 vs $POS_B2)"
-[ "$M1" = "$M2" ] && echo "CHECK marché identique: OUI" || echo "CHECK marché identique: NON"
+# On ignore la dette, qui grandit de quelques unités à chaque seconde (intérêts en temps réel).
+champs() { printf '%s' "$1" | grep -oE '"(prix|prix_demo_actif|liquidable|garantie|dette_demo)":[^,}]*' | tr '\n' ' '; }
+[ "$(champs "$POS_B1")" = "$(champs "$POS_B2")" ] && echo "CHECK position B identique: OUI" || echo "CHECK position B identique: NON ($POS_B1 vs $POS_B2)"
+[ "$(champs "$M1")" = "$(champs "$M2")" ] && echo "CHECK prix du marché identique: OUI" || echo "CHECK prix du marché identique: NON"
 echo "B tente de liquider B (pas liquidable) -> doit échouer #4:"; run stellar contract invoke --id $PRET --source-account stg-b $N -- liquider --liquidateur stg-b --emprunteur stg-b --montant 10000000
 run stellar contract invoke --id $USD --source-account stg-emetteur-usd $N -- mint --to $(key stg-b) --amount $((100*U))
 CAISSE1=$(stellar contract invoke --id $PRET --source-account stg-b $N --send=no -- marche 2>/dev/null | tail -1 | grep -o '"caisse":"[0-9]*"')
 MAXL=$(stellar contract invoke --id $PRET --source-account stg-b $N --send=no -- montant_liquidable --emprunteur stg-a 2>/dev/null | tail -1 | tr -d '"'); echo "montant liquidable A: $MAXL"
-echo "B liquide A (montant exact) -> OK:"; run stellar contract invoke --id $PRET --source-account stg-b $N -- liquider --liquidateur stg-b --emprunteur stg-a --montant $MAXL
+echo "B liquide A (montant lu + marge 1000, excédent rendu) -> OK:"; run stellar contract invoke --id $PRET --source-account stg-b $N -- liquider --liquidateur stg-b --emprunteur stg-a --montant $((MAXL+1000))
 echo "tAAPL saisis par B: $(stellar contract invoke --id $TAAPL --source-account stg-b $N --send=no -- balance --id $(key stg-b) 2>/dev/null | tail -1)"
 CAISSE2=$(stellar contract invoke --id $PRET --source-account stg-b $N --send=no -- marche 2>/dev/null | tail -1 | grep -o '"caisse":"[0-9]*"')
 echo "caisse avant $CAISSE1 / après $CAISSE2"
@@ -97,7 +99,7 @@ echo "B avance son temps de 1 an -> OK:"; run stellar contract invoke --id $PRET
 M4=$(stellar contract invoke --id $PRET --source-account stg-b $N --send=no -- marche 2>/dev/null | tail -1)
 POS_A2=$(stellar contract invoke --id $PRET --source-account stg-a $N --send=no -- position --emprunteur stg-a 2>/dev/null | tail -1)
 echo "position B: $(stellar contract invoke --id $PRET --source-account stg-b $N --send=no -- position --emprunteur stg-b 2>/dev/null | tail -1)"
-[ "$POS_A" = "$POS_A2" ] && echo "CHECK position A inchangée: OUI" || echo "CHECK position A inchangée: NON"
+[ "$(champs "$POS_A")" = "$(champs "$POS_A2")" ] && echo "CHECK position A inchangée: OUI" || echo "CHECK position A inchangée: NON"
 # Le marché peut différer seulement par les intérêts courus en temps réel entre deux lectures.
 echo "marché avant: $M3"; echo "marché après: $M4"
 

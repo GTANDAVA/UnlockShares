@@ -800,6 +800,10 @@ impl UnlockShares {
         }
         let paye = if montant > max { max } else { montant };
         let mut saisie = paye * (BPS + BONUS_LIQUIDATION_BPS) * UNITE / (BPS * px);
+        // Si toute la garantie part, toute la dette doit être payée : sinon il resterait une dette sans garantie.
+        if saisie >= p.garantie && paye < dette_totale {
+            return Err(Erreur::MontantInvalide);
+        }
         if saisie > p.garantie {
             saisie = p.garantie;
         }
