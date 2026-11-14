@@ -74,7 +74,22 @@ export async function demarrerRetrait(account: string, code: AnchorAsset['code']
   return { url: j.url, id: j.id }
 }
 
-/** SEP-24 : état du retrait côté anchor */
+/** SEP-24 : ouvre un DÉPÔT interactif (on-ramp : banque → actif Stellar). Renvoie l'adresse du formulaire de l'anchor et l'identifiant. */
+export async function demarrerDepot(account: string, code: AnchorAsset['code'], amount?: string): Promise<{ url: string; id: string }> {
+  const toml = await lireToml()
+  const token = await connexionAnchor(account)
+  const r = await fetch(`${toml.sep24}/transactions/deposit/interactive`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ asset_code: code, account, lang: 'en', ...(amount ? { amount } : {}) }),
+  })
+  const j = (await r.json()) as { url?: string; id?: string; error?: string }
+  if (r.status === 403) tokens.delete(account)
+  if (!r.ok || !j.url || !j.id) throw new Error(j.error ?? `Deposit refused by the anchor (${r.status}).`)
+  return { url: j.url, id: j.id }
+}
+
+/** SEP-24 : état d'une transaction (dépôt ou retrait) côté anchor */
 export async function lireRetrait(account: string, id: string): Promise<Sep24Tx> {
   const toml = await lireToml()
   const token = await connexionAnchor(account)

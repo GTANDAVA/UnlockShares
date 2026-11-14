@@ -1,10 +1,11 @@
 import { Check, Landmark, LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { lienTx, messageErreur } from '../services/chain'
-import { addUsdcTrustline, openMoneyGram, usdcBalance } from '../services/moneygram'
+import { addUsdcTrustline, openMoneyGram, usdcBalance, type RampMode } from '../services/moneygram'
 
-// Retrait réel (sandbox MoneyGram, testnet) : USDC de Circle → espèces / banque via le widget MoneyGram.
-export function MoneyGramCard({ address }: { address: string }) {
+// Widget MoneyGram (sandbox, testnet). off-ramp : USDC de Circle → espèces. on-ramp : espèces au guichet → USDC dans le wallet.
+export function MoneyGramCard({ address, mode = 'off-ramp' }: { address: string; mode?: RampMode }) {
+  const cashIn = mode === 'on-ramp'
   const box = useRef<HTMLDivElement>(null)
   const close = useRef<(() => void) | null>(null)
   const [usdc, setUsdc] = useState<number | null | undefined>(undefined)
@@ -33,7 +34,7 @@ export function MoneyGramCard({ address }: { address: string }) {
         onPaid: (h) => { setHash(h); refresh() },
         onComplete: (r) => { setRef(r || '(no reference returned)'); refresh() },
         onError: (m) => setErr(m),
-      })
+      }, mode)
     } catch (e) {
       setOpen(false)
       setErr(messageErreur(e))
@@ -46,8 +47,10 @@ export function MoneyGramCard({ address }: { address: string }) {
 
   return (
     <div className="co-card">
-      <b><Landmark className="v-ic" /> Real cash out with MoneyGram <span className="tag">Sandbox · testnet</span></b>
-      <span className="muted">Uses the Circle testnet USDC you borrow on UnlockShares (or free on faucet.circle.com). No real money moves in the sandbox.</span>
+      <b><Landmark className="v-ic" /> {cashIn ? 'Cash in with MoneyGram' : 'Real cash out with MoneyGram'} <span className="tag">Sandbox · testnet</span></b>
+      <span className="muted">{cashIn
+        ? 'Pay cash at a MoneyGram location and receive Circle USDC in your wallet. No real money moves in the sandbox.'
+        : 'Uses the Circle testnet USDC you borrow on UnlockShares (or free on faucet.circle.com). No real money moves in the sandbox.'}</span>
       <div className="co-kv">
         <span>USDC (Circle) in wallet</span>
         <b>{usdc === undefined ? '…' : usdc === null ? 'No USDC trustline yet' : usdc.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b>
@@ -58,9 +61,9 @@ export function MoneyGramCard({ address }: { address: string }) {
         ) : open ? (
           <button className="btn" onClick={stop}>Close MoneyGram</button>
         ) : (
-          <button className="btn primary" onClick={() => void start()} disabled={busy || !usdc}>{busy ? <LoaderCircle className="i spin" /> : null}Cash out with MoneyGram</button>
+          <button className="btn primary" onClick={() => void start()} disabled={busy || (!cashIn && !usdc)}>{busy ? <LoaderCircle className="i spin" /> : null}{cashIn ? 'Cash in with MoneyGram' : 'Cash out with MoneyGram'}</button>
         )}
-        <a className="btn" href="https://faucet.circle.com" target="_blank" rel="noreferrer">Get test USDC</a>
+        {!cashIn && <a className="btn" href="https://faucet.circle.com" target="_blank" rel="noreferrer">Get test USDC</a>}
       </div>
       {err && <p className="co-err"><TriangleAlert className="v-ic" />{err}</p>}
       {hash && <small className="muted">USDC sent to MoneyGram · <a href={lienTx(hash)} target="_blank" rel="noreferrer">see the transaction</a></small>}

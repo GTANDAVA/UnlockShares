@@ -58,13 +58,20 @@ async function pay(address: string, p: SignPayload): Promise<string> {
 
 export type Handlers = { onComplete: (ref: string) => void; onError: (msg: string) => void; onPaid?: (hash: string) => void }
 
-/** Ouvre le widget MoneyGram (mode off-ramp) dans `container`. Renvoie une fonction de fermeture. */
-export async function openMoneyGram(container: HTMLElement, address: string, h: Handlers): Promise<() => void> {
+export type RampMode = 'off-ramp' | 'on-ramp'
+
+/** Ouvre le widget MoneyGram dans `container` : off-ramp (USDC → espèces) ou on-ramp (espèces → USDC). Renvoie une fonction de fermeture. */
+export async function openMoneyGram(container: HTMLElement, address: string, h: Handlers, mode: RampMode = 'off-ramp'): Promise<() => void> {
   const [session] = await Promise.all([openSession(address), loadSdk()])
+  // Doc MoneyGram : remplacer le paramètre mode de widgetUrl (ne pas en ajouter un second), et le répéter dans createRamps.
+  const url = new URL(session.widgetUrl)
+  url.searchParams.set('mode', mode)
   const ramps = window.RampsSDK!.createRamps({
     container,
     sessionToken: session.sessionToken,
-    widgetUrl: session.widgetUrl,
+    widgetUrl: url.toString(),
+    mode,
+    ...(mode === 'on-ramp' ? { transaction: { type: 'on-ramp' } } : {}),
     wallet: { address, chain: 'stellar', asset: 'USDC', walletType: 'non-custodial' },
     onSignTransaction: async (tx: SignPayload) => {
       const hash = await pay(address, tx)

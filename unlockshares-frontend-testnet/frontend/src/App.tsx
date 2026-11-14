@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { DemoUiProvider } from './components/demo'
 import { Layout, PAGES, type PageId } from './components/Layout'
 import { ActivityPage } from './pages/ActivityPage'
+import { AddMoneyPage } from './pages/AddMoneyPage'
 import { BorrowPage } from './pages/BorrowPage'
 import { CashOutPage } from './pages/CashOutPage'
 import { DemoPage } from './pages/DemoPage'
@@ -28,6 +29,7 @@ const VIEWS: Record<PageId, () => React.JSX.Element> = {
   liquidation: LiquidationPage,
   aide: HelpPage,
   retrait: CashOutPage,
+  ajouter: AddMoneyPage,
 }
 
 export default function App() {
