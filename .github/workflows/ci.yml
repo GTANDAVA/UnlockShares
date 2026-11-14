@@ -1,0 +1,44 @@
+# Vérifie le projet à chaque push et pull request : tests des contrats Soroban, puis tests, lint et build de l'appli web.
+# Aucune transaction testnet ici (le scénario on-chain est lancé à la main, voir TESTING.md).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Soroban contracts (cargo test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: unlockshares-app/unlockshares-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: unlockshares-app/unlockshares-app
+      # Le build wasm exige la Stellar CLI (`stellar contract build`) : il reste une étape manuelle (voir TESTING.md).
+      - run: cargo test --workspace
+
+  frontend:
+    name: Web app (test, lint, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: unlockshares-frontend-testnet/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: unlockshares-frontend-testnet/frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build

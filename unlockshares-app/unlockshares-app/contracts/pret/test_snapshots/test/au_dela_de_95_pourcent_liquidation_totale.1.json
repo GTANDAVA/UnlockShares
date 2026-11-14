@@ -230,9 +230,6 @@
               "function_name": "fixer_prix",
               "args": [
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                },
-                {
                   "i128": "520000000"
                 }
               ]
@@ -242,6 +239,8 @@
         }
       ]
     ],
+    [],
+    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON",
@@ -256,6 +255,9 @@
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                },
+                {
+                  "i128": "5000001000"
                 }
               ]
             }
@@ -274,7 +276,7 @@
                       "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
                     },
                     {
-                      "i128": "5000000000"
+                      "i128": "5000001000"
                     }
                   ]
                 }
@@ -518,12 +520,12 @@
                       "key": {
                         "vec": [
                           {
-                            "symbol": "Decalage"
+                            "symbol": "DemoPerso"
                           }
                         ]
                       },
                       "val": {
-                        "u64": "0"
+                        "bool": true
                       }
                     },
                     {
@@ -590,12 +592,29 @@
                       "key": {
                         "vec": [
                           {
-                            "symbol": "ModeDemo"
+                            "symbol": "Plafonds"
                           }
                         ]
                       },
                       "val": {
-                        "bool": true
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "caisse_bps"
+                            },
+                            "val": {
+                              "i128": "10000"
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "fixe"
+                            },
+                            "val": {
+                              "i128": "10000000000000"
+                            }
+                          }
+                        ]
                       }
                     },
                     {
@@ -769,7 +788,7 @@
               "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON",
               "key": {
                 "ledger_key_nonce": {
-                  "nonce": "1194852393571756375"
+                  "nonce": "115220454072064130"
                 }
               },
               "durability": "temporary",

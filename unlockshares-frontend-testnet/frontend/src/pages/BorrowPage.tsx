@@ -1,6 +1,7 @@
-import { Coin, eur, Filters, Pill, Ring, Term, usdc, useDemoUi } from '../components/demo'
+import { Coin, usd, Filters, Pill, Ring, Term, usdc, useDemoUi } from '../components/demo'
 import { StellarLogo, TokenLogo } from '../components/logos'
 import { useDemo } from '../lib/useDemo'
+import { jetonPret, nomJetonPret } from '../services/chain'
 import { DEMO, derive } from '../services/mockDemo'
 
 const ROADMAP: { kind: 'bb' | 'spy' | 'ewy'; code: string; name: string; type: string; max: string; liq: string }[] = [
@@ -23,7 +24,7 @@ export function BorrowPage() {
   return (
     <>
       <div className="head">
-        <div><h1>Borrow</h1><p className="muted">Receive USDC against your tokenized shares, without selling them.</p></div>
+        <div><h1>Borrow</h1><p className="muted">Receive {jetonPret()} against your tokenized shares, without selling them.</p></div>
         <div className="kpis">
           <div className="kpi"><small>Pool deposits{demo ? ' (demo)' : ''}</small><b>{deposits}</b></div>
           <div className="kpi"><small>Total loans{demo ? ' (demo)' : ''}</small><b>{loans}</b></div>
@@ -45,7 +46,7 @@ export function BorrowPage() {
         <div className="tbl"><table>
           <thead><tr><th>Asset</th><th>Your loans</th><th>Yearly cost<Term>borrow APY</Term></th><th>Total borrowed</th><th>Pool used<Term>utilization</Term></th><th /></tr></thead>
           <tbody><tr>
-            <td><div className="asset"><Coin kind="usdc">$</Coin><div>USD Coin<small>USDC</small></div></div></td>
+            <td><div className="asset"><Coin kind="usdc">$</Coin><div>{nomJetonPret()}<small>{jetonPret()}</small></div></div></td>
             <td>{s.debt ? usdc(s.debt) : '–'}</td>
             <td>{rate}</td>
             <td>{loans}</td>
@@ -58,7 +59,7 @@ export function BorrowPage() {
           <tbody>
             <tr>
               <td><div className="asset"><Coin kind="aapl">AAPL</Coin><div>Apple<small>tokenized share</small></div></div></td>
-              <td>{s.shares} AAPL as guarantee<small>{eur(d.value)} · {s.walletShares} AAPL in wallet</small></td><td>50 % of value</td><td>80 % of value</td><td><div className="chips"><Pill cls="s-safe">Live</Pill><button className="btn" onClick={() => open('deposit')} disabled={!s.walletShares}>Use as guarantee</button></div></td>
+              <td>{s.shares} AAPL as guarantee<small>{usd(d.value)} · {s.walletShares} AAPL in wallet</small></td><td>50 % of value</td><td>80 % of value</td><td><div className="chips"><Pill cls="s-safe">Live</Pill><button className="btn" onClick={() => open('deposit')} disabled={!s.walletShares}>Use as guarantee</button></div></td>
             </tr>
             {ROADMAP.map((r) => (
               <tr key={r.code} className="soon">

@@ -72,10 +72,33 @@ impl Robinet {
         let ma: i128 = lire(&env, &Cle::MontantAction);
         let md: i128 = lire(&env, &Cle::MontantDollar);
         action.set_authorized(&qui, &true);
-        action.mint(&qui, &ma);
-        dollar.mint(&qui, &md);
+        // V2 : un montant à 0 ne crée rien (pas besoin de ligne de confiance pour ce jeton).
+        if ma > 0 {
+            action.mint(&qui, &ma);
+        }
+        if md > 0 {
+            dollar.mint(&qui, &md);
+        }
         Distribue { a: qui, action: ma, dollar: md }.publish(&env);
         Ok(())
+    }
+
+    /// Change les montants distribués par personne. Admin seulement. 0 = rien pour ce jeton.
+    pub fn fixer_montants(env: Env, montant_action: i128, montant_dollar: i128) {
+        let admin: Address = lire(&env, &Cle::Admin);
+        admin.require_auth();
+        if montant_action < 0 || montant_dollar < 0 {
+            panic!("montant négatif");
+        }
+        let s = env.storage().instance();
+        s.set(&Cle::MontantAction, &montant_action);
+        s.set(&Cle::MontantDollar, &montant_dollar);
+        s.extend_ttl(30 * JOUR, 60 * JOUR);
+    }
+
+    /// Montants distribués par personne (action, dollar).
+    pub fn montants(env: Env) -> (i128, i128) {
+        (lire(&env, &Cle::MontantAction), lire(&env, &Cle::MontantDollar))
     }
 
     /// Autorise une adresse (par ex. le contrat de prêt) à détenir tAAPL. Admin seulement.

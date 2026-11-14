@@ -4,6 +4,7 @@ import { Choice } from '../components/Choice'
 import { MoneyGramCard } from '../components/MoneyGramCard'
 import { useConnect } from '../components/Onboarding'
 import { useDemo } from '../lib/useDemo'
+import { jetonPret } from '../services/chain'
 import '../styles/cashout.css'
 
 // Off-ramp SIMULÉ : imite fidèlement un retrait SEP-24 (connexion SEP-10, fenêtre de l'anchor, statuts),
@@ -120,9 +121,9 @@ export function CashOutPage() {
       <div className="head">
         <div>
           <h1>Cash out</h1>
-          <p className="muted">Turn your USDC into money.</p>
+          <p className="muted">Turn your {jetonPret()} into money.</p>
         </div>
-        <div className="kpis"><div className="kpi"><small>Your USDC{s.mode === 'demo' ? ' (demo)' : ''}</small><b>{num(balance)}</b></div></div>
+        <div className="kpis"><div className="kpi"><small>Your {jetonPret()}{s.mode === 'demo' ? ' (demo)' : ''}</small><b>{num(balance)}</b></div></div>
       </div>
 
       {s.mode === 'chain' && (
@@ -150,29 +151,29 @@ export function CashOutPage() {
       </ol>
 
       {needWallet ? (
-        <div className="empty"><b>Connect your wallet</b><span className="muted">We read your real USDC balance from Varial. Nothing is sent.</span><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
+        <div className="empty"><b>Connect your wallet</b><span className="muted">We read your real {jetonPret()} balance from Varial. Nothing is sent.</span><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
       ) : phase === 'amount' ? (
         <div className="co-card">
           <label className="co-label" htmlFor="co-amount">Amount to cash out</label>
           <div className="co-amount">
             <input id="co-amount" inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} aria-invalid={a > balance} />
-            <span>USDC</span>
+            <span>{jetonPret()}</span>
             <button className="btn" onClick={() => setAmount(String(balance))} disabled={!balance}>Max</button>
           </div>
-          <small className="muted">Max {num(balance)} USDC · your wallet balance{s.mode === 'chain' ? ' read on Stellar testnet' : ''}</small>
+          <small className="muted">Max {num(balance)} {jetonPret()} · your wallet balance{s.mode === 'chain' ? ' read on Stellar testnet' : ''}</small>
           {a > balance && <p className="co-err"><TriangleAlert className="v-ic" />More than your balance.</p>}
 
           <div className="co-kv">
             <span>Currency</span><b>EUR · bank transfer (SEPA)</b>
-            <span>Rate (demo)</span><b>1 USDC = 0,92 €</b>
-            <span>Anchor fee (demo, 1 %)</span><b>{num(fee)} USDC</b>
+            <span>Rate (demo)</span><b>1 {jetonPret()} = 0,92 €</b>
+            <span>Anchor fee (demo, 1 %)</span><b>{num(fee)} {jetonPret()}</b>
             <span>You receive</span><b className="co-big">{euro(Math.max(eur, 0))}</b>
           </div>
 
           <div className="chips">
             <button className="btn primary" onClick={signIn} disabled={!amountOk}><KeyRound className="i" />Sign in to the anchor</button>
           </div>
-          {!balance && <small className="muted">No USDC yet: borrow first on the Borrow page.</small>}
+          {!balance && <small className="muted">No {jetonPret()} yet: borrow first on the Borrow page.</small>}
         </div>
       ) : phase === 'auth' ? (
         <div className="co-card">
@@ -195,7 +196,7 @@ export function CashOutPage() {
               <div><b>Demo Anchor</b><small>Interactive withdrawal · SEP-24</small></div>
             </div>
             <div className="co-sum">
-              <span>You send <b>{num(a)} USDC</b></span>
+              <span>You send <b>{num(a)} {jetonPret()}</b></span>
               <span>You receive <b>{euro(eur)}</b></span>
             </div>
             <label className="co-field">
@@ -229,7 +230,7 @@ export function CashOutPage() {
               return (
                 <li key={f.st} className={state}>
                   <span className="co-dot">{state === 'done' ? <Check /> : state === 'now' ? <LoaderCircle className="spin" /> : <span className="co-pip" />}</span>
-                  <div><b>{f.label}</b></div>
+                  <div><b>{f.label.replace('USDC', jetonPret())}</b></div>
                 </li>
               )
             })}
@@ -239,8 +240,8 @@ export function CashOutPage() {
               <p className="co-ok"><Check className="v-ic" />{euro(current.eur)} sent to {current.name} · {maskIban(current.iban)}</p>
               <div className="co-kv">
                 <span>Transfer reference</span><code>{current.ref} (demo, not a real transfer)</code>
-                <span>Sent</span><b>{num(current.amount)} USDC</b>
-                <span>Anchor fee</span><b>{num(current.fee)} USDC</b>
+                <span>Sent</span><b>{num(current.amount)} {jetonPret()}</b>
+                <span>Anchor fee</span><b>{num(current.fee)} {jetonPret()}</b>
               </div>
               <div className="chips"><button className="btn primary" onClick={restart}>New cash out</button><a className="btn" href="#emprunter">Back to Borrow</a></div>
             </>
@@ -257,7 +258,7 @@ export function CashOutPage() {
           <ul className="co-hist">
             {history.map((p) => (
               <li key={p.ref}>
-                <div><b>{euro(p.eur)}</b><small>{num(p.amount)} USDC · {new Date(p.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</small></div>
+                <div><b>{euro(p.eur)}</b><small>{num(p.amount)} {jetonPret()} · {new Date(p.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</small></div>
                 <div className="co-hist-r"><code>{p.ref}</code><small>{maskIban(p.iban)} · completed</small></div>
               </li>
             ))}

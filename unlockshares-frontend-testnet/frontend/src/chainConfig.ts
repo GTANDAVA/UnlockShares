@@ -6,12 +6,16 @@ const v = (k: string) => String(env[k] ?? '').trim()
 
 export const chain = {
   pret: v('VITE_PRET_ID'),
+  /** Version du contrat de prêt : 1 (pools actuels, par défaut) ou 2 (plafonds, démo perso, liquidation au montant) */
+  pretVersion: v('VITE_PRET_VERSION') === '2' ? 2 : 1,
   robinet: v('VITE_ROBINET_ID'),
   /** Distributeur d'USDC de Circle (réserve remplie par l'admin) : facultatif */
   distributeur: v('VITE_DISTRIBUTEUR_ID'),
   taapl: v('VITE_TAAPL_ID'),
   tusdc: v('VITE_TUSDC_ID'),
   emetteurAapl: v('VITE_EMETTEUR_AAPL'),
+  /** Code du jeton action (TAAPL ; TAAPLS sur le pool de test v2) */
+  aaplCode: v('VITE_AAPL_CODE') || 'TAAPL',
   /** Jeton PRÊTÉ par le pool : code + émetteur (USDC de Circle sur le pool actuel, accepté par MoneyGram) */
   usdcCode: v('VITE_USDC_CODE') || 'TUSDC',
   emetteurUsdc: v('VITE_EMETTEUR_USDC'),

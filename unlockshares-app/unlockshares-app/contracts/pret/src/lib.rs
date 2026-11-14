@@ -13,6 +13,13 @@
 //! Comme un péage dynamique : quand la route sature, le prix grimpe vite.
 //! Les prêteurs touchent ces intérêts, moins 10 % gardés en réserve.
 //! Ces réglages sont modifiables par l'admin sans redéploiement.
+//!
+//! V2 (sécurité de la démo) :
+//! - prix de référence : ADMIN SEULEMENT (plus de mode démo global, plus d'avance du temps globale) ;
+//! - plafonds d'emprunt : dette par adresse ≤ plafond fixe, et chaque emprunt ≤ X % de la caisse libre ;
+//! - démo PERSONNELLE : chacun peut baisser son propre prix (jamais au-dessus de la référence) et ajouter
+//!   des intérêts simulés à sa propre dette. Cela ne touche que sa position : la caisse, les taux,
+//!   les prêteurs et les autres emprunteurs ne bougent pas. La liquidation qui en découle est réelle.
 
 use soroban_sdk::{contract, contracterror, contractevent, contractimpl, contracttype, token, Address, Env};
 
@@ -50,7 +57,12 @@ pub enum Cle {
     JetonGarantie,
     JetonPret,
     Prix,
-    ModeDemo,
+    /// Outils de démo personnels autorisés (prix perso, temps perso).
+    DemoPerso,
+    /// Plafonds d'emprunt.
+    Plafonds,
+    /// Prix de démo personnel d'un emprunteur (≤ prix de référence).
+    PrixDemo(Address),
     /// Somme des parts de dépôt de tous les prêteurs.
     TotalFourni,
     /// Somme des parts de dette de tous les emprunteurs.
@@ -64,8 +76,6 @@ pub enum Cle {
     DerniereMaj,
     /// Intérêts gardés par le protocole (tUSDC réels).
     Reserve,
-    /// Temps ajouté par le bouton démo « avancer le temps » (secondes).
-    Decalage,
     /// Réglages de la courbe de taux.
     Reglages,
 }
@@ -99,6 +109,18 @@ fn reglages_defaut() -> ReglagesTaux {
 pub struct Position {
     pub garantie: i128,
     pub parts_dette: i128,
+    /// Intérêts simulés par la démo personnelle (montant réel, hors index, versé à la réserve au remboursement).
+    pub dette_demo: i128,
+}
+
+/// Plafonds d'emprunt (anti-vidange de la caisse).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Plafonds {
+    /// Dette maximum par adresse (unités du jeton prêté).
+    pub fixe: i128,
+    /// Chaque emprunt ≤ ce pourcentage de la caisse libre (points de base, 2000 = 20 %).
+    pub caisse_bps: i128,
 }
 
 /// La position lue par l'appli, avec les calculs déjà faits (intérêts inclus).
@@ -106,8 +128,14 @@ pub struct Position {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VuePosition {
     pub garantie: i128,
-    /// Dette réelle, intérêts compris.
+    /// Dette réelle, intérêts compris (dont intérêts de démo).
     pub dette: i128,
+    /// Part de la dette venant de la démo personnelle (avance du temps perso).
+    pub dette_demo: i128,
+    /// Prix utilisé pour CETTE position (prix de démo perso s'il existe, sinon prix de référence).
+    pub prix: i128,
+    /// Vrai si un prix de démo personnel est actif.
+    pub prix_demo_actif: bool,
     /// Valeur de la garantie en tUSDC.
     pub valeur: i128,
     /// Part de la valeur empruntée, en points de base (5000 = 50 %).
@@ -127,7 +155,10 @@ pub struct Marche {
     pub total_fourni: i128,
     pub total_emprunte: i128,
     pub caisse: i128,
-    pub mode_demo: bool,
+    /// Outils de démo personnels autorisés.
+    pub demo_perso: bool,
+    pub plafond_fixe: i128,
+    pub plafond_caisse_bps: i128,
     /// Emprunté / fourni, en points de base.
     pub utilisation_bps: i128,
     /// Taux d'emprunt annuel, en points de base (550 = 5,5 %).
@@ -150,12 +181,19 @@ pub enum Erreur {
     NonAutorise = 6,
     SoldeInsuffisant = 7,
     PrixInvalide = 8,
+    PlafondDepasse = 9,
 }
 
 #[contractevent]
 pub struct PrixFixe { pub par: Address, pub prix: i128 }
-#[contractevent(topics = ["temps_avance"])]
-pub struct TempsAvance { pub par: Address, pub secondes: u64 }
+#[contractevent]
+pub struct PrixDemoFixe { #[topic] pub emprunteur: Address, pub prix: i128 }
+#[contractevent(topics = ["temps_perso"])]
+pub struct TempsPersoAvance { #[topic] pub emprunteur: Address, pub secondes: u64, pub interets: i128 }
+#[contractevent]
+pub struct PlafondsFixes { pub plafonds: Plafonds }
+#[contractevent]
+pub struct DemoPersoFixee { pub actif: bool }
 #[contractevent]
 pub struct ReglagesFixes { pub reglages: ReglagesTaux }
 #[contractevent]
@@ -193,21 +231,47 @@ fn prix(env: &Env) -> i128 {
     lire(env, &Cle::Prix)
 }
 
-fn valeur(env: &Env, garantie: i128) -> i128 {
+fn prix_demo(env: &Env, qui: &Address) -> Option<i128> {
+    env.storage().persistent().get(&Cle::PrixDemo(qui.clone()))
+}
+
+/// Prix utilisé pour la position de `qui` : son prix de démo s'il existe, jamais au-dessus du prix de référence.
+fn prix_pour(env: &Env, qui: &Address) -> i128 {
+    let reference = prix(env);
+    match prix_demo(env, qui) {
+        Some(p) if p < reference => p,
+        _ => reference,
+    }
+}
+
+fn valeur_a(garantie: i128, px: i128) -> i128 {
     // Toujours multiplier avant de diviser.
-    garantie * prix(env) / UNITE
+    garantie * px / UNITE
 }
 
 fn position(env: &Env, qui: &Address) -> Position {
     env.storage()
         .persistent()
         .get(&Cle::Position(qui.clone()))
-        .unwrap_or(Position { garantie: 0, parts_dette: 0 })
+        .unwrap_or(Position { garantie: 0, parts_dette: 0, dette_demo: 0 })
+}
+
+/// Dette totale réelle : parts × index + intérêts de démo.
+fn dette_totale(p: &Position, index: i128) -> i128 {
+    reel_haut(p.parts_dette, index) + p.dette_demo
+}
+
+fn plafonds(env: &Env) -> Plafonds {
+    lire(env, &Cle::Plafonds)
+}
+
+fn demo_perso(env: &Env) -> bool {
+    env.storage().instance().get(&Cle::DemoPerso).unwrap_or(false)
 }
 
 fn ecrire_position(env: &Env, qui: &Address, p: &Position) {
     let cle = Cle::Position(qui.clone());
-    if p.garantie == 0 && p.parts_dette == 0 {
+    if p.garantie == 0 && p.parts_dette == 0 && p.dette_demo == 0 {
         env.storage().persistent().remove(&cle);
     } else {
         env.storage().persistent().set(&cle, p);
@@ -241,20 +305,37 @@ fn caisse_libre(env: &Env, reserve: i128) -> i128 {
     if solde > reserve { solde - reserve } else { 0 }
 }
 
-/// Mode démo actif, ou appelant = admin ?
-fn autorise_demo(env: &Env, appelant: &Address) -> bool {
-    let admin: Address = lire(env, &Cle::Admin);
-    let demo: bool = lire(env, &Cle::ModeDemo);
-    demo || *appelant == admin
+/// La dette reste-t-elle sous la limite d'emprunt (50 %) au prix `px` ?
+fn sous_la_limite(dette: i128, garantie: i128, px: i128) -> bool {
+    dette * BPS <= valeur_a(garantie, px) * LTV_MAX_BPS
 }
 
-/// La dette reste-t-elle sous la limite d'emprunt (50 %) ?
-fn sous_la_limite(env: &Env, dette: i128, garantie: i128) -> bool {
-    dette * BPS <= valeur(env, garantie) * LTV_MAX_BPS
+fn est_liquidable(dette: i128, garantie: i128, px: i128) -> bool {
+    dette > 0 && dette * BPS > valeur_a(garantie, px) * SEUIL_LIQUIDATION_BPS
 }
 
-fn est_liquidable(env: &Env, dette: i128, garantie: i128) -> bool {
-    dette > 0 && dette * BPS > valeur(env, garantie) * SEUIL_LIQUIDATION_BPS
+/// Montant que le liquidateur peut rembourser : ce qu'il faut pour ramener la dette à 60 % de la valeur,
+/// ou toute la dette si c'est impossible (au-delà d'environ 95 %). 0 si la position n'est pas liquidable.
+fn montant_liquidable_calc(dette: i128, garantie: i128, px: i128) -> i128 {
+    if !est_liquidable(dette, garantie, px) {
+        return 0;
+    }
+    let v = valeur_a(garantie, px);
+    // (dette - x) = 60 % × (valeur - 105 % × x)  =>  x = (dette - 60 % × valeur) / (1 - 60 % × 105 %)
+    let denominateur = BPS - CIBLE_APRES_LIQUIDATION_BPS * (BPS + BONUS_LIQUIDATION_BPS) / BPS;
+    let partiel = (dette * BPS - CIBLE_APRES_LIQUIDATION_BPS * v + denominateur - 1) / denominateur;
+    let saisie_partielle = partiel * (BPS + BONUS_LIQUIDATION_BPS) * UNITE / (BPS * px);
+    if partiel > 0 && partiel < dette && saisie_partielle < garantie { partiel } else { dette }
+}
+
+/// Répartit un paiement : d'abord les intérêts de démo (vers la réserve), puis la dette indexée.
+/// Renvoie (part démo, parts de dette à brûler).
+fn repartir_paiement(paye: i128, p: &Position, index: i128) -> (i128, i128) {
+    let vers_demo = if paye < p.dette_demo { paye } else { p.dette_demo };
+    let reste = paye - vers_demo;
+    let dette_indexee = reel_haut(p.parts_dette, index);
+    let brulees = if reste <= 0 { 0 } else { parts_remboursees(reste, dette_indexee, p.parts_dette, index) };
+    (vers_demo, brulees)
 }
 
 // ---------- intérêts ----------
@@ -317,8 +398,7 @@ impl Etat {
 }
 
 fn maintenant(env: &Env) -> u64 {
-    let decalage: u64 = env.storage().instance().get(&Cle::Decalage).unwrap_or(0);
-    env.ledger().timestamp() + decalage
+    env.ledger().timestamp()
 }
 
 /// Calcule l'état à l'instant présent, sans rien écrire (utilisé par les lectures).
@@ -385,19 +465,22 @@ fn parts_remboursees(montant: i128, dette: i128, parts: i128, index: i128) -> i1
 
 #[contractimpl]
 impl UnlockShares {
-    /// Configuration au déploiement. `prix` = tUSDC (en unités) pour 1 tAAPL entier.
-    /// `mode_demo` = true : tout le monde peut changer le prix et avancer le temps (testnet uniquement).
-    pub fn __constructor(env: Env, admin: Address, jeton_garantie: Address, jeton_pret: Address, prix: i128, mode_demo: bool) {
+    /// Configuration au déploiement. `prix` = jeton prêté (en unités) pour 1 action entière.
+    /// `plafond_fixe` / `plafond_caisse_bps` : plafonds d'emprunt. `demo_perso` : outils de démo personnels autorisés.
+    pub fn __constructor(env: Env, admin: Address, jeton_garantie: Address, jeton_pret: Address, prix: i128, plafond_fixe: i128, plafond_caisse_bps: i128, demo_perso: bool) {
         if prix <= 0 {
             panic!("prix invalide");
+        }
+        if plafond_fixe <= 0 || plafond_caisse_bps <= 0 || plafond_caisse_bps > BPS {
+            panic!("plafonds invalides");
         }
         let s = env.storage().instance();
         s.set(&Cle::Admin, &admin);
         s.set(&Cle::JetonGarantie, &jeton_garantie);
         s.set(&Cle::JetonPret, &jeton_pret);
         s.set(&Cle::Prix, &prix);
-        s.set(&Cle::ModeDemo, &mode_demo);
-        s.set(&Cle::Decalage, &0u64);
+        s.set(&Cle::DemoPerso, &demo_perso);
+        s.set(&Cle::Plafonds, &Plafonds { fixe: plafond_fixe, caisse_bps: plafond_caisse_bps });
         s.set(&Cle::Reglages, &reglages_defaut());
         ecrire_etat(&env, &Etat {
             index_emprunt: RAY,
@@ -410,41 +493,97 @@ impl UnlockShares {
         garder_en_vie(&env);
     }
 
-    // ---------- le faux oracle et les contrôles de démo ----------
+    // ---------- contrôles admin (globaux) ----------
 
-    /// Change le prix de l'action. Admin seulement, sauf en mode démo.
-    pub fn fixer_prix(env: Env, appelant: Address, prix: i128) -> Result<(), Erreur> {
-        appelant.require_auth();
-        if !autorise_demo(&env, &appelant) {
-            return Err(Erreur::NonAutorise);
-        }
+    /// Change le prix de RÉFÉRENCE de l'action. Admin seulement (prix administré, pas un prix de marché).
+    pub fn fixer_prix(env: Env, prix: i128) -> Result<(), Erreur> {
+        let admin: Address = lire(&env, &Cle::Admin);
+        admin.require_auth();
         if prix <= 0 {
             return Err(Erreur::PrixInvalide);
         }
         env.storage().instance().set(&Cle::Prix, &prix);
         garder_en_vie(&env);
-        PrixFixe { par: appelant, prix }.publish(&env);
+        PrixFixe { par: admin, prix }.publish(&env);
         Ok(())
     }
 
-    /// Démo : fait comme si `secondes` s'étaient écoulées (les intérêts tombent d'un coup).
-    /// Uniquement en mode démo, même pour l'admin : en production, le temps ne se triche pas.
-    pub fn avancer_temps(env: Env, appelant: Address, secondes: u64) -> Result<(), Erreur> {
-        appelant.require_auth();
-        let demo: bool = lire(&env, &Cle::ModeDemo);
-        if !demo {
+    /// Change les plafonds d'emprunt. Admin seulement. Ne touche pas aux dettes existantes.
+    pub fn fixer_plafonds(env: Env, fixe: i128, caisse_bps: i128) -> Result<(), Erreur> {
+        let admin: Address = lire(&env, &Cle::Admin);
+        admin.require_auth();
+        if fixe <= 0 || caisse_bps <= 0 || caisse_bps > BPS {
+            return Err(Erreur::MontantInvalide);
+        }
+        let plafonds = Plafonds { fixe, caisse_bps };
+        env.storage().instance().set(&Cle::Plafonds, &plafonds);
+        garder_en_vie(&env);
+        PlafondsFixes { plafonds }.publish(&env);
+        Ok(())
+    }
+
+    /// Autorise ou coupe les outils de démo personnels. Admin seulement.
+    /// Coupés : plus de nouveau prix perso ni de temps perso ; les prix perso existants restent appliqués
+    /// jusqu'à leur réinitialisation par leur propriétaire (pour ne pas modifier une position sans son accord).
+    pub fn fixer_demo_perso(env: Env, actif: bool) {
+        let admin: Address = lire(&env, &Cle::Admin);
+        admin.require_auth();
+        env.storage().instance().set(&Cle::DemoPerso, &actif);
+        garder_en_vie(&env);
+        DemoPersoFixee { actif }.publish(&env);
+    }
+
+    // ---------- démo PERSONNELLE (ne touche que la position de l'appelant) ----------
+
+    /// Fixe le prix de démo de SA position : 0 < prix ≤ prix de référence (on ne peut que le baisser).
+    pub fn fixer_prix_demo(env: Env, emprunteur: Address, prix: i128) -> Result<(), Erreur> {
+        emprunteur.require_auth();
+        if !demo_perso(&env) {
+            return Err(Erreur::NonAutorise);
+        }
+        if prix <= 0 || prix > self::prix(&env) {
+            return Err(Erreur::PrixInvalide);
+        }
+        let cle = Cle::PrixDemo(emprunteur.clone());
+        env.storage().persistent().set(&cle, &prix);
+        env.storage().persistent().extend_ttl(&cle, TTL_SEUIL, TTL_CIBLE);
+        garder_en_vie(&env);
+        PrixDemoFixe { emprunteur, prix }.publish(&env);
+        Ok(())
+    }
+
+    /// Supprime le prix de démo de SA position (retour au prix de référence). Toujours permis.
+    pub fn reinitialiser_prix_demo(env: Env, emprunteur: Address) {
+        emprunteur.require_auth();
+        env.storage().persistent().remove(&Cle::PrixDemo(emprunteur.clone()));
+        garder_en_vie(&env);
+        PrixDemoFixe { emprunteur, prix: 0 }.publish(&env);
+    }
+
+    /// Démo : ajoute à SA dette les intérêts de `secondes` au taux d'emprunt actuel.
+    /// Ces intérêts ne passent pas par les index : taux du pool, prêteurs et autres emprunteurs inchangés.
+    /// Remboursés, ils vont à la réserve du protocole.
+    pub fn avancer_temps_perso(env: Env, emprunteur: Address, secondes: u64) -> Result<i128, Erreur> {
+        emprunteur.require_auth();
+        if !demo_perso(&env) {
             return Err(Erreur::NonAutorise);
         }
         if secondes == 0 || secondes > 10 * ANNEE {
             return Err(Erreur::MontantInvalide);
         }
-        actualiser(&env);
-        let decalage: u64 = env.storage().instance().get(&Cle::Decalage).unwrap_or(0);
-        env.storage().instance().set(&Cle::Decalage, &(decalage + secondes));
-        actualiser(&env);
+        let e = actualiser(&env);
+        let mut p = position(&env, &emprunteur);
+        let dette = dette_totale(&p, e.index_emprunt);
+        if dette == 0 {
+            return Err(Erreur::PasDeDette);
+        }
+        let taux = taux_emprunt_bps(e.utilisation(), &reglages(&env));
+        let interets = dette * taux * secondes as i128 / (BPS * ANNEE as i128);
+        p.dette_demo += interets;
+        ecrire_position(&env, &emprunteur, &p);
         garder_en_vie(&env);
-        TempsAvance { par: appelant, secondes }.publish(&env);
-        Ok(())
+        TempsPersoAvance { emprunteur, secondes, interets }.publish(&env);
+        Ok(interets)
     }
 
     /// Change la courbe de taux sans redéployer. Admin seulement.
@@ -467,14 +606,6 @@ impl UnlockShares {
         garder_en_vie(&env);
         ReglagesFixes { reglages }.publish(&env);
         Ok(())
-    }
-
-    /// Active ou coupe le mode démo. Admin seulement.
-    pub fn fixer_mode_demo(env: Env, actif: bool) {
-        let admin: Address = lire(&env, &Cle::Admin);
-        admin.require_auth();
-        env.storage().instance().set(&Cle::ModeDemo, &actif);
-        garder_en_vie(&env);
     }
 
     // ---------- côté prêteurs ----------
@@ -578,7 +709,7 @@ impl UnlockShares {
             return Err(Erreur::SoldeInsuffisant);
         }
         p.garantie -= montant;
-        if !sous_la_limite(&env, reel_haut(p.parts_dette, e.index_emprunt), p.garantie) {
+        if !sous_la_limite(dette_totale(&p, e.index_emprunt), p.garantie, prix_pour(&env, &emprunteur)) {
             return Err(Erreur::GarantieInsuffisante);
         }
         ecrire_position(&env, &emprunteur, &p);
@@ -594,13 +725,18 @@ impl UnlockShares {
         positif(montant)?;
         let mut e = actualiser(&env);
         let mut p = position(&env, &emprunteur);
-        let dette = reel_haut(p.parts_dette, e.index_emprunt) + montant;
-        if !sous_la_limite(&env, dette, p.garantie) {
+        let dette = dette_totale(&p, e.index_emprunt) + montant;
+        if !sous_la_limite(dette, p.garantie, prix_pour(&env, &emprunteur)) {
             return Err(Erreur::GarantieInsuffisante);
         }
         let pret = jeton_pret(&env);
-        if montant > caisse_libre(&env, e.reserve) {
+        let libre = caisse_libre(&env, e.reserve);
+        if montant > libre {
             return Err(Erreur::CaisseVide);
+        }
+        let pl = plafonds(&env);
+        if dette > pl.fixe || montant * BPS > libre * pl.caisse_bps {
+            return Err(Erreur::PlafondDepasse);
         }
         let parts = parts_haut(montant, e.index_emprunt);
         p.parts_dette += parts;
@@ -613,19 +749,27 @@ impl UnlockShares {
         Ok(())
     }
 
-    /// Léa rembourse tout ou partie de sa dette (intérêts compris). Un montant trop grand est ramené à la dette.
+    /// Léa rembourse tout ou partie de sa dette (intérêts compris).
+    /// V2 : exactement `montant` est débité (une signature Soroban porte sur un montant précis, alors que la dette
+    /// grandit entre la préparation et l'exécution) ; l'excédent éventuel est rendu immédiatement.
     pub fn rembourser(env: Env, emprunteur: Address, montant: i128) -> Result<i128, Erreur> {
         emprunteur.require_auth();
         positif(montant)?;
         let mut e = actualiser(&env);
         let mut p = position(&env, &emprunteur);
-        let dette = reel_haut(p.parts_dette, e.index_emprunt);
+        let dette = dette_totale(&p, e.index_emprunt);
         if dette == 0 {
             return Err(Erreur::PasDeDette);
         }
         let paye = if montant > dette { dette } else { montant };
-        jeton_pret(&env).transfer(&emprunteur, &env.current_contract_address(), &paye);
-        let brulees = parts_remboursees(paye, dette, p.parts_dette, e.index_emprunt);
+        let pret = jeton_pret(&env);
+        pret.transfer(&emprunteur, &env.current_contract_address(), &montant);
+        if montant > paye {
+            pret.transfer(&env.current_contract_address(), &emprunteur, &(montant - paye));
+        }
+        let (vers_demo, brulees) = repartir_paiement(paye, &p, e.index_emprunt);
+        p.dette_demo -= vers_demo;
+        e.reserve += vers_demo;
         p.parts_dette -= brulees;
         e.parts_emprunt -= brulees;
         ecrire_position(&env, &emprunteur, &p);
@@ -637,34 +781,40 @@ impl UnlockShares {
 
     // ---------- le liquidateur ----------
 
-    /// Si la dette (intérêts compris) dépasse 80 % : le liquidateur rembourse juste ce qu'il faut
-    /// pour ramener la dette à 60 % de la valeur, et reçoit des actions valant
-    /// ce montant + 5 %. Si c'est impossible (dette au-delà d'environ 95 %),
-    /// il rembourse toute la dette et reçoit au plus toute la garantie.
-    pub fn liquider(env: Env, liquidateur: Address, emprunteur: Address) -> Result<i128, Erreur> {
+    /// Si la dette (intérêts compris) dépasse 80 % de la valeur (au prix de la position) : le liquidateur
+    /// rembourse au plus le montant liquidable et reçoit des actions valant ce montant + 5 %,
+    /// dans la limite de la garantie.
+    /// V2 : `montant` est débité EXACTEMENT (une signature Soroban porte sur un montant précis), puis l'excédent
+    /// est rendu. L'appli envoie le montant lu avec `montant_liquidable` + une petite marge : la dette grandit de
+    /// quelques unités entre la lecture et l'exécution ; la marge garantit le même chemin qu'à la simulation.
+    pub fn liquider(env: Env, liquidateur: Address, emprunteur: Address, montant: i128) -> Result<i128, Erreur> {
         liquidateur.require_auth();
+        positif(montant)?;
         let mut e = actualiser(&env);
         let mut p = position(&env, &emprunteur);
-        let dette_totale = reel_haut(p.parts_dette, e.index_emprunt);
-        if !est_liquidable(&env, dette_totale, p.garantie) {
+        let dette_totale = dette_totale(&p, e.index_emprunt);
+        let px = prix_pour(&env, &emprunteur);
+        let max = montant_liquidable_calc(dette_totale, p.garantie, px);
+        if max == 0 {
             return Err(Erreur::PasLiquidable);
         }
-        let px = prix(&env);
-        let v = valeur(&env, p.garantie);
-        // (dette - x) = 60 % × (valeur - 105 % × x)  =>  x = (dette - 60 % × valeur) / (1 - 60 % × 105 %)
-        let denominateur = BPS - CIBLE_APRES_LIQUIDATION_BPS * (BPS + BONUS_LIQUIDATION_BPS) / BPS;
-        let partiel = (dette_totale * BPS - CIBLE_APRES_LIQUIDATION_BPS * v + denominateur - 1) / denominateur;
-        let saisie_partielle = partiel * (BPS + BONUS_LIQUIDATION_BPS) * UNITE / (BPS * px);
-        let (dette, mut saisie) = if partiel > 0 && partiel < dette_totale && saisie_partielle < p.garantie {
-            (partiel, saisie_partielle)
-        } else {
-            (dette_totale, dette_totale * (BPS + BONUS_LIQUIDATION_BPS) * UNITE / (BPS * px))
-        };
+        let paye = if montant > max { max } else { montant };
+        let mut saisie = paye * (BPS + BONUS_LIQUIDATION_BPS) * UNITE / (BPS * px);
+        // Si toute la garantie part, toute la dette doit être payée : sinon il resterait une dette sans garantie.
+        if saisie >= p.garantie && paye < dette_totale {
+            return Err(Erreur::MontantInvalide);
+        }
         if saisie > p.garantie {
             saisie = p.garantie;
         }
-        jeton_pret(&env).transfer(&liquidateur, &env.current_contract_address(), &dette);
-        let brulees = parts_remboursees(dette, dette_totale, p.parts_dette, e.index_emprunt);
+        let pret = jeton_pret(&env);
+        pret.transfer(&liquidateur, &env.current_contract_address(), &montant);
+        if montant > paye {
+            pret.transfer(&env.current_contract_address(), &liquidateur, &(montant - paye));
+        }
+        let (vers_demo, brulees) = repartir_paiement(paye, &p, e.index_emprunt);
+        p.dette_demo -= vers_demo;
+        e.reserve += vers_demo;
         p.parts_dette -= brulees;
         e.parts_emprunt -= brulees;
         p.garantie -= saisie;
@@ -672,8 +822,15 @@ impl UnlockShares {
         ecrire_etat(&env, &e);
         garder_en_vie(&env);
         jeton_garantie(&env).transfer(&env.current_contract_address(), &liquidateur, &saisie);
-        Liquide { emprunteur, liquidateur, dette, garantie_saisie: saisie }.publish(&env);
+        Liquide { emprunteur, liquidateur, dette: paye, garantie_saisie: saisie }.publish(&env);
         Ok(saisie)
+    }
+
+    /// Montant qu'un liquidateur peut rembourser maintenant (0 si la position n'est pas liquidable).
+    pub fn montant_liquidable(env: Env, emprunteur: Address) -> i128 {
+        let e = calculer(&env);
+        let p = position(&env, &emprunteur);
+        montant_liquidable_calc(dette_totale(&p, e.index_emprunt), p.garantie, prix_pour(&env, &emprunteur))
     }
 
     // ---------- lectures (gratuites, intérêts calculés jusqu'à maintenant) ----------
@@ -681,8 +838,9 @@ impl UnlockShares {
     pub fn position(env: Env, emprunteur: Address) -> VuePosition {
         let e = calculer(&env);
         let p = position(&env, &emprunteur);
-        let dette = reel_haut(p.parts_dette, e.index_emprunt);
-        let v = valeur(&env, p.garantie);
+        let dette = dette_totale(&p, e.index_emprunt);
+        let px = prix_pour(&env, &emprunteur);
+        let v = valeur_a(p.garantie, px);
         let ltv_bps = if v > 0 { dette * BPS / v } else if dette > 0 { BPS } else { 0 };
         let max = v * LTV_MAX_BPS / BPS;
         let disponible = if max > dette { max - dette } else { 0 };
@@ -693,9 +851,12 @@ impl UnlockShares {
             0
         };
         VuePosition {
-            liquidable: est_liquidable(&env, dette, p.garantie),
+            liquidable: est_liquidable(dette, p.garantie, px),
             garantie: p.garantie,
             dette,
+            dette_demo: p.dette_demo,
+            prix: px,
+            prix_demo_actif: px != prix(&env),
             valeur: v,
             ltv_bps,
             disponible,
@@ -719,7 +880,9 @@ impl UnlockShares {
             total_fourni: e.fourni(),
             total_emprunte: e.emprunte(),
             caisse: jeton_pret(&env).balance(&env.current_contract_address()),
-            mode_demo: lire(&env, &Cle::ModeDemo),
+            demo_perso: demo_perso(&env),
+            plafond_fixe: plafonds(&env).fixe,
+            plafond_caisse_bps: plafonds(&env).caisse_bps,
             utilisation_bps: u,
             taux_emprunt_bps: taux_emprunt_bps(u, &r),
             taux_depot_bps: taux_depot_bps(u, &r),

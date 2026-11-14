@@ -64,3 +64,16 @@ fn creer_pour_remplir_la_caisse() {
     assert_eq!(u.balance(&caisse), 20_000 * U);
     assert_eq!(a.balance(&caisse), 0);
 }
+
+#[test]
+fn v2_deux_actions_et_pas_de_dollar() {
+    let (env, r, a, u) = decor();
+    r.fixer_montants(&(2 * U), &0);
+    assert_eq!(env.auths().len(), 1);
+    assert_eq!(r.montants(), (2 * U, 0));
+    let lea = Address::generate(&env);
+    r.recevoir(&lea);
+    assert_eq!(a.balance(&lea), 2 * U);
+    assert_eq!(u.balance(&lea), 0);
+    assert!(StellarAssetClient::new(&env, &a.address).authorized(&lea));
+}

@@ -1,39 +1,24 @@
 import {
-  ArrowDownToLine, Banknote, CircleDollarSign, Presentation, CirclePlay, Clock, Droplets, FlaskConical, House, Percent, Plug, Plus, Search, TriangleAlert, Wallet,
+  ArrowDownToLine, Banknote, CircleDollarSign, Gavel, Presentation, CirclePlay, Clock, Droplets, House, Percent, Plus, Search, Wallet,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { config, configProblem } from '../config'
 import { useDemo } from '../lib/useDemo'
 import { chain } from '../chainConfig'
-import { court, lienCompte } from '../services/chain'
+import { court, jetonPret, lienCompte } from '../services/chain'
 import { useDemoUi } from './demo'
 import { useConnect, useFaucet } from './Onboarding'
 
-export type PageId = 'accueil' | 'presentation' | 'activite' | 'preter' | 'emprunter' | 'demo' | 'evaluation' | 'liquidation' | 'aide' | 'retrait' | 'ajouter'
-export const PAGES: PageId[] = ['accueil', 'presentation', 'activite', 'preter', 'emprunter', 'demo', 'evaluation', 'liquidation', 'aide', 'retrait', 'ajouter']
+export type PageId = 'accueil' | 'presentation' | 'activite' | 'preter' | 'emprunter' | 'demo' | 'liquidations' | 'retrait' | 'ajouter'
+export const PAGES: PageId[] = ['accueil', 'presentation', 'activite', 'preter', 'emprunter', 'demo', 'liquidations', 'retrait', 'ajouter']
 
 type Item = { id?: PageId; label: string; icon: typeof House; ext?: boolean }
 
-/* Même menu que la maquette V3. « Simulateur de risque » regroupe les pages branchées sur l'API. */
+/* Menu : uniquement des pages réelles (on-chain) ou clairement étiquetées démo / simulation. */
 const MENU: { section?: string; items: Item[] }[] = [
   { items: [{ id: 'accueil', label: 'Home', icon: House }, { id: 'presentation', label: 'Presentation', icon: Presentation }, { id: 'activite', label: 'Activity', icon: Clock }] },
   { section: 'Explore', items: [{ id: 'preter', label: 'Earn', icon: Percent }, { id: 'emprunter', label: 'Borrow', icon: CircleDollarSign }, { id: 'ajouter', label: 'Add money', icon: ArrowDownToLine }, { id: 'retrait', label: 'Cash out', icon: Banknote }] },
-  { section: 'Demo', items: [{ id: 'demo', label: 'Demo controls', icon: CirclePlay }] },
+  { section: 'Demo', items: [{ id: 'demo', label: 'Demo controls', icon: CirclePlay }, { id: 'liquidations', label: 'Liquidations', icon: Gavel }] },
 ]
-
-export function ModeBadge() {
-  const connected = config.apiMode === 'http'
-  const Icon = connected ? Plug : FlaskConical
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.06em] ${connected ? 'border-safe text-safe' : 'border-watch text-watch'}`}
-      title={connected ? `Backend: ${config.apiUrl || 'not set'}` : 'Simulated answers, no backend call'}
-    >
-      <Icon className="size-3.5" aria-hidden />
-      {connected ? 'Connected mode' : 'Simulated mode'}
-    </span>
-  )
-}
 
 function Logo() {
   return (
@@ -49,7 +34,6 @@ function Logo() {
 }
 
 export function Layout({ page, children }: { page: PageId; children: ReactNode }) {
-  const problem = configProblem()
   const { open, toast } = useDemoUi()
   const [terms, setTerms] = useState(false)
   const s = useDemo()
@@ -92,7 +76,7 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
             <label className="search"><Search className="i" aria-hidden /><input placeholder="Search assets and markets" aria-label="Search" /><span className="kbd">/</span></label>
             <button className="round" aria-label="Lend" title="Lend" onClick={() => open('lend')}><Plus className="i" aria-hidden /></button>
             {live && s.address && s.ready && (
-              <button className="round" aria-label="Get test tokens" title="Get test tokens: 100 tAAPL (hourly) + 20 USDC (daily)" onClick={faucet} disabled={!!s.busy}><Droplets className="i" aria-hidden /></button>
+              <button className="round" aria-label="Get test tokens" title={`Get test tokens: test Apple shares (hourly)${chain.distributeur ? ` + test ${jetonPret()} (daily)` : ''}`} onClick={faucet} disabled={!!s.busy}><Droplets className="i" aria-hidden /></button>
             )}
             {!live ? (
               <span className="wallet" title="No wallet is connected in this demo"><Wallet className="i" aria-hidden />Not connected</span>
@@ -106,22 +90,15 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
             {live ? (
               <>
                 <span className="rounded-full border border-safe px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-safe">Stellar testnet</span>
-                <span className="small muted">Real transactions on the test network · tokens have no value · <a href={lienCompte(chain.pret)} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>contract {court(chain.pret)} ↗</a></span>
+                <span className="small muted">Real transactions on the test network · tokens have no value · amounts in dollars, 1 {jetonPret()} = 1 dollar · <a href={lienCompte(chain.pret)} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>contract {court(chain.pret)} ↗</a></span>
               </>
             ) : (
               <>
                 <span className="rounded-full border border-accent px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-accent">Demo</span>
-                <ModeBadge />
-                <span className="small muted">Léa’s data is simulated · no blockchain transaction, no wallet connected.</span>
+                <span className="small muted">Léa’s data is simulated · no blockchain transaction, no wallet connected. Amounts in dollars (1 USDC = 1 dollar).</span>
               </>
             )}
           </div>
-
-          {problem && (
-            <p role="alert" className="flex items-start gap-2 rounded-xl border border-watch p-3 text-sm text-watch">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden /> {problem}
-            </p>
-          )}
 
           {children}
         </div>

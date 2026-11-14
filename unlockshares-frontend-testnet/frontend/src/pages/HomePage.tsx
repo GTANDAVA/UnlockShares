@@ -1,14 +1,15 @@
 import { CircleArrowDown, CircleArrowUp, LayoutGrid, List, Lock } from 'lucide-react'
 import { useState } from 'react'
-import { Coin, eur, Gauge, Jar, LimitBlock, Pill, Stack, Term, usdc, useDemoUi } from '../components/demo'
+import { Coin, usd, Gauge, Jar, LimitBlock, Pill, Stack, Term, usdc, useDemoUi } from '../components/demo'
 import { StellarLogo } from '../components/logos'
 import { useDemo } from '../lib/useDemo'
+import { jetonPret, nomJetonPret } from '../services/chain'
 import { DEMO, derive } from '../services/mockDemo'
 import { Onboarding } from '../components/Onboarding'
 
 const pct = (x: number) => `${(x * 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`
 
-const usdc2 = (n: number) => `${n.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} USDC`
+const usdc2 = (n: number) => `${n.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${jetonPret()}`
 
 export function HomePage() {
   const s = useDemo()
@@ -39,10 +40,10 @@ export function HomePage() {
 
       <section className="home home-hero" aria-label="Your position">
         <div className="balance">
-          <div><small className="muted">Balance<Term>collateral + deposits − debt</Term></small><div className="big">{eur(d.balance)}</div></div>
+          <div><small className="muted">Balance<Term>collateral + deposits − debt</Term></small><div className="big">{usd(d.balance)}</div></div>
           <div className="divider" />
           <div className="line"><span className="muted">Yearly yield on what you lend<Term>position APY</Term></span><span>{s.lent ? lendRate : '–'}</span></div>
-          <div className="line"><span className="muted">Total earnings</span><span>{s.lent ? earnings : '0 USDC'}</span></div>
+          <div className="line"><span className="muted">Total earnings</span><span>{s.lent ? earnings : `0 ${jetonPret()}`}</span></div>
           <div className="divider" />
           <LimitBlock />
         </div>
@@ -55,16 +56,16 @@ export function HomePage() {
         <div className="tbl"><table>
           <thead><tr><th>Asset</th><th>Hub</th><th>Your deposits</th><th>Yearly yield<Term>APY</Term></th><th>Earnings</th><th /></tr></thead>
           <tbody><tr>
-            <td><div className="asset"><Coin kind="usdc">$</Coin><div>USD Coin<small>USDC</small></div></div></td>
+            <td><div className="asset"><Coin kind="usdc">$</Coin><div>{nomJetonPret()}<small>{jetonPret()}</small></div></div></td>
             <td>UnlockShares Lending Hub</td>
-            <td>{usdc(s.lent)}<small>{eur(s.lent)}</small></td>
+            <td>{usdc(s.lent)}<small>{usd(s.lent)}</small></td>
             <td>{lendRate}</td>
             <td>{earnings}<small>{demo ? 'since 24 Oct' : 'interest paid by borrowers'}</small></td>
             <td><button className="btn" onClick={() => open('withdrawLend')}>Withdraw</button></td>
           </tr></tbody>
         </table></div>
       ) : (
-        <div className="empty"><b>Start earning</b><span className="muted">Lend your USDC to borrowers and earn interest</span><button className="btn" onClick={() => open('lend')}><CircleArrowDown className="i" aria-hidden />Lend</button></div>
+        <div className="empty"><b>Start earning</b><span className="muted">Lend your {jetonPret()} to borrowers and earn interest</span><button className="btn" onClick={() => open('lend')}><CircleArrowDown className="i" aria-hidden />Lend</button></div>
       )}
 
       <div className="divider" />
@@ -82,8 +83,8 @@ export function HomePage() {
           <button className="mcard" onClick={() => setView('list')}>
             <div className="line"><span><StellarLogo /> Stellar Stocks Market</span><Pill cls={d.zone.cls}>{d.usedPct} % used</Pill></div>
             <small className="muted">Net value<Term>collateral − debt</Term></small>
-            <b className="num" style={{ marginTop: 0 }}>{eur(d.net)}</b>
-            <small className="muted">Borrow rate <b>{borrowRate}</b> a year<Term>borrow APY</Term> · ≈ {eur(monthly)} / month</small>
+            <b className="num" style={{ marginTop: 0 }}>{usd(d.net)}</b>
+            <small className="muted">Borrow rate <b>{borrowRate}</b> a year<Term>borrow APY</Term> · ≈ {usd(monthly)} / month</small>
             <Stack />
           </button>
         </div>
@@ -91,9 +92,9 @@ export function HomePage() {
         <div className="pos">
           <div className="head"><h3><Coin kind="aapl">AAPL</Coin>Stellar Stocks Market</h3><span className="tag">Stellar testnet</span></div>
           <div className="posgrid">
-            <div><small>Guarantee<Term>collateral</Term></small><b>{s.shares} AAPL</b><small>{eur(d.value)}</small></div>
-            <div><small>Cash received<Term>borrowed</Term></small><b>{usdc(s.debt)}</b><small>{borrowRate} a year · ≈ {eur(monthly)} / month</small></div>
-            <div><small>Safety price<Term>liquidation price</Term></small><b>{eur(d.safetyPrice)}</b><small>Apple today: {eur(s.price)}</small></div>
+            <div><small>Guarantee<Term>collateral</Term></small><b>{s.shares} AAPL</b><small>{usd(d.value)}</small></div>
+            <div><small>Cash received<Term>borrowed</Term></small><b>{usdc(s.debt)}</b><small>{borrowRate} a year · ≈ {usd(monthly)} / month</small></div>
+            <div><small>Safety price<Term>liquidation price</Term></small><b>{usd(d.safetyPrice)}</b><small>Apple today: {usd(s.price)}</small></div>
           </div>
           <Gauge ltv={d.ltv} />
           <div className="chips">
@@ -110,9 +111,9 @@ export function HomePage() {
       <div className="tbl"><table>
         <thead><tr><th>Asset</th><th>Wallet balance</th><th>Used as guarantee</th><th>Yearly yield if lent<Term>deposit APY</Term></th></tr></thead>
         <tbody>
-          <tr><td><div className="asset"><Coin kind="usdc">$</Coin><div>USD Coin<small>USDC</small></div></div></td><td>{usdc(s.usdc)}<small>{eur(s.usdc)}</small></td><td>–</td><td>{lendRate}</td></tr>
-          <tr><td><div className="asset"><Coin kind="aapl">AAPL</Coin><div>Apple<small>tokenized share</small></div></div></td><td>{s.walletShares} AAPL<small>{eur(s.walletShares * s.price)}</small></td><td>{s.shares} AAPL<small>{eur(d.value)}</small></td><td>– <small>guarantee only</small></td></tr>
-          <tr><td><div className="asset"><Coin kind="xlm">XLM</Coin><div>Stellar Lumens<small>XLM, pays network fees</small></div></div></td><td>{Math.round(s.xlm).toLocaleString('fr-FR')} XLM<small>fees ≈ 0,001 € per action</small></td><td>–</td><td>–</td></tr>
+          <tr><td><div className="asset"><Coin kind="usdc">$</Coin><div>{nomJetonPret()}<small>{jetonPret()}</small></div></div></td><td>{usdc(s.usdc)}<small>{usd(s.usdc)}</small></td><td>–</td><td>{lendRate}</td></tr>
+          <tr><td><div className="asset"><Coin kind="aapl">AAPL</Coin><div>Apple<small>tokenized share</small></div></div></td><td>{s.walletShares} AAPL<small>{usd(s.walletShares * s.price)}</small></td><td>{s.shares} AAPL<small>{usd(d.value)}</small></td><td>– <small>guarantee only</small></td></tr>
+          <tr><td><div className="asset"><Coin kind="xlm">XLM</Coin><div>Stellar Lumens<small>XLM, pays network fees</small></div></div></td><td>{Math.round(s.xlm).toLocaleString('fr-FR')} XLM<small>fees ≈ 0,$001 per action</small></td><td>–</td><td>–</td></tr>
         </tbody>
       </table></div>
     </>

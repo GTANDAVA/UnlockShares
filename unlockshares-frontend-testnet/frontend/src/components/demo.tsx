@@ -4,11 +4,13 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { StellarLogo, TokenLogo, type TokenKind } from './logos'
 import { useDemo } from '../lib/useDemo'
 import { actions, chainReady, type Done, type Kind } from '../services/app'
-import { lienTx } from '../services/chain'
+import { jetonPret, lienTx } from '../services/chain'
 import { DEMO, derive, zoneOf } from '../services/mockDemo'
 
-export const eur = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} €`
-export const usdc = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} USDC`
+/** Montants en dollars : 1 jeton prêté (USDC) = 1 $ (hypothèse affichée dans le bandeau du haut) */
+export const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
+/** Montant du jeton prêté, avec son nom lu sur la blockchain (USDC, USDS…) */
+export const usdc = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} ${jetonPret()}`
 
 /** Terme DeFi affiché seulement quand l'option « Afficher les termes DeFi » est cochée */
 export const Term = ({ children }: { children: ReactNode }) => <span className="term">{children}</span>
@@ -101,21 +103,21 @@ export function Jar() {
         {d.liquidable ? (
           <><em className="s-danger">Your cash is bigger than your limit.</em> The protection sale starts.</>
         ) : d.available > 0 ? (
-          <>You own <em className={d.zone.cls}>{eur(d.net)}</em> and can still receive <em>{eur(d.available)}</em>.</>
+          <>You own <em className={d.zone.cls}>{usd(d.net)}</em> and can still receive <em>{usd(d.available)}</em>.</>
         ) : (
-          <>You own <em className={d.zone.cls}>{eur(d.net)}</em>. Pay back a little to stay safe.</>
+          <>You own <em className={d.zone.cls}>{usd(d.net)}</em>. Pay back a little to stay safe.</>
         )}
       </p>
       <div className="jar">
         {parts.map(([x, c, t]) => (
-          <div key={t} style={{ flexBasis: `${(x / total) * 100}%`, background: c }}>{x / Math.max(d.value, 1) > 0.18 ? eur(x) : ''}</div>
+          <div key={t} style={{ flexBasis: `${(x / total) * 100}%`, background: c }}>{x / Math.max(d.value, 1) > 0.18 ? usd(x) : ''}</div>
         ))}
       </div>
       <div className="jarleg">
         {parts.map(([x, c, t, k]) => (
-          <div key={t}><span><i style={{ background: c }} />{t}<Term>{k}</Term></span><span>{eur(x)}</span></div>
+          <div key={t}><span><i style={{ background: c }} />{t}<Term>{k}</Term></span><span>{usd(x)}</span></div>
         ))}
-        <div className="small muted"><span>{s.shares} Apple shares at {eur(s.price)}</span><span>{eur(d.value)}</span></div>
+        <div className="small muted"><span>{s.shares} Apple shares at {usd(s.price)}</span><span>{usd(d.value)}</span></div>
       </div>
     </>
   )
@@ -214,8 +216,8 @@ function ActionModal({ kind, onClose, onDone }: { kind: Kind; onClose: () => voi
 
   return (
     <div className="modal-bg" onClick={(e) => e.target === e.currentTarget && !sending && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={A.title}>
-        <div className="head"><h2>{A.title}</h2><button className="round" onClick={onClose} disabled={sending} aria-label="Close"><X className="i" aria-hidden /></button></div>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={A.title.replace('USDC', jetonPret())}>
+        <div className="head"><h2>{A.title.replace('USDC', jetonPret())}</h2><button className="round" onClick={onClose} disabled={sending} aria-label="Close"><X className="i" aria-hidden /></button></div>
         <div>
           <small className="muted">{A.label}</small>
           <div className="amount">

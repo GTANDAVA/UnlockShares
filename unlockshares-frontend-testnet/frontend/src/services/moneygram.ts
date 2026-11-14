@@ -1,8 +1,10 @@
 // Off-ramp RÉEL (sandbox) avec le widget MoneyGram Ramps.
-// 1. Notre serveur ouvre une session (clé secrète) → 2. le widget MoneyGram s'affiche dans la page
+// 0. Varial signe un défi (preuve de possession du wallet, aucun fonds ne bouge)
+// 1. Notre serveur vérifie cette signature puis ouvre une session (clé secrète) → 2. le widget MoneyGram s'affiche dans la page
 // → 3. quand MoneyGram demande l'USDC, Varial signe le paiement → 4. MoneyGram renvoie un numéro de référence.
 // Analogie : le widget est un guichet MoneyGram installé dans notre boutique ; Varial est la signature du client.
 import { Asset, BASE_FEE, Memo, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
+import { signMessage } from '@stellar/freighter-api'
 import { horizon, PASS, signerFreighter } from './chain'
 
 const SDK_URL = 'https://playground.xramps.moneygram.com/sdk/index.global.js' // sandbox
@@ -32,8 +34,25 @@ function loadSdk(): Promise<void> {
   return sdk
 }
 
+const post = (url: string, body: unknown) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+/** Prouve au serveur que l'utilisateur possède le wallet : le serveur donne un défi, Varial le signe (aucun fonds ne bouge). */
+async function proveWallet(address: string): Promise<{ token: string; signature: string }> {
+  const c = await post('/api/moneygram-challenge', { address })
+  const cj = (await c.json().catch(() => ({}))) as { token?: string; message?: string; error?: string }
+  if (!c.ok || !cj.token || !cj.message) throw new Error(cj.error ?? `MoneyGram is unavailable (${c.status}).`)
+  const r = await signMessage(cj.message, { networkPassphrase: PASS, address })
+  if (r.error || !r.signedMessage) throw new Error(r.error?.message ?? 'Signature declined in Varial.')
+  const raw = r.signedMessage as unknown
+  const signature = typeof raw === 'string' ? raw : bytesToBase64(raw as Uint8Array)
+  return { token: cj.token, signature }
+}
+
+const bytesToBase64 = (b: Uint8Array) => btoa(String.fromCharCode(...b))
+
 async function openSession(address: string): Promise<{ sessionToken: string; widgetUrl: string }> {
-  const r = await fetch('/api/moneygram-session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletAddress: address }) })
+  const proof = await proveWallet(address)
+  const r = await post('/api/moneygram-session', { walletAddress: address, ...proof })
   const j = (await r.json().catch(() => ({}))) as { sessionToken?: string; widgetUrl?: string; error?: string }
   if (!r.ok || !j.sessionToken || !j.widgetUrl) throw new Error(j.error ?? `Session refused (${r.status}).`)
   return { sessionToken: j.sessionToken, widgetUrl: j.widgetUrl }

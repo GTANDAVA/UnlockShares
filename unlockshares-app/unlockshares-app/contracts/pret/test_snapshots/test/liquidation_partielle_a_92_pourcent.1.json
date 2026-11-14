@@ -230,9 +230,6 @@
               "function_name": "fixer_prix",
               "args": [
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                },
-                {
                   "i128": "540000000"
                 }
               ]
@@ -242,6 +239,7 @@
         }
       ]
     ],
+    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON",
@@ -256,6 +254,9 @@
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                },
+                {
+                  "i128": "4756756757"
                 }
               ]
             }
@@ -508,6 +509,14 @@
                 "map": [
                   {
                     "key": {
+                      "symbol": "dette_demo"
+                    },
+                    "val": {
+                      "i128": "0"
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "garantie"
                     },
                     "val": {
@@ -561,12 +570,12 @@
                       "key": {
                         "vec": [
                           {
-                            "symbol": "Decalage"
+                            "symbol": "DemoPerso"
                           }
                         ]
                       },
                       "val": {
-                        "u64": "0"
+                        "bool": true
                       }
                     },
                     {
@@ -633,12 +642,29 @@
                       "key": {
                         "vec": [
                           {
-                            "symbol": "ModeDemo"
+                            "symbol": "Plafonds"
                           }
                         ]
                       },
                       "val": {
-                        "bool": true
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "caisse_bps"
+                            },
+                            "val": {
+                              "i128": "10000"
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "fixe"
+                            },
+                            "val": {
+                              "i128": "10000000000000"
+                            }
+                          }
+                        ]
                       }
                     },
                     {
