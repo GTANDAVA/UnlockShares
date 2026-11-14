@@ -49,8 +49,8 @@ export function HomePage() {
         <div className="chart jarbox"><Jar /></div>
       </section>
 
-      <details className="home-more">
-      <summary><h2>Earn</h2><span className="muted">{s.lent ? usdc(s.lent) : 'Not lending yet'}</span></summary>
+      <div className="divider" />
+      <h2>Earn</h2>
       {s.lent ? (
         <div className="tbl"><table>
           <thead><tr><th>Asset</th><th>Hub</th><th>Your deposits</th><th>Yearly yield<Term>APY</Term></th><th>Earnings</th><th /></tr></thead>
@@ -66,12 +66,10 @@ export function HomePage() {
       ) : (
         <div className="empty"><b>Start earning</b><span className="muted">Lend your USDC to borrowers and earn interest</span><button className="btn" onClick={() => open('lend')}><CircleArrowDown className="i" aria-hidden />Lend</button></div>
       )}
-      </details>
 
-      <details className="home-more">
-      <summary><h2>Market Positions</h2><span className="muted">{s.shares ? `${s.shares} AAPL as guarantee` : 'No loan yet'}</span></summary>
+      <div className="divider" />
       <div className="head">
-        <span />
+        <h2>Market Positions</h2>
         <div className="chips">
           <button className={`round ${view === 'grid' ? 'on' : ''}`} onClick={() => setView('grid')} aria-label="Cards"><LayoutGrid className="i" aria-hidden /></button>
           <button className={`round ${view === 'list' ? 'on' : ''}`} onClick={() => setView('list')} aria-label="Details"><List className="i" aria-hidden /></button>
@@ -106,10 +104,9 @@ export function HomePage() {
           </div>
         </div>
       )}
-      </details>
 
-      <details className="home-more">
-      <summary><h2>Your Balance</h2><span className="muted">USDC, AAPL, XLM</span></summary>
+      <div className="divider" />
+      <h2>Your Balance</h2>
       <div className="tbl"><table>
         <thead><tr><th>Asset</th><th>Wallet balance</th><th>Used as guarantee</th><th>Yearly yield if lent<Term>deposit APY</Term></th></tr></thead>
         <tbody>
@@ -118,7 +115,6 @@ export function HomePage() {
           <tr><td><div className="asset"><Coin kind="xlm">XLM</Coin><div>Stellar Lumens<small>XLM, pays network fees</small></div></div></td><td>{Math.round(s.xlm).toLocaleString('fr-FR')} XLM<small>fees ≈ 0,001 € per action</small></td><td>–</td><td>–</td></tr>
         </tbody>
       </table></div>
-      </details>
     </>
   )
 }
