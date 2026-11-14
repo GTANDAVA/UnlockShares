@@ -4,7 +4,7 @@ import {
 import { useState, type ReactNode } from 'react'
 import { useDemo } from '../lib/useDemo'
 import { chain } from '../chainConfig'
-import { court, lienCompte } from '../services/chain'
+import { court, jetonPret, lienCompte } from '../services/chain'
 import { useDemoUi } from './demo'
 import { useConnect, useFaucet } from './Onboarding'
 
@@ -76,7 +76,7 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
             <label className="search"><Search className="i" aria-hidden /><input placeholder="Search assets and markets" aria-label="Search" /><span className="kbd">/</span></label>
             <button className="round" aria-label="Lend" title="Lend" onClick={() => open('lend')}><Plus className="i" aria-hidden /></button>
             {live && s.address && s.ready && (
-              <button className="round" aria-label="Get test tokens" title="Get test tokens: 100 tAAPL (hourly) + 20 USDC (daily)" onClick={faucet} disabled={!!s.busy}><Droplets className="i" aria-hidden /></button>
+              <button className="round" aria-label="Get test tokens" title={`Get test tokens: test Apple shares (hourly)${chain.distributeur ? ` + test ${jetonPret()} (daily)` : ''}`} onClick={faucet} disabled={!!s.busy}><Droplets className="i" aria-hidden /></button>
             )}
             {!live ? (
               <span className="wallet" title="No wallet is connected in this demo"><Wallet className="i" aria-hidden />Not connected</span>
@@ -90,7 +90,7 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
             {live ? (
               <>
                 <span className="rounded-full border border-safe px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-safe">Stellar testnet</span>
-                <span className="small muted">Real transactions on the test network · tokens have no value · amounts in dollars, 1 USDC = 1 dollar · <a href={lienCompte(chain.pret)} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>contract {court(chain.pret)} ↗</a></span>
+                <span className="small muted">Real transactions on the test network · tokens have no value · amounts in dollars, 1 {jetonPret()} = 1 dollar · <a href={lienCompte(chain.pret)} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>contract {court(chain.pret)} ↗</a></span>
               </>
             ) : (
               <>

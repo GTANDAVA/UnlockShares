@@ -83,6 +83,8 @@ export async function refresh() {
   if (!chainReady || refreshing) return
   refreshing = true
   try {
+    // Le nom et l'émetteur des jetons viennent du contrat (lu une seule fois).
+    await ch.chargerJetons()
     const me = chainState.address
     const [m, evs] = await Promise.all([ch.lireMarche(), ch.lireEvenements().catch((e) => {
       console.warn('Lecture des événements impossible', e)

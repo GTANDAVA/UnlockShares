@@ -2,6 +2,8 @@
 // (Leçon du jury HackMeridian : sans jetons, impossible d'utiliser l'appli.)
 import { Droplets, Wallet } from 'lucide-react'
 import { useDemo } from '../lib/useDemo'
+import { chain } from '../chainConfig'
+import { jetonPret } from '../services/chain'
 import { actions } from '../services/app'
 import { useDemoUi } from './demo'
 
@@ -51,7 +53,7 @@ export function Onboarding() {
     return (
       <div className="pos onboard">
         <b>Step 2 of 3 · Get your test tokens</b>
-        <span className="muted">One click gives you 100 test Apple shares (tAAPL) to use as collateral and 20 test USDC (Circle) to lend, pay back or cash out. Varial asks you to sign twice: once to add the tokens to your account, once to receive them.</span>
+        <span className="muted">One click gives you test Apple shares (tAAPL) to use as collateral{chain.distributeur ? <> and test {jetonPret()} to lend, pay back or cash out</> : <>; borrow to receive {jetonPret()}</>}. Varial asks you to sign twice: once to add the tokens to your account, once to receive them.</span>
         <button className="btn primary" onClick={faucet}><Droplets className="i" aria-hidden />Get test tokens</button>
       </div>
     )
@@ -60,7 +62,7 @@ export function Onboarding() {
     return (
       <div className="pos onboard">
         <b>Step 3 of 3 · Try it</b>
-        <span className="muted">Use shares as a guarantee and receive cash, or lend your USDC to the pool. Then open “Demo controls” to crash the Apple price and watch the protection sale.</span>
+        <span className="muted">Use shares as a guarantee and receive cash, or lend your {jetonPret()} to the pool. Then open “Demo controls” to crash the Apple price and watch the protection sale.</span>
       </div>
     )
 

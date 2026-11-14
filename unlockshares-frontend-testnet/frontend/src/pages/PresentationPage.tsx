@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { ChevronDown, ExternalLink, FileCode2, Gauge as GaugeIc, KeyRound, LifeBuoy } from 'lucide-react'
 import { chain } from '../chainConfig'
 import { useDemo } from '../lib/useDemo'
+import { jetonPret } from '../services/chain'
 import { DEMO } from '../services/mockDemo'
 
 // « UnlockShares en 60 secondes » : une vidéo en motion design, rendue en direct dans la page.
@@ -450,7 +451,7 @@ function Scroll() {
 // ---------- hero, confiance, FAQ (autour de la vidéo) ----------
 
 const pctLive = (x: number) => `${(x * 100).toLocaleString('en-US', { maximumFractionDigits: 2 })} %`
-const usdcLive = (n: number) => `${Math.round(n).toLocaleString('en-US')} USDC`
+const usdcLive = (n: number) => `${Math.round(n).toLocaleString('en-US')} ${jetonPret()}`
 
 /** Les 3 chiffres lus dans le contrat (même état que Home/Earn) ; « — » si la lecture échoue */
 function useLiveRates() {

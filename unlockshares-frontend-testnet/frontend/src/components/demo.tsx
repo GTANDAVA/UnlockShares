@@ -4,12 +4,13 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { StellarLogo, TokenLogo, type TokenKind } from './logos'
 import { useDemo } from '../lib/useDemo'
 import { actions, chainReady, type Done, type Kind } from '../services/app'
-import { lienTx } from '../services/chain'
+import { jetonPret, lienTx } from '../services/chain'
 import { DEMO, derive, zoneOf } from '../services/mockDemo'
 
-/** Montants en dollars : 1 USDC = 1 $ (hypothèse affichée dans le bandeau du haut) */
+/** Montants en dollars : 1 jeton prêté (USDC) = 1 $ (hypothèse affichée dans le bandeau du haut) */
 export const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
-export const usdc = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} USDC`
+/** Montant du jeton prêté, avec son nom lu sur la blockchain (USDC, USDS…) */
+export const usdc = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} ${jetonPret()}`
 
 /** Terme DeFi affiché seulement quand l'option « Afficher les termes DeFi » est cochée */
 export const Term = ({ children }: { children: ReactNode }) => <span className="term">{children}</span>
@@ -215,8 +216,8 @@ function ActionModal({ kind, onClose, onDone }: { kind: Kind; onClose: () => voi
 
   return (
     <div className="modal-bg" onClick={(e) => e.target === e.currentTarget && !sending && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={A.title}>
-        <div className="head"><h2>{A.title}</h2><button className="round" onClick={onClose} disabled={sending} aria-label="Close"><X className="i" aria-hidden /></button></div>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={A.title.replace('USDC', jetonPret())}>
+        <div className="head"><h2>{A.title.replace('USDC', jetonPret())}</h2><button className="round" onClick={onClose} disabled={sending} aria-label="Close"><X className="i" aria-hidden /></button></div>
         <div>
           <small className="muted">{A.label}</small>
           <div className="amount">

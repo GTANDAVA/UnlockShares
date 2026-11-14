@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Pill, Term, usd, usdc, useDemoUi } from '../components/demo'
 import { useDemo } from '../lib/useDemo'
 import { actions } from '../services/app'
-import { court, lienCompte, usdcLabel } from '../services/chain'
+import { court, jetonPret, lienCompte } from '../services/chain'
 import { zoneOf } from '../services/mockDemo'
 
 /** Vraie liquidation on-chain : n'importe quel compte peut rembourser un prêt devenu trop risqué et recevoir la garantie. */
@@ -34,7 +34,7 @@ export function LiquidationsPage() {
           <h1>Liquidations</h1>
           <p className="muted">
             {demo ? 'Simulation: Léa’s loan.' : 'Real transactions on Stellar testnet.'} When a loan goes above 80 % of the shares’ value, anyone can step in as liquidator:
-            they pay back debt in {usdcLabel} and receive the shares as a guarantee, worth that amount + 5 %.
+            they pay back debt in {jetonPret()} and receive the shares as a guarantee, worth that amount + 5 %.
           </p>
         </div>
       </div>
@@ -43,7 +43,7 @@ export function LiquidationsPage() {
         <div className="line"><span className="muted">Positions that can be liquidated now</span><span style={{ fontSize: 26 }}>{ready}</span></div>
         <small className="muted">
           Below about 95 %, the liquidator pays just enough to bring the loan back to 60 %. Above, they pay the whole debt and receive at most all the guarantee.
-          The pool cash is never used: the liquidator brings their own {usdcLabel}, and any extra sent to cover interest is returned at once.
+          The pool cash is never used: the liquidator brings their own {jetonPret()}, and any extra sent to cover interest is returned at once.
         </small>
       </div>
 
@@ -76,7 +76,7 @@ export function LiquidationsPage() {
         <div className="empty"><b>No open loan</b><span className="muted">Use shares as a guarantee and borrow to see positions here.</span></div>
       )}
       {!demo && !s.address && <p className="small muted">Connect Varial to liquidate.</p>}
-      {!demo && <p className="small muted">To liquidate you need {usdcLabel} on testnet and an account allowed to hold tAAPL (“Get test tokens”).</p>}
+      {!demo && <p className="small muted">To liquidate you need {jetonPret()} on testnet and an account allowed to hold tAAPL (“Get test tokens”).</p>}
     </>
   )
 }
