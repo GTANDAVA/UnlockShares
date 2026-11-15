@@ -5,7 +5,7 @@ name: Rapporteurs prix AAPL
 
 on:
   schedule:
-    - cron: '*/15 * * * *'   # Hyperliquid 24 h/24 ; Yahoo s'arrête seul hors séance de New York
+    - cron: '*/5 * * * *'   # Hyperliquid 24 h/24 ; Yahoo s'arrête seul hors séance de New York
   workflow_dispatch:
   # Essai en lecture seule depuis la branche de travail (jamais d'envoi sur un push).
   push:
