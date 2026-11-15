@@ -16,6 +16,9 @@ target/
 __pycache__/
 .env
 .env.local
+# Fichiers produits par scripts/redeploy-testnet.sh (à relire avant de les appliquer)
+.env.production.new
+.env.production.simulation
 unlockshares-frontend-testnet/frontend/tr.py
 unlockshares-frontend-testnet/frontend/strings.txt
 # Journaux locaux des scripts testnet

@@ -1,5 +1,18 @@
 # Déployer UnlockShares sur testnet (Windows, PowerShell)
 
+> **Méthode rapide (recommandée) : un seul script.** Après une réinitialisation du testnet, ou pour tout remonter de zéro :
+>
+> ```powershell
+> cd C:\Users\grego\stellar\unlockshares-app\unlockshares-app
+> & "C:\Program Files\Git\bin\bash.exe" scripts/redeploy-testnet.sh             # SIMULATION : affiche les commandes, n'envoie rien
+> & "C:\Program Files\Git\bin\bash.exe" scripts/redeploy-testnet.sh --executer  # pour de vrai (contrats v2)
+> ```
+>
+> Il recrée l'émetteur de tAAPL, les jetons (SAC), le robinet, le pool v2 et le distributeur, puis écrit `frontend/.env.production.new` à relire.
+> Restent à la main : remplir la caisse et le distributeur en USDC (`frontend/scripts/recharger-usdc.mjs`, avec `POOL_ID` et `DISTRIBUTEUR_ID`), puis appliquer le nouveau `.env.production`.
+>
+> Les étapes ci-dessous détaillent l'ancienne procédure manuelle (contrats v1).
+
 🏗️ L'image : on construit un petit marché.
 1. On imprime deux monnaies de jeu, tAAPL et tUSDC.
 2. On installe un distributeur de jetons, le robinet.

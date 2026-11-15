@@ -18,8 +18,9 @@ const ANCHOR_UI_SERVER = 'https://anchor-reference-server-testanchor.stellar.org
 const ANCHOR_KEY = 'GCHLHDBOKG2JWMJQBTLSL5XG6NO7ESXI2TAQKZXCXWXB5WI2X6W233PR'
 const USDC = new Asset('USDC', 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5')
 const USDC_SAC = 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA'
-const DISTRIBUTEUR = 'CAMCKH3GBDEPO7ONTAMIRYJ7YCZWYT3G7F6Q33L2KEPLF7AFIB43A275'
-const POOL = 'CAMRWYRLSSFF5VJB6FKZSJO3QG3CQQDMJS77LTY3E5H7C67R2NYMUDVQ'
+// Adresses par défaut = contrats en ligne ; après un redéploiement, passer DISTRIBUTEUR_ID et POOL_ID.
+const DISTRIBUTEUR = process.env.DISTRIBUTEUR_ID?.trim() || 'CAMCKH3GBDEPO7ONTAMIRYJ7YCZWYT3G7F6Q33L2KEPLF7AFIB43A275'
+const POOL = process.env.POOL_ID?.trim() || 'CCWKS7YCP62XJI6B523JLUGNQMOYXES2RD56LYKHGIDL4U2REWPTDHOK'
 
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i > 0 ? Number(process.argv[i + 1]) : d }
 const tours = arg('tours', 0), versDistributeur = arg('distributeur', 0), versPool = arg('pool', 0)

@@ -79,6 +79,12 @@ With a **new** Varial test account on Testnet:
 
 Run on 2026-11-14 with account `GCAOIADX6FZ7O2OSFXHFBSSUCZMG7IIJDWXTB5EMWTA7WG2W5EYW3QD3`: steps 1 to 3 from the app, step 5 by a second test account (tx `5485c9a6d04c7995e4e687ffc8efebf3f25a42841a88932aa79d9884595f52c8`). ✅
 
+## 5. Full redeploy script (dry run)
+
+`unlockshares-app/unlockshares-app/scripts/redeploy-testnet.sh` rebuilds everything after a testnet reset. Without `--executer` it only prints the commands (no transaction).
+
+Last dry run 2026-11-15: all steps printed, SAC addresses derived correctly (tAAPL `CDB6…JFXS`, USDC `CBIE…DAMA`), no transaction sent (checked on Horizon). ✅
+
 ## Not yet tested
 
 - A test by someone outside the team, on a fresh browser and wallet, without help.
