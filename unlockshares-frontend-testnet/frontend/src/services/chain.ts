@@ -51,7 +51,7 @@ export function messageErreur(e: unknown, contrat: 'pret' | 'robinet' = 'pret'):
   }
   if (/trustline|op_no_trust/i.test(t)) return 'Your account does not have the test tokens yet: click “Get test tokens” first.'
   // Seulement le refus du jeton tAAPL (ligne non autorisée), pas toute erreur contenant « authorization ».
-  if (/op_not_authorized|deauthorized|is not authorized/i.test(t)) return 'Your account is not yet allowed to hold the share: click “Get test tokens”.'
+  if (/op_not_authorized|deauthorized|is not authorized/i.test(t)) return `Your account is not yet allowed to hold the share: click “Get test tokens”. (Detail: ${t.slice(0, 160)})`
   if (/declined|rejected|User declined/i.test(t)) return 'Signature declined in Varial.'
   if (/Passkey cancelled/i.test(t)) return 'Passkey cancelled.'
   if (/balance|underfunded|insufficient/i.test(t)) return 'Insufficient balance.'
