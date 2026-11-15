@@ -85,12 +85,12 @@ export function GetCashPage() {
       {pret ? (
         <div className="empty"><b>Connect your wallet</b><span className="muted">Varial, set to Testnet.</span><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
       ) : etape !== 'fait' ? (
-        <div className="pos">
+        <div className="pos home-hero">
           <div className="line"><span className="muted">How much do you need?</span><span className="muted">up to {usd(plan.max)}</span></div>
           <div className="chips" style={{ alignItems: 'center' }}>
             <input
               type="number" min={0} step={1} value={saisie} onChange={(e) => setSaisie(e.target.value)} disabled={etape === 'envoi'}
-              aria-label={`Amount in ${J}`} style={{ fontSize: 26, width: 160 }}
+              aria-label={`Amount in ${J}`} style={{ font: '600 28px var(--font)', width: 180, padding: '8px 14px', border: '1px solid var(--line)', borderRadius: 12, background: 'var(--surface)', color: 'var(--ink)' }}
             />
             <span>{J}</span>
             {plan.max > 0 && <button className="btn" disabled={etape === 'envoi'} onClick={() => setSaisie(String(plan.max))}>Max</button>}
@@ -113,7 +113,7 @@ export function GetCashPage() {
           {!demo && <small className="muted">{plan.aDeposer > 0 ? 'Two signatures in Varial' : 'One signature in Varial'}, on Stellar testnet.</small>}
         </div>
       ) : (
-        <div className="pos">
+        <div className="pos home-hero">
           <div className="line"><span><Check className="i" aria-hidden /> <b>Done.</b> {usdc(montant)} are in your wallet.</span></div>
           {preuves.map((p) => (
             <small key={p.label} className="muted">✓ {p.label}{p.hash && <> · <a href={lienTx(p.hash)} target="_blank" rel="noreferrer">proof on Stellar</a></>}</small>
