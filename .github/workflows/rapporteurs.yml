@@ -7,6 +7,10 @@ on:
   schedule:
     - cron: '*/15 * * * *'   # Hyperliquid 24 h/24 ; Finnhub s'arrête seul hors séance de New York
   workflow_dispatch:
+  # Essai en lecture seule depuis la branche de travail (jamais d'envoi sur un push).
+  push:
+    branches: [feature/oracle-gratuit]
+    paths: ['robots/**', '.github/workflows/rapporteurs.yml']
 
 permissions:
   contents: read
@@ -39,7 +43,7 @@ jobs:
       - run: npm ci --omit=dev --no-audit --no-fund
       - run: node rapporteur.mjs ${{ matrix.source }}
         env:
-          ENVOYER: ${{ vars.ROBOTS_ACTIFS == 'oui' && 'oui' || 'non' }}
+          ENVOYER: ${{ github.event_name != 'push' && vars.ROBOTS_ACTIFS == 'oui' && 'oui' || 'non' }}
           ORACLE_ID: ${{ vars.ORACLE_ID }}
           RAPPORTEUR_CLE: ${{ secrets[matrix.cle] }}
           FINNHUB_CLE: ${{ secrets.FINNHUB_CLE }}
