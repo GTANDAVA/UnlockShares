@@ -3,7 +3,7 @@
 //!
 //! Analogie : deux témoins lisent le cours d'Apple chacun dans un journal différent.
 //! Le registre n'écrit le prix que s'ils disent la même chose (à 1 % près).
-//! - témoin « bourse »  : un robot qui lit Finnhub (cours de la Bourse de New York) ;
+//! - témoin « bourse »  : un robot qui lit Yahoo Finance (cours de la Bourse de New York) ;
 //! - témoin « continu » : un robot qui lit le prix oracle de Hyperliquid (24 h/24).
 //!
 //! Pendant la séance, il faut l'accord des deux. Hors séance (le témoin bourse se tait depuis
@@ -45,7 +45,7 @@ pub struct PriceData {
 #[contracttype]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Role {
-    /// Finnhub : la Bourse, seulement pendant la séance.
+    /// Yahoo Finance : la Bourse, seulement pendant la séance.
     Bourse,
     /// Hyperliquid : 24 h/24.
     Continu,
