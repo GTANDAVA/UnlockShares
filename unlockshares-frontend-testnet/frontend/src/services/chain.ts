@@ -128,6 +128,8 @@ export type Marche = {
   prix: number; totalFourni: number; totalEmprunte: number; caisse: number; modeDemo: boolean
   /** Fractions : 0.07 = 7 % */
   utilisation: number; tauxEmprunt: number; tauxDepot: number; reserve: number
+  /** V2 : dette max par adresse (jeton prêté) et part max de la caisse par emprunt (fraction) */
+  plafondFixe?: number; plafondCaisse?: number
 }
 export type Position = { garantie: number; dette: number; valeur: number; ltv: number; disponible: number; prixLiquidation: number; liquidable: boolean
   /** V2 seulement : prix utilisé pour CETTE position (prix de démo perso s'il existe) */
@@ -145,6 +147,8 @@ export async function lireMarche(): Promise<Marche> {
     tauxEmprunt: Number(m.taux_emprunt_bps ?? 0) / 10_000,
     tauxDepot: Number(m.taux_depot_bps ?? 0) / 10_000,
     reserve: fromUnits(m.reserve as bigint | undefined),
+    plafondFixe: m.plafond_fixe === undefined ? undefined : fromUnits(m.plafond_fixe as bigint),
+    plafondCaisse: m.plafond_caisse_bps === undefined ? undefined : Number(m.plafond_caisse_bps) / 10_000,
   }
 }
 

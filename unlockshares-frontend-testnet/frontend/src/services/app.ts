@@ -20,7 +20,9 @@ export type AppState = Omit<DemoState, 'history'> & {
   /** Taux en fractions (0.07 = 7 % par an), lus dans le contrat */
   market: { totalLent: number; totalBorrowed: number; cash: number; demoOpen: boolean; used: number; borrowRate: number; lendRate: number
     /** V2 : prix de référence (admin). Chaque position peut avoir son propre prix de démo, au plus égal à celui-ci. */
-    refPrice?: number }
+    refPrice?: number
+    /** V2 : dette max par adresse, et part max de la caisse par emprunt (fraction) */
+    capPerAddress?: number; capCashShare?: number }
   /** Emprunteurs connus, pour la page Contrôles de démo */
   borrowers: { address: string; shares: number; debt: number; ltv: number; liquidable: boolean; price?: number }[]
   /** Action en cours (affichée à l'écran) */
@@ -108,7 +110,7 @@ export async function refresh() {
       price: m.prix,
       market: {
         totalLent: m.totalFourni, totalBorrowed: m.totalEmprunte, cash: m.caisse, demoOpen: m.modeDemo,
-        used: m.utilisation, borrowRate: m.tauxEmprunt, lendRate: m.tauxDepot, refPrice: m.prix,
+        used: m.utilisation, borrowRate: m.tauxEmprunt, lendRate: m.tauxDepot, refPrice: m.prix, capPerAddress: m.plafondFixe, capCashShare: m.plafondCaisse,
       },
       borrowers,
       history,
@@ -187,7 +189,12 @@ export const actions = {
     if (kind === 'withdrawLend') return Math.min(s.lent, s.market.cash)
     if (kind === 'deposit') return s.walletShares
     if (kind === 'withdraw') return s.debt ? Math.max(0, s.shares - s.debt / (DEMO.ltvMax * s.price)) : s.shares
-    if (kind === 'borrow') return Math.max(0, Math.min(value * DEMO.ltvMax - s.debt, s.market.cash))
+    if (kind === 'borrow') {
+      // V2 : plafond par adresse et part max de la caisse par emprunt
+      const parAdresse = s.market.capPerAddress === undefined ? Infinity : s.market.capPerAddress - s.debt
+      const parCaisse = s.market.capCashShare === undefined ? s.market.cash : s.market.cash * s.market.capCashShare
+      return Math.max(0, Math.min(value * DEMO.ltvMax - s.debt, s.market.cash, parAdresse, parCaisse))
+    }
     return Math.min(s.debt, s.usdc)
   },
   async run(kind: Kind, amount: number): Promise<Done> {

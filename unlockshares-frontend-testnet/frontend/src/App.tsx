@@ -7,6 +7,7 @@ import { BorrowPage } from './pages/BorrowPage'
 import { CashOutPage } from './pages/CashOutPage'
 import { DemoPage } from './pages/DemoPage'
 import { EarnPage } from './pages/EarnPage'
+import { GetCashPage } from './pages/GetCashPage'
 import { HomePage } from './pages/HomePage'
 import { LiquidationsPage } from './pages/LiquidationsPage'
 import { PresentationPage } from './pages/PresentationPage'
@@ -24,6 +25,7 @@ const VIEWS: Record<PageId, () => React.JSX.Element> = {
   emprunter: BorrowPage,
   demo: DemoPage,
   liquidations: LiquidationsPage,
+  cash: GetCashPage,
   retrait: CashOutPage,
   ajouter: AddMoneyPage,
 }

@@ -1,4 +1,4 @@
-import { CircleArrowDown, CircleArrowUp, LayoutGrid, List, Lock } from 'lucide-react'
+import { CircleArrowDown, CircleArrowUp, HandCoins, LayoutGrid, List, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { Coin, usd, Gauge, Jar, LimitBlock, Pill, Stack, Term, usdc, useDemoUi } from '../components/demo'
 import { StellarLogo } from '../components/logos'
@@ -29,6 +29,7 @@ export function HomePage() {
       <div className="head">
         <h1>{hello}{demo ? ', Léa' : ''}</h1>
         <div className="chips">
+          <a className="btn primary" href="#cash"><HandCoins className="i" aria-hidden />Get cash</a>
           <button className="btn" onClick={() => open('deposit')}><Lock className="i" aria-hidden />Use as guarantee</button>
           <button className="btn" onClick={() => open('borrow')} disabled={!s.shares}><CircleArrowUp className="i" aria-hidden />Borrow</button>
           <button className="btn" onClick={() => open('lend')}><CircleArrowDown className="i" aria-hidden />Lend</button>
