@@ -5,7 +5,7 @@ name: Rapporteurs prix AAPL
 
 on:
   schedule:
-    - cron: '*/15 * * * *'   # Hyperliquid 24 h/24 ; Finnhub s'arrête seul hors séance de New York
+    - cron: '*/15 * * * *'   # Hyperliquid 24 h/24 ; Yahoo s'arrête seul hors séance de New York
   workflow_dispatch:
   # Essai en lecture seule depuis la branche de travail (jamais d'envoi sur un push).
   push:
@@ -27,7 +27,7 @@ jobs:
         include:
           - source: hyperliquid
             cle: RAPPORTEUR_CONTINU_CLE
-          - source: finnhub
+          - source: yahoo
             cle: RAPPORTEUR_BOURSE_CLE
     name: Robot ${{ matrix.source }}
     runs-on: ubuntu-latest
@@ -46,4 +46,4 @@ jobs:
           ENVOYER: ${{ github.event_name != 'push' && vars.ROBOTS_ACTIFS == 'oui' && 'oui' || 'non' }}
           ORACLE_ID: ${{ vars.ORACLE_ID }}
           RAPPORTEUR_CLE: ${{ secrets[matrix.cle] }}
-          FINNHUB_CLE: ${{ secrets.FINNHUB_CLE }}
+          FORCER_LECTURE: ${{ github.event_name == 'push' && 'oui' || 'non' }}

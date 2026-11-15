@@ -2,7 +2,7 @@
 // Aucune dépendance : ce fichier se teste sans réseau (on lui passe un faux `fetch`).
 
 export const DECIMALES = 7;
-const AGE_MAX_FINNHUB_S = 30 * 60; // un cours de plus de 30 min est trop vieux
+const AGE_MAX_BOURSE_S = 30 * 60; // un cours de plus de 30 min est trop vieux
 const BORNES = { min: 1, max: 10_000 }; // en dollars, garde-fou local avant l'envoi
 
 /** "187.405" -> 1874050000n (7 décimales), sans passer par les nombres à virgule. */
@@ -28,7 +28,7 @@ function verifierBornes(unites) {
   return unites;
 }
 
-/** Séance de New York ouverte (lun-ven, 9 h 30 - 16 h, heure de New York) ? Jours fériés non gérés : Finnhub renvoie alors un vieux cours, refusé par l'âge. */
+/** Séance de New York ouverte (lun-ven, 9 h 30 - 16 h, heure de New York) ? Jours fériés non gérés : Yahoo renvoie alors un vieux cours, refusé par l'âge. */
 export function seanceOuverte(date = new Date()) {
   const p = Object.fromEntries(
     new Intl.DateTimeFormat('en-US', {
@@ -58,14 +58,18 @@ export async function lireHyperliquid(fetchFn = fetch, marche = 'xyz:AAPL') {
   return { source: 'hyperliquid', prix: verifierBornes(versUnites(ctx.oraclePx)), date: new Date() };
 }
 
-/** Finnhub : dernier cours de bourse (offre gratuite, clé personnelle). */
-export async function lireFinnhub(fetchFn = fetch, cle, maintenant = new Date()) {
-  if (!cle) throw new Error('clé Finnhub manquante (secret FINNHUB_CLE)');
-  const r = await fetchFn(`https://finnhub.io/api/v1/quote?symbol=AAPL&token=${encodeURIComponent(cle)}`);
-  if (!r.ok) throw new Error(`Finnhub HTTP ${r.status}`);
-  const q = await r.json();
-  if (!(q.c > 0) || !(q.t > 0)) throw new Error('cours Finnhub vide');
-  const age = Math.floor(maintenant.getTime() / 1000) - q.t;
-  if (age > AGE_MAX_FINNHUB_S) throw new Error(`cours Finnhub trop vieux (${Math.round(age / 60)} min)`);
-  return { source: 'finnhub', prix: verifierBornes(versUnites(q.c.toString())), date: new Date(q.t * 1000) };
+/** Yahoo Finance : dernier cours de bourse (adresse publique du graphique, sans clé, non officielle). */
+export async function lireYahoo(fetchFn = fetch, maintenant = new Date(), ageMaxS = AGE_MAX_BOURSE_S) {
+  const r = await fetchFn('https://query1.finance.yahoo.com/v8/finance/chart/AAPL?interval=1m&range=1d', {
+    headers: { 'user-agent': 'Mozilla/5.0 (UnlockShares price robot)', accept: 'application/json' },
+  });
+  if (!r.ok) throw new Error(`Yahoo HTTP ${r.status}`);
+  const j = await r.json();
+  const meta = j?.chart?.result?.[0]?.meta;
+  if (!meta || !(meta.regularMarketPrice > 0) || !(meta.regularMarketTime > 0)) throw new Error('cours Yahoo vide');
+  if (meta.symbol && meta.symbol !== 'AAPL') throw new Error(`mauvais titre : ${meta.symbol}`);
+  if (meta.currency && meta.currency !== 'USD') throw new Error(`mauvaise devise : ${meta.currency}`);
+  const age = Math.floor(maintenant.getTime() / 1000) - meta.regularMarketTime;
+  if (age > ageMaxS) throw new Error(`cours Yahoo trop vieux (${Math.round(age / 60)} min)`);
+  return { source: 'yahoo', prix: verifierBornes(versUnites(meta.regularMarketPrice.toString())), date: new Date(meta.regularMarketTime * 1000) };
 }

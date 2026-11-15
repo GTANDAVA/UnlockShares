@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lireFinnhub, lireHyperliquid, seanceOuverte, versDollars, versUnites } from './sources.mjs';
+import { lireYahoo, lireHyperliquid, seanceOuverte, versDollars, versUnites } from './sources.mjs';
 
 const reponse = (corps, ok = true, status = 200) => async () => ({ ok, status, json: async () => corps });
 
@@ -28,14 +28,19 @@ test('Hyperliquid : marché absent ou prix absurde refusé', async () => {
   await assert.rejects(lireHyperliquid(reponse({}, false, 500)), /HTTP 500/);
 });
 
-test('Finnhub : cours récent accepté, vieux cours refusé', async () => {
+const yahoo = (prix, t, extra = {}) => ({ chart: { result: [{ meta: { symbol: 'AAPL', currency: 'USD', regularMarketPrice: prix, regularMarketTime: t, ...extra } }] } });
+
+test('Yahoo : cours récent accepté, vieux cours ou mauvais titre refusé', async () => {
   const t = 1_763_200_000;
   const maintenant = new Date((t + 60) * 1000);
-  const lu = await lireFinnhub(reponse({ c: 187.4, t }), 'cle', maintenant);
+  const lu = await lireYahoo(reponse(yahoo(187.4, t)), maintenant);
   assert.equal(lu.prix, 1_874_000_000n);
-  await assert.rejects(lireFinnhub(reponse({ c: 187.4, t }), 'cle', new Date((t + 3600) * 1000)), /trop vieux/);
-  await assert.rejects(lireFinnhub(reponse({ c: 0, t: 0 }), 'cle', maintenant), /vide/);
-  await assert.rejects(lireFinnhub(reponse({ c: 187.4, t }), '', maintenant), /clé/);
+  await assert.rejects(lireYahoo(reponse(yahoo(187.4, t)), new Date((t + 3600) * 1000)), /trop vieux/);
+  await assert.rejects(lireYahoo(reponse(yahoo(0, t)), maintenant), /vide/);
+  await assert.rejects(lireYahoo(reponse(yahoo(187.4, t, { symbol: 'MSFT' })), maintenant), /mauvais titre/);
+  await assert.rejects(lireYahoo(reponse(yahoo(187.4, t, { currency: 'EUR' })), maintenant), /devise/);
+  await assert.rejects(lireYahoo(reponse({ chart: { result: null } }), maintenant), /vide/);
+  await assert.rejects(lireYahoo(reponse({}, false, 429)), /HTTP 429/);
 });
 
 test('séance de New York', () => {

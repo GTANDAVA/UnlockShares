@@ -3,22 +3,25 @@
 // Il n'envoie que si ENVOYER=oui ET que les secrets sont présents.
 //
 //   node rapporteur.mjs hyperliquid      (24 h/24)
-//   node rapporteur.mjs finnhub          (pendant la séance de New York seulement)
+//   node rapporteur.mjs yahoo            (pendant la séance de New York seulement)
 //
-// Variables : ENVOYER, ORACLE_ID, RAPPORTEUR_CLE (secret), FINNHUB_CLE (secret),
+// Variables : ENVOYER, ORACLE_ID, RAPPORTEUR_CLE (secret),
+//             FORCER_LECTURE=oui (lecture seule : lit Yahoo même séance fermée, pour tester),
 //             RPC_URL (défaut testnet), RESEAU (défaut testnet).
-import { lireFinnhub, lireHyperliquid, seanceOuverte, versDollars } from './sources.mjs';
+import { lireYahoo, lireHyperliquid, seanceOuverte, versDollars } from './sources.mjs';
 
 const source = process.argv[2];
 const envoyer = process.env.ENVOYER === 'oui';
 
 async function lire() {
   if (source === 'hyperliquid') return lireHyperliquid(fetch, process.env.MARCHE_HL || 'xyz:AAPL');
-  if (source === 'finnhub') {
+  if (source === 'yahoo') {
+    // Le test forcé n'existe qu'en lecture seule : un vieux cours n'est jamais envoyé.
+    if (process.env.FORCER_LECTURE === 'oui' && !envoyer) return lireYahoo(fetch, new Date(), Infinity);
     if (!seanceOuverte()) return null;
-    return lireFinnhub(fetch, process.env.FINNHUB_CLE);
+    return lireYahoo(fetch);
   }
-  throw new Error('source inconnue : hyperliquid ou finnhub');
+  throw new Error('source inconnue : hyperliquid ou yahoo');
 }
 
 async function soumettre(prix) {

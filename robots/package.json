@@ -2,11 +2,11 @@
   "name": "unlockshares-rapporteurs",
   "private": true,
   "type": "module",
-  "description": "Deux robots qui lisent le cours d'Apple (Hyperliquid, Finnhub) et l'envoient au contrat oracle-prix.",
+  "description": "Deux robots qui lisent le cours d'Apple (Hyperliquid, Yahoo) et l'envoient au contrat oracle-prix.",
   "scripts": {
     "test": "node --test",
     "hyperliquid": "node rapporteur.mjs hyperliquid",
-    "finnhub": "node rapporteur.mjs finnhub"
+    "yahoo": "node rapporteur.mjs yahoo"
   },
   "engines": { "node": ">=20" },
   "dependencies": {
