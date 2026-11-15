@@ -124,7 +124,11 @@ export function GetCashPage() {
           {!demo && s.address && J === 'USDC' ? (
             <>
               <b>Turn it into cash</b>
-              <MoneyGramCard address={s.address} />
+              {pk ? (
+                <small className="muted">MoneyGram cash pickup needs the Varial wallet for now: your USDC stay in your passkey account.</small>
+              ) : (
+                <MoneyGramCard address={s.address} />
+              )}
             </>
           ) : (
             <small className="muted">{demo ? 'In the live app, MoneyGram turns the USDC into cash at a shop near you.' : `MoneyGram only accepts Circle USDC: on this test pool the ${J} stay in your wallet.`}</small>
