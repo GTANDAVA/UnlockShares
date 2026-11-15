@@ -41,7 +41,7 @@ export function GetCashPage() {
   const connect = useConnect()
   const demo = s.mode === 'demo'
   const J = jetonPret()
-  const [saisie, setSaisie] = useState('20')
+  const [saisie, setSaisie] = useState('')
   const [etape, setEtape] = useState<Etape>('saisie')
   const [progres, setProgres] = useState('')
   const [preuves, setPreuves] = useState<{ label: string; hash?: string }[]>([])
@@ -86,14 +86,13 @@ export function GetCashPage() {
         <div className="empty"><b>Connect your wallet</b><span className="muted">Varial, set to Testnet.</span><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
       ) : etape !== 'fait' ? (
         <div className="pos">
-          <div className="line"><span className="muted">How much do you need?</span><span className="muted">max {usd(plan.max)}</span></div>
+          <div className="line"><span className="muted">How much do you need?</span><span className="muted">up to {usd(plan.max)}</span></div>
           <div className="chips" style={{ alignItems: 'center' }}>
             <input
               type="number" min={0} step={1} value={saisie} onChange={(e) => setSaisie(e.target.value)} disabled={etape === 'envoi'}
               aria-label={`Amount in ${J}`} style={{ fontSize: 26, width: 160 }}
             />
             <span>{J}</span>
-            {[10, 20].filter((v) => v < plan.max).map((v) => <button key={v} className="btn" disabled={etape === 'envoi'} onClick={() => setSaisie(String(v))}>{usd(v)}</button>)}
             {plan.max > 0 && <button className="btn" disabled={etape === 'envoi'} onClick={() => setSaisie(String(plan.max))}>Max</button>}
           </div>
 
