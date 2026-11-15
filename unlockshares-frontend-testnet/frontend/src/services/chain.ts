@@ -20,7 +20,7 @@ export const toUnits = (n: number) => BigInt(Math.round(n * UNITE))
 const addr = (a: string) => new Address(a).toScVal()
 const i128 = (n: number) => nativeToScVal(toUnits(n), { type: 'i128' })
 const i128u = (u: bigint) => nativeToScVal(u, { type: 'i128' })
-const V2 = chain.pretVersion === 2
+const V2 = chain.pretVersion >= 2 // v3 garde l'interface v2 (+ oracle)
 /** V2 : le contrat débite exactement le montant signé, puis rend l'excédent. La dette grandit de quelques unités
  *  entre la lecture et l'exécution : on ajoute une petite marge (0,01 % + 1000 unités) pour couvrir cet écart. */
 const avecMarge = (u: bigint) => u + u / 10_000n + 1_000n

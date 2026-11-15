@@ -14,7 +14,7 @@ export function DemoPage() {
   const { toast } = useDemoUi()
   const demo = s.mode === 'demo'
   // V2 : le prix de démo ne touche que MA position et ne peut pas dépasser le prix de référence.
-  const perso = !demo && chain.pretVersion === 2
+  const perso = !demo && chain.pretVersion >= 2
   const maxPrice = perso ? Math.max(5, Math.floor(s.market.refPrice ?? 260)) : 260
   const [price, setPrice] = useState(s.price || 100)
   const [sending, setSending] = useState(false)
