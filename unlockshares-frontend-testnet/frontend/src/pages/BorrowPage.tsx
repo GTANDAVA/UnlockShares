@@ -1,5 +1,6 @@
 import { Coin, usd, Filters, Pill, Ring, Term, usdc, useDemoUi } from '../components/demo'
 import { StellarLogo, TokenLogo } from '../components/logos'
+import { MarketHoursNote } from '../components/MarketHoursNote'
 import { useDemo } from '../lib/useDemo'
 import { jetonPret, nomJetonPret } from '../services/chain'
 import { DEMO, derive } from '../services/mockDemo'
@@ -36,6 +37,7 @@ export function BorrowPage() {
           <a className="btn primary" href="#retrait">Cash out</a>
         </div>
       )}
+      <MarketHoursNote />
       <Filters list={['Markets', 'Assets', 'Guarantee']} />
       <div className="hub">
         <h3><StellarLogo />Stellar Stocks Market</h3>
