@@ -2,7 +2,7 @@
 // Analogie : le relevé de compte. Horizon donne toutes les lignes ; on garde l'USDC, on retire les opérations du pool
 // (déjà dans l'historique du protocole) et on nomme les guichets qu'on reconnaît (MoneyGram, anchor).
 import { chain } from '../chainConfig'
-import { horizon } from './chain'
+import { horizon, lireTransfertsUsdc } from './chain'
 
 export type Kind = 'mg-out' | 'mg-in' | 'anchor-in'
 type Tag = { kind: Kind; ref?: string }
@@ -29,8 +29,14 @@ type Change = { asset_code?: string; asset_issuer?: string; from?: string; to?: 
 type Rec = { transaction_attr?: { memo_type?: string }; type: string; transaction_hash: string; created_at: string; from?: string; to?: string; amount?: string; asset_code?: string; asset_issuer?: string; asset_balance_changes?: Change[] }
 
 export async function lireMouvements(address: string): Promise<Movement[]> {
-  // Compte passkey (contrat C…) : Horizon ne le connaît pas, et MoneyGram / anchors n'y sont pas encore branchés.
-  if (address.startsWith('C')) return []
+  // Compte passkey (contrat C…) : Horizon ne le connaît pas, on lit les événements du jeton USDC (derniers jours).
+  if (address.startsWith('C')) {
+    const tags = readTags()
+    return (await lireTransfertsUsdc(address)).map((m) => {
+      const t = tags[m.hash]
+      return { ...m, label: t ? LABELS[t.kind] : m.other === chain.distributeur ? 'Test USDC (dispenser)' : m.dir === 'in' ? 'Received' : 'Sent', ref: t?.ref }
+    })
+  }
   const page = await horizon.payments().forAccount(address).order('desc').limit(100).join('transactions').call()
   const tags = readTags()
   const out: Movement[] = []

@@ -3,7 +3,7 @@
 import { getAddress, getNetworkDetails, isConnected, requestAccess, signTransaction, WatchWalletChanges } from '@stellar/freighter-api'
 import {
   Account, Address, Asset, BASE_FEE, Contract, Horizon, Networks, Operation, TransactionBuilder, nativeToScVal, rpc, scValToNative,
-  type Transaction, type xdr,
+  type Transaction, xdr,
 } from '@stellar/stellar-sdk'
 import { chain, chainReady } from '../chainConfig'
 import * as passkey from './passkey'
@@ -513,3 +513,53 @@ export function emprunteurs(evs: Evenement[]): string[] {
 export const lienTx = (hash: string) => `${chain.explorer}/tx/${hash}`
 export const lienCompte = (a: string) => `${chain.explorer}/${a.startsWith('C') ? 'contract' : 'account'}/${a}`
 export const court = (a: string) => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '')
+
+/* ---------- Mouvements d'USDC d'un compte passkey (contrat C…) ---------- */
+
+export type TransfertUsdc = { hash: string; date: Date; dir: 'in' | 'out'; amount: number; other: string }
+
+/**
+ * Horizon ne connaît pas les comptes contrat : on lit les événements du jeton USDC (transfert, création) sur le RPC.
+ * Analogie : au lieu du relevé de la banque, on lit les tickets de caisse du jeton qui portent l'adresse du compte.
+ * Le RPC ne garde que quelques jours d'historique.
+ */
+export async function lireTransfertsUsdc(qui: string): Promise<TransfertUsdc[]> {
+  await chargerJetons()
+  const usdc = new Asset(chain.usdcCode, chain.emetteurUsdc).contractId(PASS)
+  const moi = addr(qui).toXDR('base64')
+  const s = (t: string) => xdr.ScVal.scvSymbol(t).toXDR('base64')
+  const filters = [{
+    type: 'contract' as const,
+    contractIds: [usdc],
+    topics: [
+      [s('transfer'), moi, '*', '*'], // envoyé
+      [s('transfer'), '*', moi, '*'], // reçu
+      [s('mint'), moi, '*'], // créé pour moi (format actuel)
+      [s('mint'), '*', moi, '*'], // créé pour moi (ancien format)
+    ],
+  }]
+  const dernier = (await server.getLatestLedger()).sequence
+  const debuts: number[] = []
+  for (let l = Math.max(1, dernier - 6 * 17_280); l <= dernier; l += 10_000) debuts.push(l)
+  const lus = await Promise.allSettled(debuts.map((l) => server.getEvents({ startLedger: l, filters, limit: 200 })))
+  const evs = lus.flatMap((r) => (r.status === 'fulfilled' ? r.value.events : []))
+  const vus = new Set<string>()
+  const out: TransfertUsdc[] = []
+  for (const e of evs) {
+    if (vus.has(e.id)) continue
+    vus.add(e.id)
+    const t = e.topic.map((x) => { try { return scValToNative(x) as unknown } catch { return null } })
+    const genre = String(t[0])
+    const de = genre === 'transfer' ? String(t[1]) : ''
+    const vers = genre === 'transfer' ? String(t[2]) : t.length === 3 ? String(t[1]) : String(t[2])
+    const dir = vers === qui ? 'in' : de === qui ? 'out' : null
+    if (!dir) continue
+    const v = scValToNative(e.value) as bigint | { amount: bigint }
+    const brut = typeof v === 'bigint' ? v : v?.amount
+    if (brut === undefined) continue
+    const other = (dir === 'in' ? de : vers) || chain.emetteurUsdc // création : vient de l'émetteur
+    if (other === chain.pret) continue // prêt / emprunt : déjà dans l'historique du protocole
+    out.push({ hash: e.txHash, date: new Date(e.ledgerClosedAt), dir, amount: fromUnits(brut), other })
+  }
+  return out.sort((a, b) => b.date.getTime() - a.date.getTime())
+}
