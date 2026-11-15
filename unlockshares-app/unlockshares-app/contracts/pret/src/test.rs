@@ -681,3 +681,55 @@ fn v3_fixer_oracle_admin_seulement() {
     d.env.mock_auths(&[]);
     assert!(d.pret.try_fixer_oracle(&Some((o, aapl_sep40()))).is_err());
 }
+
+// --- Passkeys : l'emprunteur est un compte intelligent (adresse C…, contrat avec __check_auth) ---
+mod compte_intelligent {
+    use soroban_sdk::{auth::Context, contract, contracterror, contractimpl, crypto::Hash, Env, Vec};
+
+    #[contracterror]
+    #[derive(Copy, Clone, Debug, PartialEq)]
+    pub enum ErreurCompte { Refuse = 1 }
+
+    /// Compte minimal façon Smart Account Kit : c'est lui qui valide les signatures.
+    #[contract]
+    pub struct CompteIntelligent;
+
+    #[contractimpl]
+    impl CompteIntelligent {
+        #[allow(non_snake_case)]
+        pub fn __check_auth(_env: Env, _charge: Hash<32>, _signature: (), _contextes: Vec<Context>) -> Result<(), ErreurCompte> {
+            Ok(())
+        }
+    }
+}
+
+#[test]
+fn passkey_un_compte_intelligent_peut_deposer_emprunter_rembourser_retirer() {
+    let d = decor(false);
+    let compte = d.env.register(compte_intelligent::CompteIntelligent, ());
+    StellarAssetClient::new(&d.env, &d.aapl.address).mint(&compte, &(10 * U));
+
+    d.pret.deposer(&compte, &(10 * U));
+    signe_par(&d, &compte);
+    d.pret.emprunter(&compte, &(200 * U));
+    signe_par(&d, &compte);
+    assert_eq!(d.usdc.balance(&compte), 200 * U);
+
+    assert_eq!(d.pret.rembourser(&compte, &(200 * U)), 200 * U);
+    signe_par(&d, &compte);
+    d.pret.retirer(&compte, &(10 * U));
+    signe_par(&d, &compte);
+    assert_eq!(d.aapl.balance(&compte), 10 * U);
+    assert_eq!(d.usdc.balance(&compte), 0);
+}
+
+#[test]
+fn passkey_un_compte_intelligent_peut_preter_et_retirer() {
+    let d = decor(false);
+    let compte = d.env.register(compte_intelligent::CompteIntelligent, ());
+    StellarAssetClient::new(&d.env, &d.usdc.address).mint(&compte, &(50 * U));
+    d.pret.fournir(&compte, &(50 * U));
+    signe_par(&d, &compte);
+    d.pret.retirer_fonds(&compte, &(50 * U));
+    assert_eq!(d.usdc.balance(&compte), 50 * U);
+}

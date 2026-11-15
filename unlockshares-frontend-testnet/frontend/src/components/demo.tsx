@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { StellarLogo, TokenLogo, type TokenKind } from './logos'
 import { useDemo } from '../lib/useDemo'
 import { actions, chainReady, type Done, type Kind } from '../services/app'
-import { jetonPret, lienTx } from '../services/chain'
+import { estPasskey, jetonPret, lienTx } from '../services/chain'
 import { DEMO, derive, zoneOf } from '../services/mockDemo'
 
 /** Montants en dollars : 1 jeton prêté (USDC) = 1 $ (hypothèse affichée dans le bandeau du haut) */
@@ -234,10 +234,10 @@ function ActionModal({ kind, onClose, onDone }: { kind: Kind; onClose: () => voi
         )}
         {err && <p role="alert" className="small s-danger">{err}</p>}
         <button className="btn primary" disabled={!ok} onClick={confirm} style={{ justifyContent: 'center', padding: 12 }}>
-          {sending ? 'Signing and sending…' : chainReady ? 'Confirm in Varial' : 'Confirm (simulation)'}<Term>sign transaction</Term>
+          {sending ? 'Signing and sending…' : chainReady ? (estPasskey(s.address) ? 'Confirm with passkey' : 'Confirm in Varial') : 'Confirm (simulation)'}<Term>sign transaction</Term>
         </button>
         <small className="muted">
-          {chainReady ? 'Varial opens to sign. The transaction is sent to Stellar testnet (fee ≈ 0.0001 XLM).' : 'Demo: no wallet is connected and nothing is sent to Stellar.'}
+          {chainReady ? (estPasskey(s.address) ? 'Face ID or your fingerprint confirms it. Sent to Stellar testnet; UnlockShares pays the network fee.' : 'Varial opens to sign. The transaction is sent to Stellar testnet (fee ≈ 0.0001 XLM).') : 'Demo: no wallet is connected and nothing is sent to Stellar.'}
         </small>
       </div>
     </div>
