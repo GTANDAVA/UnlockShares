@@ -177,3 +177,14 @@ Remove-Item Env:ADMIN_SECRET
 ```
 
 Vérifier : `stellar contract invoke --id distributeur-usdc --source-account greg --network testnet --send=no -- reserve`
+
+## Comptes passkey et relais des frais
+
+Les comptes passkey (Face ID, empreinte) sont des comptes intelligents Stellar (adresse C…) créés avec
+[smart-account-kit](https://github.com/stellar/smart-account-kit) 0.10 (compte `stellar-accounts` v0.8.0, contrats officiels déjà déployés sur testnet).
+Les frais réseau sont payés par OpenZeppelin Channels via la fonction Vercel `api/relais.js`.
+
+- Variable Vercel **secrète** `OZ_CHANNELS_KEY` : la valeur `apiKey` renvoyée par `https://channels.openzeppelin.com/testnet/gen`.
+- Le relais n'accepte que la création du compte passkey officiel et les fonctions utilisateur du prêt, du robinet et du distributeur
+  (liste `CIBLES` dans `api/_relais.js`). **Si un de ces contrats est redéployé, mettre à jour `CIBLES`.**
+- Une passkey est liée au domaine : un compte créé sur une version de test Vercel ne s'ouvre pas sur unlockshares.vercel.app.
