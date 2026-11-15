@@ -1,6 +1,6 @@
 // Lecture du dernier cours d'une action sur Yahoo Finance (gratuit, sans clé).
 // Affichage seulement : ce prix ne sert à aucun calcul de prêt.
-export const SYMBOLES = { BB: 'BB' } // liste fermée : on ne relaie pas n'importe quel ticker
+export const SYMBOLES = { BB: 'BB', SPY: 'SPY', EWY: 'EWY' } // liste fermée : on ne relaie pas n'importe quel ticker
 
 export async function lirePrix(symbole, fetchFn = fetch) {
   const ticker = SYMBOLES[symbole]

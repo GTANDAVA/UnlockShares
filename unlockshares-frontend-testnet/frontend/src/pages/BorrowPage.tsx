@@ -2,7 +2,7 @@ import { Coin, usd, Filters, Pill, Ring, Term, usdc, useDemoUi } from '../compon
 import { StellarLogo, TokenLogo } from '../components/logos'
 import { MarketHoursNote } from '../components/MarketHoursNote'
 import { useDemo } from '../lib/useDemo'
-import { useStockPrice } from '../lib/useStockPrice'
+import { useStockPrices } from '../lib/useStockPrice'
 import { jetonPret, nomJetonPret } from '../services/chain'
 import { DEMO, derive } from '../services/mockDemo'
 
@@ -19,7 +19,8 @@ export function BorrowPage() {
   const d = derive(s)
   // Prix de marché de l'action (pas le prix de démo perso).
   const aaplPrice = s.mode === 'demo' ? s.price : (s.market.refPrice ?? s.price)
-  const bbPrice = useStockPrice('BB')
+  // Lignes Roadmap : prix d'affichage (Yahoo). Apple : prix on-chain des robots (aaplPrice ci-dessus).
+  const roadmapPrices = useStockPrices(ROADMAP.map((r) => r.code))
   const { open, lastBorrow } = useDemoUi()
   const demo = s.mode === 'demo'
   const deposits = demo ? DEMO.poolDeposits : usdc(s.market.totalLent)
@@ -71,7 +72,7 @@ export function BorrowPage() {
             {ROADMAP.map((r) => (
               <tr key={r.code} className="soon">
                 <td><div className="asset"><Coin kind={r.kind}>{r.code}</Coin><div>{r.name}<small>{r.type}</small></div></div></td>
-                <td>{r.code === 'BB' && bbPrice ? `$${bbPrice.toFixed(2)}` : '–'}</td><td>–</td><td>{r.max} of value</td><td>{r.liq} of value</td><td><span className="tag">Roadmap</span></td>
+                <td>{roadmapPrices[r.code] ? `$${roadmapPrices[r.code].toFixed(2)}` : '–'}</td><td>–</td><td>{r.max} of value</td><td>{r.liq} of value</td><td><span className="tag">Roadmap</span></td>
               </tr>
             ))}
           </tbody>

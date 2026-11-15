@@ -1,5 +1,5 @@
 // Fonction serverless Vercel : GET /api/prix?s=BB -> { symbol, price, time }
-// Prix affiché seulement (ligne BlackBerry « Roadmap »). Mis en cache 5 min chez Vercel.
+// Prix affiché seulement (lignes « Roadmap » : BlackBerry, SPY, EWY). Mis en cache 5 min chez Vercel.
 import { lirePrix } from './_prix.js'
 
 export default async function handler(req, res) {

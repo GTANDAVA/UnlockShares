@@ -27,3 +27,10 @@ test('Yahoo down gives a clean error', async () => {
   assert.equal((await lirePrix('BB', yahoo({}, false))).status, 502)
   assert.equal((await lirePrix('BB', async () => { throw new Error('réseau') })).status, 502)
 })
+
+test('SPY and EWY are allowed too', async () => {
+  for (const s of ['SPY', 'EWY']) {
+    const out = await lirePrix(s, yahoo({ symbol: s, currency: 'USD', regularMarketPrice: 100, regularMarketTime: 1 }))
+    assert.equal(out.status, 200)
+  }
+})
