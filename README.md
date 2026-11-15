@@ -117,7 +117,7 @@ All hashes below were checked on Horizon testnet (`successful: true`).
 | Cash in / cash out with MoneyGram | **Partial**: real MoneyGram Ramps sandbox session; cash deposit and pickup cannot be completed on testnet |
 | Bank transfer (cash out) | **Simulation** (fixed demo rate 1 USDC = 0.92 €, nothing is sent) |
 | Léa's story (no wallet connected) | **Simulation** |
-| Professional price oracle (e.g. Reflector), more assets | **Planned** — see the in-app page “Path to real” |
+| Professional price oracle (e.g. Reflector), more assets | **Planned** |
 
 ## Limitations
 

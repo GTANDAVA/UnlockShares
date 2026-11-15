@@ -1,5 +1,5 @@
 import {
-  ArrowDownToLine, Route, Banknote, HandCoins, CircleDollarSign, Gavel, Presentation, CirclePlay, Clock, Droplets, House, Percent, Plus, Search, Wallet,
+  ArrowDownToLine, Banknote, HandCoins, CircleDollarSign, Gavel, Presentation, CirclePlay, Clock, Droplets, House, Percent, Plus, Search, Wallet,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useDemo } from '../lib/useDemo'
@@ -9,14 +9,14 @@ import { useDemoUi } from './demo'
 import { useConnect, useFaucet, usePasskey } from './Onboarding'
 import { passkeyPossible } from '../services/passkey'
 
-export type PageId = 'accueil' | 'presentation' | 'activite' | 'preter' | 'emprunter' | 'demo' | 'liquidations' | 'retrait' | 'ajouter' | 'cash' | 'reel'
-export const PAGES: PageId[] = ['accueil', 'presentation', 'activite', 'preter', 'emprunter', 'demo', 'liquidations', 'retrait', 'ajouter', 'cash', 'reel']
+export type PageId = 'accueil' | 'presentation' | 'activite' | 'preter' | 'emprunter' | 'demo' | 'liquidations' | 'retrait' | 'ajouter' | 'cash'
+export const PAGES: PageId[] = ['accueil', 'presentation', 'activite', 'preter', 'emprunter', 'demo', 'liquidations', 'retrait', 'ajouter', 'cash']
 
 type Item = { id?: PageId; label: string; icon: typeof House; ext?: boolean }
 
 /* Menu : uniquement des pages réelles (on-chain) ou clairement étiquetées démo / simulation. */
 const MENU: { section?: string; items: Item[] }[] = [
-  { items: [{ id: 'accueil', label: 'Home', icon: House }, { id: 'presentation', label: 'Presentation', icon: Presentation }, { id: 'reel', label: 'Path to real', icon: Route }, { id: 'activite', label: 'Activity', icon: Clock }] },
+  { items: [{ id: 'accueil', label: 'Home', icon: House }, { id: 'presentation', label: 'Presentation', icon: Presentation }, { id: 'activite', label: 'Activity', icon: Clock }] },
   { section: 'Explore', items: [{ id: 'cash', label: 'Get cash', icon: HandCoins }, { id: 'preter', label: 'Earn', icon: Percent }, { id: 'emprunter', label: 'Borrow', icon: CircleDollarSign }, { id: 'ajouter', label: 'Add money', icon: ArrowDownToLine }, { id: 'retrait', label: 'Cash out', icon: Banknote }] },
   { section: 'Demo', items: [{ id: 'demo', label: 'Demo controls', icon: CirclePlay }, { id: 'liquidations', label: 'Liquidations', icon: Gavel }] },
 ]
