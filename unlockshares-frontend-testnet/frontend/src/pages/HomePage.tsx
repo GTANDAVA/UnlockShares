@@ -14,6 +14,8 @@ const usdc2 = (n: number) => `${n.toLocaleString('fr-FR', { maximumFractionDigit
 export function HomePage() {
   const s = useDemo()
   const d = derive(s)
+  // Prix de marché de l'action (pas le prix de démo perso).
+  const aaplPrice = s.mode === 'demo' ? s.price : (s.market.refPrice ?? s.price)
   const { open } = useDemoUi()
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const hour = new Date().getHours()
@@ -110,11 +112,11 @@ export function HomePage() {
       <div className="divider" />
       <h2>Your Balance</h2>
       <div className="tbl"><table>
-        <thead><tr><th>Asset</th><th>Wallet balance</th><th>Used as guarantee</th><th>Yearly yield if lent<Term>deposit APY</Term></th></tr></thead>
+        <thead><tr><th>Asset</th><th>Price</th><th>Wallet balance</th><th>Used as guarantee</th><th>Yearly yield if lent<Term>deposit APY</Term></th></tr></thead>
         <tbody>
-          <tr><td><div className="asset"><Coin kind="usdc">$</Coin><div>{nomJetonPret()}<small>{jetonPret()}</small></div></div></td><td>{usdc(s.usdc)}<small>{usd(s.usdc)}</small></td><td>–</td><td>{lendRate}</td></tr>
-          <tr><td><div className="asset"><Coin kind="aapl">AAPL</Coin><div>Apple<small>tokenized share</small></div></div></td><td>{s.walletShares} AAPL<small>{usd(s.walletShares * s.price)}</small></td><td>{s.shares} AAPL<small>{usd(d.value)}</small></td><td>– <small>guarantee only</small></td></tr>
-          <tr><td><div className="asset"><Coin kind="xlm">XLM</Coin><div>Stellar Lumens<small>XLM, pays network fees</small></div></div></td><td>{Math.round(s.xlm).toLocaleString('fr-FR')} XLM<small>fees ≈ 0,$001 per action</small></td><td>–</td><td>–</td></tr>
+          <tr><td><div className="asset"><Coin kind="usdc">$</Coin><div>{nomJetonPret()}<small>{jetonPret()}</small></div></div></td><td>{usd(1)}</td><td>{usdc(s.usdc)}<small>{usd(s.usdc)}</small></td><td>–</td><td>{lendRate}</td></tr>
+          <tr><td><div className="asset"><Coin kind="aapl">AAPL</Coin><div>Apple<small>tokenized share</small></div></div></td><td><b>{aaplPrice ? usd(aaplPrice) : '–'}</b></td><td>{s.walletShares} AAPL<small>{usd(s.walletShares * s.price)}</small></td><td>{s.shares} AAPL<small>{usd(d.value)}</small></td><td>– <small>guarantee only</small></td></tr>
+          <tr><td><div className="asset"><Coin kind="xlm">XLM</Coin><div>Stellar Lumens<small>XLM, pays network fees</small></div></div></td><td>–</td><td>{Math.round(s.xlm).toLocaleString('fr-FR')} XLM<small>fees ≈ 0,$001 per action</small></td><td>–</td><td>–</td></tr>
         </tbody>
       </table></div>
     </>

@@ -37,6 +37,7 @@ const ERREURS_PRET: Record<number, string> = {
   7: 'Insufficient balance.',
   8: V2 ? 'The demo price must be above zero and not above the reference price.' : 'The price must be above zero.',
   9: 'Borrow limit reached (per-address cap or share of the pool cash).',
+  10: 'Price update in progress. Borrowing is paused; paying back still works.',
 }
 
 export function messageErreur(e: unknown, contrat: 'pret' | 'robinet' = 'pret'): string {

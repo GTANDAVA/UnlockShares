@@ -1,5 +1,6 @@
 import { Coin, usd, Filters, Pill, Ring, Term, usdc, useDemoUi } from '../components/demo'
 import { StellarLogo, TokenLogo } from '../components/logos'
+import { MarketHoursNote } from '../components/MarketHoursNote'
 import { useDemo } from '../lib/useDemo'
 import { jetonPret, nomJetonPret } from '../services/chain'
 import { DEMO, derive } from '../services/mockDemo'
@@ -15,6 +16,8 @@ const pct = (x: number) => `${(x * 100).toLocaleString('fr-FR', { maximumFractio
 export function BorrowPage() {
   const s = useDemo()
   const d = derive(s)
+  // Prix de marché de l'action (pas le prix de démo perso).
+  const aaplPrice = s.mode === 'demo' ? s.price : (s.market.refPrice ?? s.price)
   const { open, lastBorrow } = useDemoUi()
   const demo = s.mode === 'demo'
   const deposits = demo ? DEMO.poolDeposits : usdc(s.market.totalLent)
@@ -36,6 +39,7 @@ export function BorrowPage() {
           <a className="btn primary" href="#retrait">Cash out</a>
         </div>
       )}
+      <MarketHoursNote />
       <Filters list={['Markets', 'Assets', 'Guarantee']} />
       <div className="hub">
         <h3><StellarLogo />Stellar Stocks Market</h3>
@@ -55,16 +59,17 @@ export function BorrowPage() {
           </tr></tbody>
         </table></div>
         <div className="tbl"><table>
-          <thead><tr><th>Accepted guarantee</th><th>Your shares</th><th>You can borrow<Term>max LTV</Term></th><th>Protection sale at<Term>liquidation threshold</Term></th><th>Status</th></tr></thead>
+          <thead><tr><th>Accepted guarantee</th><th>Price</th><th>Your shares</th><th>You can borrow<Term>max LTV</Term></th><th>Protection sale at<Term>liquidation threshold</Term></th><th>Status</th></tr></thead>
           <tbody>
             <tr>
               <td><div className="asset"><Coin kind="aapl">AAPL</Coin><div>Apple<small>tokenized share</small></div></div></td>
+              <td><b>{aaplPrice ? usd(aaplPrice) : '–'}</b></td>
               <td>{s.shares} AAPL as guarantee<small>{usd(d.value)} · {s.walletShares} AAPL in wallet</small></td><td>50 % of value</td><td>80 % of value</td><td><div className="chips"><Pill cls="s-safe">Live</Pill><button className="btn" onClick={() => open('deposit')} disabled={!s.walletShares}>Use as guarantee</button></div></td>
             </tr>
             {ROADMAP.map((r) => (
               <tr key={r.code} className="soon">
                 <td><div className="asset"><Coin kind={r.kind}>{r.code}</Coin><div>{r.name}<small>{r.type}</small></div></div></td>
-                <td>–</td><td>{r.max} of value</td><td>{r.liq} of value</td><td><span className="tag">Roadmap</span></td>
+                <td>–</td><td>–</td><td>{r.max} of value</td><td>{r.liq} of value</td><td><span className="tag">Roadmap</span></td>
               </tr>
             ))}
           </tbody>

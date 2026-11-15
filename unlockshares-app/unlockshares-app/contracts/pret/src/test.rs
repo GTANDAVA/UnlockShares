@@ -539,3 +539,145 @@ fn rembourser_plus_que_la_dette_rend_l_excedent() {
     assert_eq!(d.pret.position(&d.lea).dette, 0);
     assert_eq!(d.pret.marche().caisse, 1_000 * U);
 }
+
+// ---------- V3 : prix lu chez un oracle SEP-40 ----------
+
+mod faux_oracle {
+    use crate::{Asset, PriceData};
+    use soroban_sdk::{contract, contractimpl, symbol_short, Env};
+
+    /// Oracle SEP-40 de test : décimales et prix réglables, un seul actif (AAPL).
+    #[contract]
+    pub struct FauxOracle;
+
+    #[contractimpl]
+    impl FauxOracle {
+        pub fn __constructor(env: Env, decimales: u32) {
+            env.storage().instance().set(&symbol_short!("dec"), &decimales);
+        }
+        pub fn poser(env: Env, prix: i128, date: u64) {
+            env.storage().instance().set(&symbol_short!("px"), &PriceData { price: prix, timestamp: date });
+        }
+        pub fn decimals(env: Env) -> u32 {
+            env.storage().instance().get(&symbol_short!("dec")).unwrap()
+        }
+        pub fn lastprice(env: Env, asset: Asset) -> Option<PriceData> {
+            if asset != Asset::Other(symbol_short!("AAPL")) {
+                return None;
+            }
+            env.storage().instance().get(&symbol_short!("px"))
+        }
+    }
+}
+use faux_oracle::{FauxOracle, FauxOracleClient};
+use soroban_sdk::symbol_short;
+
+fn aapl_sep40() -> Asset {
+    Asset::Other(symbol_short!("AAPL"))
+}
+
+fn brancher(d: &Decor<'static>, decimales: u32, prix: i128) -> FauxOracleClient<'static> {
+    d.env.ledger().set_timestamp(1_000_000);
+    let id = d.env.register(FauxOracle, (decimales,));
+    let o = FauxOracleClient::new(&d.env, &id);
+    o.poser(&prix, &1_000_000);
+    d.pret.fixer_oracle(&Some((id, aapl_sep40())));
+    o
+}
+
+#[test]
+fn v3_le_prix_vient_de_l_oracle_avec_conversion_des_decimales() {
+    let d = decor(false);
+    brancher(&d, 8, 150 * 100_000_000); // 150 $ à 8 décimales
+    let m = d.pret.marche();
+    assert_eq!(m.prix, 150 * U);
+    assert!(m.oracle_actif);
+    assert_eq!(m.prix_maj, 1_000_000);
+    d.pret.deposer(&d.lea, &(10 * U));
+    assert_eq!(d.pret.position(&d.lea).valeur, 1_500 * U);
+
+    let d2 = decor(false);
+    brancher(&d2, 6, 150 * 1_000_000); // même prix, 6 décimales
+    assert_eq!(d2.pret.marche().prix, 150 * U);
+}
+
+#[test]
+fn v3_l_admin_ne_fixe_plus_le_prix_quand_l_oracle_est_branche() {
+    let d = decor(false);
+    brancher(&d, 7, 150 * U);
+    assert_eq!(d.pret.try_fixer_prix(&(1 * U)), Err(Ok(Erreur::NonAutorise)));
+    assert_eq!(d.pret.marche().prix, 150 * U);
+    // Débrancher l'oracle rend la main au prix administré (100).
+    d.pret.fixer_oracle(&None);
+    let m = d.pret.marche();
+    assert!(!m.oracle_actif);
+    assert_eq!(m.prix, 100 * U);
+    d.pret.fixer_prix(&(120 * U));
+    assert_eq!(d.pret.marche().prix, 120 * U);
+}
+
+#[test]
+fn v3_oracle_sans_prix_ou_mal_regle_refuse() {
+    let d = decor(false);
+    let vide = d.env.register(FauxOracle, (7u32,));
+    assert_eq!(d.pret.try_fixer_oracle(&Some((vide, aapl_sep40()))), Err(Ok(Erreur::PrixInvalide)));
+    let trop = d.env.register(FauxOracle, (19u32,));
+    FauxOracleClient::new(&d.env, &trop).poser(&1, &0);
+    assert_eq!(d.pret.try_fixer_oracle(&Some((trop, aapl_sep40()))), Err(Ok(Erreur::PrixInvalide)));
+    let o = d.env.register(FauxOracle, (7u32,));
+    FauxOracleClient::new(&d.env, &o).poser(&(150 * U), &0);
+    let tsla = Asset::Other(symbol_short!("TSLA"));
+    assert_eq!(d.pret.try_fixer_oracle(&Some((o, tsla))), Err(Ok(Erreur::PrixInvalide)));
+    assert!(d.pret.oracle().is_none());
+}
+
+#[test]
+fn v3_prix_perime_bloque_emprunt_et_retrait_mais_pas_remboursement() {
+    let d = decor(false);
+    brancher(&d, 7, 100 * U);
+    d.pret.deposer(&d.lea, &(10 * U));
+    d.pret.emprunter(&d.lea, &(100 * U));
+    // 4 jours pile : encore frais.
+    d.env.ledger().set_timestamp(1_000_000 + AGE_MAX_PRIX);
+    d.pret.emprunter(&d.lea, &U);
+    // Une seconde de plus : périmé.
+    d.env.ledger().set_timestamp(1_000_000 + AGE_MAX_PRIX + 1);
+    assert_eq!(d.pret.try_emprunter(&d.lea, &U), Err(Ok(Erreur::PrixPerime)));
+    assert_eq!(d.pret.try_retirer(&d.lea, &U), Err(Ok(Erreur::PrixPerime)));
+    // Rembourser reste possible (cela réduit le risque).
+    d.pret.rembourser(&d.lea, &(10 * U));
+}
+
+#[test]
+fn v3_liquidation_possible_meme_avec_un_prix_perime() {
+    let d = decor(false);
+    let o = brancher(&d, 7, 100 * U);
+    d.pret.deposer(&d.lea, &(10 * U));
+    d.pret.emprunter(&d.lea, &(500 * U));
+    // Le prix chute à 40, puis plus aucune mise à jour pendant 5 jours.
+    o.poser(&(40 * U), &1_000_000);
+    d.env.ledger().set_timestamp(1_000_000 + 5 * 86_400);
+    assert!(d.pret.position(&d.lea).liquidable);
+    let saisie = d.pret.liquider(&d.liquidateur, &d.lea, &d.pret.montant_liquidable(&d.lea));
+    assert_eq!(saisie, 10 * U);
+}
+
+#[test]
+fn v3_un_nouveau_prix_debloque() {
+    let d = decor(false);
+    let o = brancher(&d, 7, 100 * U);
+    d.pret.deposer(&d.lea, &(10 * U));
+    d.env.ledger().set_timestamp(1_000_000 + 5 * 86_400);
+    assert_eq!(d.pret.try_emprunter(&d.lea, &U), Err(Ok(Erreur::PrixPerime)));
+    o.poser(&(100 * U), &(1_000_000 + 5 * 86_400));
+    d.pret.emprunter(&d.lea, &U);
+}
+
+#[test]
+fn v3_fixer_oracle_admin_seulement() {
+    let d = decor(false);
+    let o = d.env.register(FauxOracle, (7u32,));
+    FauxOracleClient::new(&d.env, &o).poser(&(150 * U), &0);
+    d.env.mock_auths(&[]);
+    assert!(d.pret.try_fixer_oracle(&Some((o, aapl_sep40()))).is_err());
+}

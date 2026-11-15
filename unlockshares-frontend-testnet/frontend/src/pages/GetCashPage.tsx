@@ -1,6 +1,7 @@
 import { Check, LoaderCircle } from 'lucide-react'
 import { useState } from 'react'
 import { usd, usdc, useDemoUi } from '../components/demo'
+import { MarketHoursNote } from '../components/MarketHoursNote'
 import { MoneyGramCard } from '../components/MoneyGramCard'
 import { useConnect } from '../components/Onboarding'
 import { useDemo } from '../lib/useDemo'
@@ -133,6 +134,7 @@ export function GetCashPage() {
           </div>
         </div>
       )}
+      {!pret && etape !== 'fait' && <MarketHoursNote />}
     </>
   )
 }
