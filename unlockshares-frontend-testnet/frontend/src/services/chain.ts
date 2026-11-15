@@ -228,6 +228,15 @@ function adresseSignataire(e: xdr.SorobanAuthorizationEntry): string | null {
   return c.type === 'sorobanCredentialsSourceAccount' || !a ? null : Address.fromScAddress(a.address).toString()
 }
 
+/**
+ * Nombre d'appels couverts par une autorisation (l'appel principal + les sous-appels, ex. le transfert des actions).
+ * Le compte passkey attend une règle par appel : sinon il refuse (Error(Auth, InvalidAction)).
+ */
+function nombreContextes(i: xdr.SorobanAuthorizedInvocation): number {
+  const ici = i.function.type === 'sorobanAuthorizedFunctionTypeContractFn' || String(i.function.type).startsWith('sorobanAuthorizedFunctionTypeCreateContract') ? 1 : 0
+  return i.subInvocations.reduce((n, sub) => n + nombreContextes(sub), ici)
+}
+
 async function appelerPasskey(qui: string, contractId: string, methode: string, args: xdr.ScVal[]): Promise<string> {
   const tx = new TransactionBuilder(lecteur(), { fee: BASE_FEE, networkPassphrase: PASS })
     .addOperation(new Contract(contractId).call(methode, ...args))
@@ -242,7 +251,7 @@ async function appelerPasskey(qui: string, contractId: string, methode: string, 
     // SDK 17 : les unions XDR exposent `.type` et des propriétés (plus de méthodes).
     const signataire = adresseSignataire(e)
     if (signataire !== qui) throw new Error(`Unexpected signature request (${signataire ?? 'source account'}): transaction cancelled.`)
-    auth.push(await passkey.signerAutorisation(b64, expiration))
+    auth.push(await passkey.signerAutorisation(b64, expiration, nombreContextes(e.rootInvocation)))
   }
   const op = tx.operations[0] as Operation.InvokeHostFunction
   return passkey.envoyerParRelais(op.func.toXDR('base64'), auth)

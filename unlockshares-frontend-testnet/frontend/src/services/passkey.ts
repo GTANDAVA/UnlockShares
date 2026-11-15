@@ -77,11 +77,14 @@ export async function deconnecter(): Promise<void> {
   await (await kit()).disconnect()
 }
 
-/** Signe avec la passkey une autorisation (XDR base64) demandée par le contrat, valable jusqu'au ledger `expiration`. */
-export async function signerAutorisation(entreeB64: string, expiration: number): Promise<string> {
+/**
+ * Signe avec la passkey une autorisation (XDR base64) demandée par le contrat, valable jusqu'au ledger `expiration`.
+ * `appels` = nombre d'appels couverts (principal + sous-appels) : une règle par appel, toutes = la règle par défaut.
+ */
+export async function signerAutorisation(entreeB64: string, expiration: number, appels = 1): Promise<string> {
   const k = await kit()
   try {
-    return await k.signAuthEntry(entreeB64, { contextRuleIds: [REGLE_PAR_DEFAUT], expiration })
+    return await k.signAuthEntry(entreeB64, { contextRuleIds: Array(Math.max(1, appels)).fill(REGLE_PAR_DEFAUT), expiration })
   } catch (e) {
     throw new Error(messageKit(e))
   }
