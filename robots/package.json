@@ -1,0 +1,15 @@
+{
+  "name": "unlockshares-rapporteurs",
+  "private": true,
+  "type": "module",
+  "description": "Deux robots qui lisent le cours d'Apple (Hyperliquid, Finnhub) et l'envoient au contrat oracle-prix.",
+  "scripts": {
+    "test": "node --test",
+    "hyperliquid": "node rapporteur.mjs hyperliquid",
+    "finnhub": "node rapporteur.mjs finnhub"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^17.4.0"
+  }
+}

@@ -20,8 +20,15 @@
 //! - démo PERSONNELLE : chacun peut baisser son propre prix (jamais au-dessus de la référence) et ajouter
 //!   des intérêts simulés à sa propre dette. Cela ne touche que sa position : la caisse, les taux,
 //!   les prêteurs et les autres emprunteurs ne bougent pas. La liquidation qui en découle est réelle.
+//!
+//! V3 (prix de marché) :
+//! - le prix de référence peut venir d'un ORACLE SEP-40 (notre adaptateur à deux témoins aujourd'hui,
+//!   Reflector ou RedStone demain) : `fixer_oracle`. Tant qu'un oracle est branché, l'admin ne peut plus
+//!   taper le prix à la main ;
+//! - si le prix de l'oracle a plus de `AGE_MAX_PRIX` secondes, les nouveaux emprunts et les retraits
+//!   d'actions sont bloqués (`PrixPerime`). Rembourser et liquider restent possibles.
 
-use soroban_sdk::{contract, contracterror, contractevent, contractimpl, contracttype, token, Address, Env};
+use soroban_sdk::{contract, contractclient, contracterror, contractevent, contractimpl, contracttype, token, Address, Env, Symbol};
 
 /// 1 jeton = 10_000_000 unités (7 décimales, comme tous les actifs Stellar).
 pub const UNITE: i128 = 10_000_000;
@@ -45,6 +52,41 @@ pub const RAY: i128 = 1_000_000_000_000_000_000;
 /// Une année en secondes.
 pub const ANNEE: u64 = 31_536_000;
 const BPS: i128 = 10_000;
+/// Au-delà de cet âge (secondes), le prix de l'oracle est périmé : 4 jours, pour couvrir un week-end prolongé.
+pub const AGE_MAX_PRIX: u64 = 4 * 86_400;
+
+/// Actif SEP-40 (même forme que Reflector, RedStone et notre adaptateur).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Asset {
+    Stellar(Address),
+    Other(Symbol),
+}
+
+/// Prix SEP-40.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PriceData {
+    pub price: i128,
+    pub timestamp: u64,
+}
+
+/// Ce que le contrat de prêt lit chez un oracle SEP-40.
+#[allow(dead_code)]
+#[contractclient(name = "OracleClient")]
+pub trait Sep40 {
+    fn decimals(env: Env) -> u32;
+    fn lastprice(env: Env, asset: Asset) -> Option<PriceData>;
+}
+
+/// L'oracle branché : son adresse, l'actif suivi, ses décimales.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfigOracle {
+    pub adresse: Address,
+    pub actif: Asset,
+    pub decimales: u32,
+}
 
 const JOUR: u32 = 17_280; // ~ 1 jour de ledgers (5 s)
 const TTL_SEUIL: u32 = 30 * JOUR;
@@ -78,6 +120,8 @@ pub enum Cle {
     Reserve,
     /// Réglages de la courbe de taux.
     Reglages,
+    /// V3 : oracle de prix branché (absent = prix administré).
+    Oracle,
 }
 
 /// Les boutons de réglage de la courbe de taux (en points de base).
@@ -167,6 +211,10 @@ pub struct Marche {
     pub taux_depot_bps: i128,
     /// Intérêts gardés par le protocole.
     pub reserve: i128,
+    /// V3 : vrai si le prix vient d'un oracle.
+    pub oracle_actif: bool,
+    /// V3 : date du prix de l'oracle (secondes), 0 si prix administré.
+    pub prix_maj: u64,
 }
 
 #[contracterror]
@@ -182,10 +230,14 @@ pub enum Erreur {
     SoldeInsuffisant = 7,
     PrixInvalide = 8,
     PlafondDepasse = 9,
+    /// V3 : le prix de l'oracle est absent ou trop vieux.
+    PrixPerime = 10,
 }
 
 #[contractevent]
 pub struct PrixFixe { pub par: Address, pub prix: i128 }
+#[contractevent]
+pub struct OracleFixe { pub oracle: Option<ConfigOracle> }
 #[contractevent]
 pub struct PrixDemoFixe { #[topic] pub emprunteur: Address, pub prix: i128 }
 #[contractevent(topics = ["temps_perso"])]
@@ -227,8 +279,43 @@ fn lire<V: soroban_sdk::TryFromVal<Env, soroban_sdk::Val>>(env: &Env, cle: &Cle)
     env.storage().instance().get(cle).unwrap()
 }
 
+fn config_oracle(env: &Env) -> Option<ConfigOracle> {
+    env.storage().instance().get(&Cle::Oracle)
+}
+
+/// Prix lu chez l'oracle, ramené à 7 décimales.
+fn prix_oracle(env: &Env, c: &ConfigOracle) -> Option<PriceData> {
+    let p = OracleClient::new(env, &c.adresse).lastprice(&c.actif)?;
+    if p.price <= 0 {
+        return None;
+    }
+    let d = c.decimales as i128 - 7;
+    let mut prix = p.price;
+    if d > 0 {
+        prix /= 10i128.pow(d as u32);
+    } else if d < 0 {
+        prix *= 10i128.pow((-d) as u32);
+    }
+    Some(PriceData { price: prix, timestamp: p.timestamp })
+}
+
+/// Prix de référence : celui de l'oracle s'il est branché et répond, sinon le prix administré.
 fn prix(env: &Env) -> i128 {
-    lire(env, &Cle::Prix)
+    match config_oracle(env).and_then(|c| prix_oracle(env, &c)) {
+        Some(p) => p.price,
+        None => lire(env, &Cle::Prix),
+    }
+}
+
+/// Bloque les opérations qui augmentent le risque quand le prix de l'oracle est absent ou trop vieux.
+fn verifier_prix_frais(env: &Env) -> Result<(), Erreur> {
+    if let Some(c) = config_oracle(env) {
+        match prix_oracle(env, &c) {
+            Some(p) if env.ledger().timestamp() <= p.timestamp + AGE_MAX_PRIX => {}
+            _ => return Err(Erreur::PrixPerime),
+        }
+    }
+    Ok(())
 }
 
 fn prix_demo(env: &Env, qui: &Address) -> Option<i128> {
@@ -496,15 +583,44 @@ impl UnlockShares {
     // ---------- contrôles admin (globaux) ----------
 
     /// Change le prix de RÉFÉRENCE de l'action. Admin seulement (prix administré, pas un prix de marché).
+    /// V3 : refusé tant qu'un oracle est branché.
     pub fn fixer_prix(env: Env, prix: i128) -> Result<(), Erreur> {
         let admin: Address = lire(&env, &Cle::Admin);
         admin.require_auth();
+        if config_oracle(&env).is_some() {
+            return Err(Erreur::NonAutorise);
+        }
         if prix <= 0 {
             return Err(Erreur::PrixInvalide);
         }
         env.storage().instance().set(&Cle::Prix, &prix);
         garder_en_vie(&env);
         PrixFixe { par: admin, prix }.publish(&env);
+        Ok(())
+    }
+
+    /// V3 : branche un oracle SEP-40 (`Some((adresse, actif))`) ou le débranche (`None`, retour au prix administré).
+    /// L'oracle doit déjà donner un prix pour l'actif.
+    pub fn fixer_oracle(env: Env, oracle: Option<(Address, Asset)>) -> Result<(), Erreur> {
+        let admin: Address = lire(&env, &Cle::Admin);
+        admin.require_auth();
+        let conf = match oracle {
+            Some((adresse, actif)) => {
+                let decimales = OracleClient::new(&env, &adresse).decimals();
+                let c = ConfigOracle { adresse, actif, decimales };
+                if decimales > 18 || prix_oracle(&env, &c).is_none() {
+                    return Err(Erreur::PrixInvalide);
+                }
+                env.storage().instance().set(&Cle::Oracle, &c);
+                Some(c)
+            }
+            None => {
+                env.storage().instance().remove(&Cle::Oracle);
+                None
+            }
+        };
+        garder_en_vie(&env);
+        OracleFixe { oracle: conf }.publish(&env);
         Ok(())
     }
 
@@ -703,6 +819,7 @@ impl UnlockShares {
     pub fn retirer(env: Env, emprunteur: Address, montant: i128) -> Result<(), Erreur> {
         emprunteur.require_auth();
         positif(montant)?;
+        verifier_prix_frais(&env)?;
         let e = actualiser(&env);
         let mut p = position(&env, &emprunteur);
         if montant > p.garantie {
@@ -723,6 +840,7 @@ impl UnlockShares {
     pub fn emprunter(env: Env, emprunteur: Address, montant: i128) -> Result<(), Erreur> {
         emprunteur.require_auth();
         positif(montant)?;
+        verifier_prix_frais(&env)?;
         let mut e = actualiser(&env);
         let mut p = position(&env, &emprunteur);
         let dette = dette_totale(&p, e.index_emprunt) + montant;
@@ -887,7 +1005,13 @@ impl UnlockShares {
             taux_emprunt_bps: taux_emprunt_bps(u, &r),
             taux_depot_bps: taux_depot_bps(u, &r),
             reserve: e.reserve,
+            oracle_actif: config_oracle(&env).is_some(),
+            prix_maj: config_oracle(&env).and_then(|c| prix_oracle(&env, &c)).map_or(0, |p| p.timestamp),
         }
+    }
+
+    pub fn oracle(env: Env) -> Option<ConfigOracle> {
+        config_oracle(&env)
     }
 
     pub fn reglages_taux(env: Env) -> ReglagesTaux {

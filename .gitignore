@@ -9,6 +9,7 @@
 !/.github/
 !/unlockshares-frontend-testnet/
 !/unlockshares-app/
+!/robots/
 
 node_modules/
 dist/

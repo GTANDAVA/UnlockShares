@@ -1,0 +1,45 @@
+# Les 2 robots rapporteurs du prix d'Apple (voir robots/ et contracts/oracle-prix).
+# SÉCURITÉ : tant que la variable du dépôt ROBOTS_ACTIFS ne vaut pas "oui", ils sont en LECTURE SEULE
+# (ils lisent et affichent le prix, n'envoient rien). Les clés viennent des secrets GitHub, jamais du code.
+name: Rapporteurs prix AAPL
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # Hyperliquid 24 h/24 ; Finnhub s'arrête seul hors séance de New York
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rapporteurs
+  cancel-in-progress: false
+
+jobs:
+  rapporter:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - source: hyperliquid
+            cle: RAPPORTEUR_CONTINU_CLE
+          - source: finnhub
+            cle: RAPPORTEUR_BOURSE_CLE
+    name: Robot ${{ matrix.source }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: robots
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --omit=dev --no-audit --no-fund
+      - run: node rapporteur.mjs ${{ matrix.source }}
+        env:
+          ENVOYER: ${{ vars.ROBOTS_ACTIFS == 'oui' && 'oui' || 'non' }}
+          ORACLE_ID: ${{ vars.ORACLE_ID }}
+          RAPPORTEUR_CLE: ${{ secrets[matrix.cle] }}
+          FINNHUB_CLE: ${{ secrets.FINNHUB_CLE }}
