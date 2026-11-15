@@ -3,10 +3,10 @@ import { useState } from 'react'
 import { usd, usdc, useDemoUi } from '../components/demo'
 import { MarketHoursNote } from '../components/MarketHoursNote'
 import { MoneyGramCard } from '../components/MoneyGramCard'
-import { useConnect } from '../components/Onboarding'
+import { ConnectButtons } from '../components/Onboarding'
 import { useDemo } from '../lib/useDemo'
 import { actions, type AppState } from '../services/app'
-import { jetonPret, lienTx } from '../services/chain'
+import { estPasskey, jetonPret, lienTx } from '../services/chain'
 import { DEMO } from '../services/mockDemo'
 
 /** Marge de sécurité : la dette grandit de quelques unités entre la lecture et la signature. */
@@ -39,7 +39,6 @@ type Etape = 'saisie' | 'envoi' | 'fait'
 export function GetCashPage() {
   const s = useDemo()
   const { toast } = useDemoUi()
-  const connect = useConnect()
   const demo = s.mode === 'demo'
   const J = jetonPret()
   const [saisie, setSaisie] = useState('')
@@ -50,17 +49,19 @@ export function GetCashPage() {
   const plan = planGetCash(s, montant)
   const ok = montant > 0 && montant <= plan.max && plan.aDeposer <= s.walletShares + 1e-9
   const pret = !demo && !s.address
+  const pk = estPasskey(s.address)
+  const signe = pk ? 'confirm with your passkey' : 'sign in Varial'
 
   async function lancer() {
     setEtape('envoi')
     const faits: { label: string; hash?: string }[] = []
     try {
       if (plan.aDeposer > 0) {
-        setProgres(`1/2 · Locking ${plan.aDeposer} shares as a guarantee: sign in Varial…`)
+        setProgres(`1/2 · Locking ${plan.aDeposer} shares as a guarantee: ${signe}…`)
         const d = await actions.run('deposit', plan.aDeposer)
         faits.push({ label: `${plan.aDeposer} shares locked as a guarantee`, hash: d.hash })
       }
-      setProgres(`${plan.aDeposer > 0 ? '2/2' : '1/1'} · Receiving ${usdc(montant)}: sign in Varial…`)
+      setProgres(`${plan.aDeposer > 0 ? '2/2' : '1/1'} · Receiving ${usdc(montant)}: ${signe}…`)
       const e = await actions.run('borrow', montant)
       faits.push({ label: `${usdc(montant)} received in your wallet`, hash: e.hash })
       setPreuves(faits)
@@ -84,7 +85,7 @@ export function GetCashPage() {
       </div>
 
       {pret ? (
-        <div className="empty"><b>Connect your wallet</b><span className="muted">Varial, set to Testnet.</span><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
+        <div className="empty"><b>Create your account</b><span className="muted">Face ID or fingerprint, or the Varial wallet. Stellar testnet.</span><ConnectButtons /></div>
       ) : etape !== 'fait' ? (
         <div className="pos home-hero">
           <div className="line"><span className="muted">How much do you need?</span><span className="muted">up to {usd(plan.max)}</span></div>
@@ -111,7 +112,7 @@ export function GetCashPage() {
             {etape === 'envoi' ? <LoaderCircle className="i spin" /> : null}Get {usd(montant)}
           </button>
           {progres && <small className="muted">{progres}</small>}
-          {!demo && <small className="muted">{plan.aDeposer > 0 ? 'Two signatures in Varial' : 'One signature in Varial'}, on Stellar testnet.</small>}
+          {!demo && <small className="muted">{plan.aDeposer > 0 ? 'Two confirmations' : 'One confirmation'} {pk ? 'with your passkey, fees paid by UnlockShares' : 'in Varial'}, on Stellar testnet.</small>}
         </div>
       ) : (
         <div className="pos home-hero">

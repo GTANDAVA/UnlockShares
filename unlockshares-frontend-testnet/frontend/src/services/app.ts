@@ -3,6 +3,7 @@
 // sinon mode « démo » avec les données simulées de Léa (mockDemo.ts).
 import { chainReady } from '../chainConfig'
 import * as ch from './chain'
+import * as pk from './passkey'
 import { DEMO, demoActions, demoStore, type DemoAction, type DemoEvent, type DemoState } from './mockDemo'
 
 export type Kind = DemoAction
@@ -12,7 +13,7 @@ export type AppEvent = DemoEvent & { hash?: string; qui?: string; mine?: boolean
 export type AppState = Omit<DemoState, 'history'> & {
   mode: 'demo' | 'chain'
   history: AppEvent[]
-  /** Adresse Varial connectée */
+  /** Adresse connectée : compte Varial (G…) ou compte passkey (C…) */
   address: string | null
   xlm: number
   /** Le compte a-t-il ses jetons de test (trustlines + autorisation tAAPL) ? */
@@ -135,14 +136,17 @@ export async function refresh() {
 }
 
 if (chainReady) {
-  void ch.adresseConnue().then((a) => {
-    if (a) patch({ address: a })
-    void refresh()
-  })
+  // Session passkey enregistrée sur cet appareil d'abord, sinon compte Varial déjà autorisé.
+  void pk.compteConnu()
+    .then((c) => c ?? ch.adresseConnue())
+    .then((a) => {
+      if (a) patch({ address: a })
+      void refresh()
+    })
   window.setInterval(() => void refresh(), 10_000)
   // Si l'utilisateur change de compte dans Varial, l'appli suit ce compte.
   ch.suivreCompte((a) => {
-    if (chainState.address && a !== chainState.address) {
+    if (chainState.address && !ch.estPasskey(chainState.address) && a !== chainState.address) {
       patch({ address: a, shares: 0, walletShares: 0, debt: 0, lent: 0, usdc: 0, earnings: 0, xlm: 0, ready: false })
       void refresh()
     }
@@ -152,7 +156,7 @@ if (chainReady) {
 /* ---------- Actions (communes aux deux modes) ---------- */
 
 async function tx(label: string, run: () => Promise<string>): Promise<string> {
-  patch({ busy: `${label}: sign in Varial…` })
+  patch({ busy: `${label}: ${ch.estPasskey(chainState.address) ? 'confirm with your passkey' : 'sign in Varial'}…` })
   try {
     const hash = await run()
     await refresh()
@@ -165,7 +169,7 @@ async function tx(label: string, run: () => Promise<string>): Promise<string> {
 }
 
 function need(): string {
-  if (!chainState.address) throw new Error('Connect your Varial wallet first.')
+  if (!chainState.address) throw new Error('Create an account or connect Varial first.')
   return chainState.address
 }
 
@@ -179,7 +183,28 @@ export const actions = {
     await refresh()
     return a
   },
+  /** Crée un compte passkey (Face ID, empreinte) : pas d'extension, pas de XLM. */
+  async createPasskey(): Promise<string> {
+    patch({ busy: 'Creating your account: confirm with Face ID or your fingerprint…' })
+    try {
+      const a = await pk.creerCompte()
+      patch({ address: a })
+      await refresh()
+      return a
+    } finally {
+      patch({ busy: null })
+    }
+  },
+  /** Se reconnecte avec une passkey déjà créée sur cet appareil (ou synchronisée). */
+  async connectPasskey(): Promise<string> {
+    const a = await pk.connecter(true)
+    if (!a) throw new Error('No UnlockShares account found for this passkey.')
+    patch({ address: a })
+    await refresh()
+    return a
+  },
   disconnect() {
+    if (ch.estPasskey(chainState.address)) void pk.deconnecter()
     patch({ address: null, shares: 0, walletShares: 0, debt: 0, lent: 0, usdc: 0, earnings: 0, xlm: 0, ready: false })
   },
   max(kind: Kind, s: AppState): number {

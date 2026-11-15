@@ -6,7 +6,8 @@ import { useDemo } from '../lib/useDemo'
 import { chain } from '../chainConfig'
 import { court, jetonPret, lienCompte } from '../services/chain'
 import { useDemoUi } from './demo'
-import { useConnect, useFaucet } from './Onboarding'
+import { useConnect, useFaucet, usePasskey } from './Onboarding'
+import { passkeyPossible } from '../services/passkey'
 
 export type PageId = 'accueil' | 'presentation' | 'activite' | 'preter' | 'emprunter' | 'demo' | 'liquidations' | 'retrait' | 'ajouter' | 'cash'
 export const PAGES: PageId[] = ['accueil', 'presentation', 'activite', 'preter', 'emprunter', 'demo', 'liquidations', 'retrait', 'ajouter', 'cash']
@@ -38,6 +39,7 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
   const [terms, setTerms] = useState(false)
   const s = useDemo()
   const connect = useConnect()
+  const passkey = usePasskey()
   const faucet = useFaucet()
   const live = s.mode === 'chain'
 
@@ -83,7 +85,9 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
             ) : s.address ? (
               <a className="wallet" href={lienCompte(s.address)} target="_blank" rel="noreferrer" title="See my account on stellar.expert"><Wallet className="i" aria-hidden />{court(s.address)}</a>
             ) : (
-              <button className="wallet" onClick={connect}><Wallet className="i" aria-hidden />Connect Varial</button>
+              passkeyPossible()
+                ? <button className="wallet" onClick={() => void passkey(true)}><Wallet className="i" aria-hidden />Create account</button>
+                : <button className="wallet" onClick={connect}><Wallet className="i" aria-hidden />Connect Varial</button>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2" style={{ marginTop: -10 }}>

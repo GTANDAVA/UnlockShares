@@ -6,6 +6,7 @@ import {
   type Transaction, type xdr,
 } from '@stellar/stellar-sdk'
 import { chain, chainReady } from '../chainConfig'
+import * as passkey from './passkey'
 
 const PASS = Networks.TESTNET
 const UNITE = 10_000_000
@@ -51,6 +52,7 @@ export function messageErreur(e: unknown, contrat: 'pret' | 'robinet' = 'pret'):
   if (/trustline|op_no_trust/i.test(t)) return 'Your account does not have the test tokens yet: click “Get test tokens” first.'
   if (/not authorized|authoriz/i.test(t)) return 'Your account is not yet allowed to hold the share: click “Get test tokens”.'
   if (/declined|rejected|User declined/i.test(t)) return 'Signature declined in Varial.'
+  if (/Passkey cancelled/i.test(t)) return 'Passkey cancelled.'
   if (/balance|underfunded|insufficient/i.test(t)) return 'Insufficient balance.'
   return t.length > 180 ? `${t.slice(0, 180)}…` : t
 }
@@ -175,6 +177,17 @@ export type Compte = { existe: boolean; xlm: number; aapl: number; usdc: number;
 
 /** Soldes du portefeuille (via Horizon, qui connaît les trustlines) */
 export async function lireCompte(qui: string): Promise<Compte> {
+  // Compte passkey (contrat) : pas de trustline, on lit directement les soldes des jetons.
+  if (estPasskey(qui)) {
+    await chargerJetons()
+    const [garantie, prete] = await lire<[string, string]>(chain.pret, 'jetons')
+    const [aapl, usdc, autorise] = await Promise.all([
+      lire<bigint>(garantie, 'balance', [addr(qui)]),
+      lire<bigint>(prete, 'balance', [addr(qui)]),
+      lire<boolean>(garantie, 'authorized', [addr(qui)]),
+    ])
+    return { existe: true, xlm: 0, aapl: fromUnits(aapl), usdc: fromUnits(usdc), trustAapl: true, trustUsdc: true, trustTusdc: true, aaplAutorise: Boolean(autorise) }
+  }
   try {
     const a = await horizon.loadAccount(qui)
     const c: Compte = { existe: true, xlm: 0, aapl: 0, usdc: 0, trustAapl: false, trustUsdc: false, trustTusdc: false, aaplAutorise: false }
@@ -202,7 +215,34 @@ export async function lireCompte(qui: string): Promise<Compte> {
 
 /* ---------- Transactions du contrat de prêt ---------- */
 
+/** Compte passkey (compte intelligent, adresse C…) plutôt que compte Varial (G…) */
+export const estPasskey = (a: string | null | undefined) => !!a && a.startsWith('C')
+
+/** Passkey : on simule pour obtenir l'autorisation demandée par le contrat, la passkey la signe,
+ *  puis le relais construit la transaction et paie les frais (aucun XLM pour l'utilisateur). */
+async function appelerPasskey(qui: string, contractId: string, methode: string, args: xdr.ScVal[]): Promise<string> {
+  const tx = new TransactionBuilder(lecteur(), { fee: BASE_FEE, networkPassphrase: PASS })
+    .addOperation(new Contract(contractId).call(methode, ...args))
+    .setTimeout(120)
+    .build()
+  const sim = await server.simulateTransaction(tx)
+  if (rpc.Api.isSimulationError(sim)) throw new Error(sim.error)
+  const expiration = sim.latestLedger + 60 // environ 5 minutes
+  const auth: string[] = []
+  for (const e of sim.result?.auth ?? []) {
+    const b64 = e.toXDR('base64')
+    // SDK 17 : les unions XDR exposent `.type` et des propriétés (plus de méthodes).
+    const c = e.credentials
+    const pourMoi = c.type === 'sorobanCredentialsAddress' && Address.fromScAddress(c.address.address).toString() === qui
+    if (!pourMoi) throw new Error('Unexpected authorization request: transaction cancelled.')
+    auth.push(await passkey.signerAutorisation(b64, expiration))
+  }
+  const op = tx.operations[0] as Operation.InvokeHostFunction
+  return passkey.envoyerParRelais(op.func.toXDR('base64'), auth)
+}
+
 async function appeler(qui: string, contractId: string, methode: string, args: xdr.ScVal[]): Promise<string> {
+  if (estPasskey(qui)) return appelerPasskey(qui, contractId, methode, args)
   const src = await server.getAccount(qui)
   const tx = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: PASS })
     .addOperation(new Contract(contractId).call(methode, ...args))
@@ -281,6 +321,7 @@ export function chargerJetons(): Promise<void> {
 }
 
 export async function obtenirJetons(qui: string, etape: (t: string) => void): Promise<{ hash?: string; text: string }> {
+  const signe = estPasskey(qui) ? 'confirm with your passkey' : 'sign in Varial'
   let c = await lireCompte(qui)
   if (!c.existe) {
     etape('1/3 · Creating the testnet account (Friendbot)…')
@@ -305,7 +346,7 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
   const notes: string[] = []
   let hash: string | undefined
   // Le robinet v2 a un montant réglable : on n'affiche pas de chiffre fixe.
-  etape(`3/${total} · The faucet sends you ${V2 ? 'test' : '100'} tAAPL (your collateral): sign in Varial…`)
+  etape(`3/${total} · The faucet sends you ${V2 ? 'test' : '100'} tAAPL (your collateral): ${signe}…`)
   try {
     hash = await appeler(qui, chain.robinet, 'recevoir', [addr(qui)])
     faits.push(V2 ? 'tAAPL' : '100 tAAPL')
@@ -314,7 +355,7 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
     notes.push('tAAPL already received this hour')
   }
   if (chain.distributeur) {
-    etape(`4/4 · The dispenser sends you test ${jetonPret()}: sign in Varial…`)
+    etape(`4/4 · The dispenser sends you test ${jetonPret()}: ${signe}…`)
     try {
       hash = await appeler(qui, chain.distributeur, 'recevoir', [addr(qui)])
       faits.push(jetonPret())

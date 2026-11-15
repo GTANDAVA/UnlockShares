@@ -29,6 +29,8 @@ type Change = { asset_code?: string; asset_issuer?: string; from?: string; to?: 
 type Rec = { transaction_attr?: { memo_type?: string }; type: string; transaction_hash: string; created_at: string; from?: string; to?: string; amount?: string; asset_code?: string; asset_issuer?: string; asset_balance_changes?: Change[] }
 
 export async function lireMouvements(address: string): Promise<Movement[]> {
+  // Compte passkey (contrat C…) : Horizon ne le connaît pas, et MoneyGram / anchors n'y sont pas encore branchés.
+  if (address.startsWith('C')) return []
   const page = await horizon.payments().forAccount(address).order('desc').limit(100).join('transactions').call()
   const tags = readTags()
   const out: Movement[] = []
