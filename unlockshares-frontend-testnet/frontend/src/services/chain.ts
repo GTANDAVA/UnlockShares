@@ -50,7 +50,8 @@ export function messageErreur(e: unknown, contrat: 'pret' | 'robinet' = 'pret'):
     return ERREURS_PRET[n] ?? `Contract error #${n}.`
   }
   if (/trustline|op_no_trust/i.test(t)) return 'Your account does not have the test tokens yet: click “Get test tokens” first.'
-  if (/not authorized|authoriz/i.test(t)) return 'Your account is not yet allowed to hold the share: click “Get test tokens”.'
+  // Seulement le refus du jeton tAAPL (ligne non autorisée), pas toute erreur contenant « authorization ».
+  if (/op_not_authorized|deauthorized|is not authorized/i.test(t)) return 'Your account is not yet allowed to hold the share: click “Get test tokens”.'
   if (/declined|rejected|User declined/i.test(t)) return 'Signature declined in Varial.'
   if (/Passkey cancelled/i.test(t)) return 'Passkey cancelled.'
   if (/balance|underfunded|insufficient/i.test(t)) return 'Insufficient balance.'
@@ -220,6 +221,13 @@ export const estPasskey = (a: string | null | undefined) => !!a && a.startsWith(
 
 /** Passkey : on simule pour obtenir l'autorisation demandée par le contrat, la passkey la signe,
  *  puis le relais construit la transaction et paie les frais (aucun XLM pour l'utilisateur). */
+/** Adresse qui doit signer une autorisation (formats V1, V2 et « avec délégués »), ou null pour « compte source ». */
+function adresseSignataire(e: xdr.SorobanAuthorizationEntry): string | null {
+  const c = e.credentials as unknown as { type: string; address?: { address: xdr.ScAddress }; addressV2?: { address: xdr.ScAddress }; addressWithDelegates?: { addressCredentials: { address: xdr.ScAddress } } }
+  const a = c.address ?? c.addressV2 ?? c.addressWithDelegates?.addressCredentials
+  return c.type === 'sorobanCredentialsSourceAccount' || !a ? null : Address.fromScAddress(a.address).toString()
+}
+
 async function appelerPasskey(qui: string, contractId: string, methode: string, args: xdr.ScVal[]): Promise<string> {
   const tx = new TransactionBuilder(lecteur(), { fee: BASE_FEE, networkPassphrase: PASS })
     .addOperation(new Contract(contractId).call(methode, ...args))
@@ -232,9 +240,8 @@ async function appelerPasskey(qui: string, contractId: string, methode: string, 
   for (const e of sim.result?.auth ?? []) {
     const b64 = e.toXDR('base64')
     // SDK 17 : les unions XDR exposent `.type` et des propriétés (plus de méthodes).
-    const c = e.credentials
-    const pourMoi = c.type === 'sorobanCredentialsAddress' && Address.fromScAddress(c.address.address).toString() === qui
-    if (!pourMoi) throw new Error('Unexpected authorization request: transaction cancelled.')
+    const signataire = adresseSignataire(e)
+    if (signataire !== qui) throw new Error(`Unexpected signature request (${signataire ?? 'source account'}): transaction cancelled.`)
     auth.push(await passkey.signerAutorisation(b64, expiration))
   }
   const op = tx.operations[0] as Operation.InvokeHostFunction

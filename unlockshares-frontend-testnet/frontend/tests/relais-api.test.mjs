@@ -81,6 +81,16 @@ test('creating the official passkey account is accepted, any other code is refus
   assert.equal(v.status, 403)
 })
 
+test('the V2 address authorization format is accepted too', async () => {
+  const v1 = autorisation(COMPTE)
+  const e = new xdr.SorobanAuthorizationEntry({
+    credentials: xdr.SorobanCredentials.sorobanCredentialsAddressV2(v1.credentials.address),
+    rootInvocation: v1.rootInvocation,
+  })
+  const v = await verifier({ func: b64(appel(PRET, 'emprunter')), auth: [b64(e)] }, bonWasm)
+  assert.deepEqual(v, { creation: false, compte: COMPTE })
+})
+
 test('garbage, empty auth or too many entries are refused', async () => {
   assert.equal((await verifier({ func: 'pas-du-xdr', auth: ['x'] }, bonWasm)).status, 400)
   assert.equal((await verifier({ func: b64(appel(PRET, 'emprunter')), auth: [] }, bonWasm)).status, 400)

@@ -61,8 +61,13 @@ export async function verifier(body, wasmDe = lireWasm) {
     return refus(400, 'Invalid XDR.')
   }
   // Jamais d'autorisation « compte source » : elle engagerait le compte qui paie les frais.
-  if (auth.some((a) => a.credentials.type !== 'sorobanCredentialsAddress')) return refus(403, 'Only address authorizations are accepted.')
-  const signataires = auth.map((a) => Address.fromScAddress(a.credentials.address.address).toString())
+  // Formats acceptés : adresse V1, V2 et « avec délégués » (on lit l'adresse qui signe).
+  const adresses = auth.map((a) => {
+    const c = a.credentials
+    return c.type === 'sorobanCredentialsSourceAccount' ? null : (c.address ?? c.addressV2 ?? c.addressWithDelegates?.addressCredentials)?.address
+  })
+  if (adresses.some((x) => !x)) return refus(403, 'Only address authorizations are accepted.')
+  const signataires = adresses.map((x) => Address.fromScAddress(x).toString())
 
   if (f.type === 'hostFunctionTypeCreateContractV2') {
     const v = f.createContractV2
