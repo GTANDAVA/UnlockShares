@@ -61,7 +61,7 @@ export function HomePage() {
           <tbody><tr>
             <td><div className="asset"><Coin kind="usdc">$</Coin><div>{nomJetonPret()}<small>{jetonPret()}</small></div></div></td>
             <td>UnlockShares Lending Hub</td>
-            <td>{usdc(s.lent)}<small>{usd(s.lent)}</small></td>
+            <td>{usdc(s.lent)}</td>
             <td>{lendRate}</td>
             <td>{earnings}<small>{demo ? 'since 24 Oct' : 'interest paid by borrowers'}</small></td>
             <td><button className="btn" onClick={() => open('withdrawLend')}>Withdraw</button></td>
@@ -114,7 +114,7 @@ export function HomePage() {
       <div className="tbl"><table>
         <thead><tr><th>Asset</th><th>Price</th><th>Wallet balance</th><th>Used as guarantee</th><th>Yearly yield if lent<Term>deposit APY</Term></th></tr></thead>
         <tbody>
-          <tr><td><div className="asset"><Coin kind="usdc">$</Coin><div>{nomJetonPret()}<small>{jetonPret()}</small></div></div></td><td>{usd(1)}</td><td>{usdc(s.usdc)}<small>{usd(s.usdc)}</small></td><td>–</td><td>{lendRate}</td></tr>
+          <tr><td><div className="asset"><Coin kind="usdc">$</Coin><div>{nomJetonPret()}<small>{jetonPret()}</small></div></div></td><td>{usd(1)}</td><td>{usdc(s.usdc)}</td><td>–</td><td>{lendRate}</td></tr>
           <tr><td><div className="asset"><Coin kind="aapl">AAPL</Coin><div>Apple<small>tokenized share</small></div></div></td><td>{aaplPrice ? usd(aaplPrice) : '–'}</td><td>{s.walletShares} AAPL<small>{usd(s.walletShares * s.price)}</small></td><td>{s.shares} AAPL<small>{usd(d.value)}</small></td><td>– <small>guarantee only</small></td></tr>
           <tr><td><div className="asset"><Coin kind="xlm">XLM</Coin><div>Stellar Lumens<small>XLM, pays network fees</small></div></div></td><td>–</td><td>{Math.round(s.xlm).toLocaleString('fr-FR')} XLM<small>fees ≈ 0,$001 per action</small></td><td>–</td><td>–</td></tr>
         </tbody>

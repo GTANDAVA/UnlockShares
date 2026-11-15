@@ -8,9 +8,9 @@ import { estPasskey, jetonPret, lienTx } from '../services/chain'
 import { DEMO, derive, zoneOf } from '../services/mockDemo'
 
 /** Montants en dollars : 1 jeton prêté (USDC) = 1 $ (hypothèse affichée dans le bandeau du haut) */
-export const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
-/** Montant du jeton prêté, avec son nom lu sur la blockchain (USDC, USDS…) */
-export const usdc = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} ${jetonPret()}`
+export const usd = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: Math.abs(n) < 1000 ? 2 : 0 })}`
+/** Devise unique : tout montant d'argent s'affiche en dollars (1 USDC = 1 $). Le nom du jeton reste dans la colonne « Asset ». */
+export const usdc = usd
 
 /** Terme DeFi affiché seulement quand l'option « Afficher les termes DeFi » est cochée */
 export const Term = ({ children }: { children: ReactNode }) => <span className="term">{children}</span>

@@ -410,6 +410,8 @@ const NOMS: Record<string, string> = {
   demo_perso_fixee: 'Demo tools switched',
 }
 
+/** Devise unique : montants d'argent en dollars (1 USDC = 1 $) */
+const dollars = (n: number) => `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
 const nombre = (n: number, unite: string) => `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${unite}`
 
 // Cache : la 1re lecture parcourt l'historique page par page, ensuite on ne lit que la suite.
@@ -451,28 +453,27 @@ export async function lireEvenements(): Promise<Evenement[]> {
     let qui = String(topics[1] ?? '')
     let cible: string | undefined
     let n: number | undefined
-    const J = jetonPret()
     if (nom === 'depose' || nom === 'garantie_retiree') montant = nombre(fromUnits(data.montant as bigint), 'AAPL')
     else if (nom === 'prix_demo_fixe') {
       // v2 : prix de démo d'UNE position (0 = retour au prix de référence)
       const px = fromUnits(data.prix as bigint)
-      montant = px ? nombre(px, J) : 'back to reference price'
+      montant = px ? dollars(px) : 'back to reference price'
     } else if (nom === 'temps_perso') {
-      montant = `+${Math.round(Number(data.secondes) / 86_400)} days · ${nombre(fromUnits(data.interets as bigint), J)} demo interest`
+      montant = `+${Math.round(Number(data.secondes) / 86_400)} days · ${dollars(fromUnits(data.interets as bigint))} demo interest`
     } else if (nom === 'plafonds_fixes') {
       const pl = (data.plafonds ?? {}) as unknown as Record<string, bigint>
-      montant = `max ${nombre(fromUnits(pl.fixe), J)} per address, ${Number(pl.caisse_bps) / 100} % of cash per loan`
+      montant = `max ${dollars(fromUnits(pl.fixe))} per address, ${Number(pl.caisse_bps) / 100} % of cash per loan`
       qui = ''
     } else if (nom === 'demo_perso_fixee') {
       montant = (data.actif as unknown as boolean) ? 'on' : 'off'
       qui = ''
     } else if (nom === 'prix_fixe') {
-      montant = nombre(fromUnits(data.prix as bigint), J)
+      montant = dollars(fromUnits(data.prix as bigint))
       qui = String(data.par)
     } else if (nom === 'liquide') {
       cible = qui
       qui = String(topics[2] ?? '')
-      montant = `${nombre(fromUnits(data.garantie_saisie as bigint), 'AAPL')} for ${nombre(fromUnits(data.dette as bigint), J)}`
+      montant = `${nombre(fromUnits(data.garantie_saisie as bigint), 'AAPL')} for ${dollars(fromUnits(data.dette as bigint))}`
     } else if (nom === 'temps_avance') {
       montant = `+${Math.round(Number(data.secondes) / 86_400)} days`
       qui = String(data.par)
@@ -482,11 +483,11 @@ export async function lireEvenements(): Promise<Evenement[]> {
       montant = `${p(r.taux_coude_bps)} at ${p(r.coude_bps)} usage, max ${p(r.taux_max_bps)}, reserve ${p(r.reserve_bps)}`
       qui = ''
     } else if (nom === 'reserve_retiree') {
-      montant = nombre(fromUnits(data.montant as bigint), J)
+      montant = dollars(fromUnits(data.montant as bigint))
       qui = ''
     } else {
       n = fromUnits(data.montant as bigint)
-      montant = nombre(n, J)
+      montant = dollars(n)
     }
     return { id: ev.id, date: new Date(ev.ledgerClosedAt), type: NOMS[nom] ?? nom, qui, montant, hash: ev.txHash, cible, n }
   })

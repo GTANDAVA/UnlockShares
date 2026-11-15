@@ -15,9 +15,9 @@ export const DEMO = {
   lendRateLabel: '4,2 %',
   borrowRateLabel: '5,5 %',
   poolUsed: 0.76,
-  poolDeposits: '1,20 M USDC',
-  totalLoans: '912 k USDC',
-  earnings: '1,15 USDC',
+  poolDeposits: '$1.2M',
+  totalLoans: '$912k',
+  earnings: '$1.15',
 }
 
 export type DemoEvent = { date: string; action: string; amount: string }
@@ -52,8 +52,8 @@ const INITIAL: DemoState = {
   price: 200,
   history: [
     { date: '24 Oct 14:02', action: 'Deposit shares', amount: '50 AAPL' },
-    { date: '24 Oct 14:05', action: 'Borrow', amount: '3 000 USDC' },
-    { date: '24 Oct 14:09', action: 'Lend', amount: '1 000 USDC' },
+    { date: '24 Oct 14:05', action: 'Borrow', amount: '$3,000' },
+    { date: '24 Oct 14:09', action: 'Lend', amount: '$1,000' },
   ],
 }
 
