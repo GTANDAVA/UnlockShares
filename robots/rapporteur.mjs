@@ -27,7 +27,9 @@ async function lire() {
 async function soumettre(prix) {
   const sdk = await import('@stellar/stellar-sdk');
   const { Keypair, rpc, TransactionBuilder, Operation, Address, nativeToScVal, scValToNative, Networks, BASE_FEE } = sdk;
-  const { ORACLE_ID, RAPPORTEUR_CLE } = process.env;
+  // Les valeurs collées dans GitHub gardent parfois un espace ou un retour à la ligne : on les retire.
+  const ORACLE_ID = (process.env.ORACLE_ID || '').trim();
+  const RAPPORTEUR_CLE = (process.env.RAPPORTEUR_CLE || '').trim();
   if (!ORACLE_ID || !RAPPORTEUR_CLE) throw new Error('ORACLE_ID ou RAPPORTEUR_CLE manquant');
   const moi = Keypair.fromSecret(RAPPORTEUR_CLE);
   const serveur = new rpc.Server(process.env.RPC_URL || 'https://soroban-testnet.stellar.org');
