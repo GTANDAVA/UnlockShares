@@ -8,8 +8,8 @@ import { DEMO, derive } from '../services/mockDemo'
 
 const ROADMAP: { kind: 'bb' | 'spy' | 'ewy'; code: string; name: string; type: string; max: string; liq: string }[] = [
   { kind: 'bb', code: 'BB', name: 'BlackBerry', type: 'tokenized share', max: '50 %', liq: '80 %' },
-  { kind: 'spy', code: 'SPY', name: 'S&P 500 ETF', type: 'tokenized fund', max: '65 %', liq: '85 %' },
-  { kind: 'ewy', code: 'EWY', name: 'MSCI South Korea ETF', type: 'tokenized fund', max: '55 %', liq: '80 %' },
+  { kind: 'spy', code: 'SPY', name: 'SPY', type: 'tokenized fund', max: '65 %', liq: '85 %' },
+  { kind: 'ewy', code: 'EWY', name: 'EWY', type: 'tokenized fund', max: '55 %', liq: '80 %' },
 ]
 
 const pct = (x: number) => `${(x * 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`
