@@ -10,6 +10,7 @@ import { EarnPage } from './pages/EarnPage'
 import { GetCashPage } from './pages/GetCashPage'
 import { HomePage } from './pages/HomePage'
 import { LiquidationsPage } from './pages/LiquidationsPage'
+import { PathToRealPage } from './pages/PathToRealPage'
 import { PresentationPage } from './pages/PresentationPage'
 
 const fromHash = (): PageId => {
@@ -26,6 +27,7 @@ const VIEWS: Record<PageId, () => React.JSX.Element> = {
   demo: DemoPage,
   liquidations: LiquidationsPage,
   cash: GetCashPage,
+  reel: PathToRealPage,
   retrait: CashOutPage,
   ajouter: AddMoneyPage,
 }
