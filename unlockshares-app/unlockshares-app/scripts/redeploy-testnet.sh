@@ -106,7 +106,13 @@ faire stellar contract deploy --wasm $W/robinet.wasm --source-account "$ADMIN" $
   --admin "$ADMIN" --action "$TAAPL" --dollar "$PRET_JETON" --montant_action $((ROBINET_ACTIONS * U)) --montant_dollar 0 --delai 3600 >/dev/null
 ROBINET=$(adresse "robinet-$ALIAS_SUFFIXE")
 # Le robinet devient admin de tAAPL : il pourra autoriser et distribuer l'action.
-faire stellar contract invoke --id "$TAAPL" --source-account "$EMETTEUR_AAPL" $N -- set_admin --new_admin "$ROBINET" >/dev/null
+# Testnet remis à zéro → l'admin est l'émetteur. Sinon l'admin est un ancien robinet : c'est lui qui cède l'admin (rendre_admin, signé par l'admin des contrats).
+ADMIN_ACTUEL=$(stellar contract invoke --id "$TAAPL" --source-account "$ADMIN" $N --send=no -- admin 2>/dev/null | tail -1 | tr -d '"')
+echo "Admin actuel de tAAPL : ${ADMIN_ACTUEL:-inconnu (jeton neuf)}"
+case "$ADMIN_ACTUEL" in
+  C*) faire stellar contract invoke --id "$ADMIN_ACTUEL" --source-account "$ADMIN" $N -- rendre_admin --nouvel_admin "$ROBINET" >/dev/null ;;
+  *)  faire stellar contract invoke --id "$TAAPL" --source-account "$EMETTEUR_AAPL" $N -- set_admin --new_admin "$ROBINET" >/dev/null ;;
+esac
 echo "Robinet : $ROBINET"
 
 etape "5. Guichet de prêt (v2) : prix $PRIX, plafond $PLAFOND, démo perso active"
