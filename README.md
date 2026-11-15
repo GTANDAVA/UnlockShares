@@ -1,6 +1,6 @@
 # UnlockShares — Borrow without selling (Stellar testnet)
 
-**▶ Live app: https://unlockshares.vercel.app** (needs the Varial wallet extension, formerly Freighter, set to **Testnet**)
+**▶ Live app: https://unlockshares.vercel.app** (create an account with Face ID / fingerprint, or use the Varial wallet extension set to **Testnet**)
 
 UnlockShares lets you borrow dollars (USDC) against tokenized shares (tAAPL) on Stellar / Soroban, instead of selling them.
 Everything runs on **Stellar testnet**: tokens have no value.
@@ -18,8 +18,9 @@ Lenders put USDC in the pool and earn the interest paid by borrowers (rates foll
 ## How it works on Stellar
 
 ```
- Varial wallet ──signs──▶ Soroban contracts (testnet)
+ Passkey account or Varial ──signs──▶ Soroban contracts (testnet)
         │                  ├─ pret         lending pool: lend, deposit shares, borrow, repay, liquidate
+        │                  ├─ oracle-prix  Apple price (SEP-40 interface), fed by 2 price robots
         │                  ├─ robinet      faucet: test shares (tAAPL) for new users
         │                  └─ distributeur dispenser: a little test USDC per day
         │                         │
@@ -37,8 +38,10 @@ Lenders put USDC in the pool and earn the interest paid by borrowers (rates foll
 
 | Item | Address |
 |---|---|
-| **Lending pool used by the live app** (Circle testnet USDC) | [`CCWKS7YCP62XJI6B523JLUGNQMOYXES2RD56LYKHGIDL4U2REWPTDHOK`](https://stellar.expert/explorer/testnet/contract/CCWKS7YCP62XJI6B523JLUGNQMOYXES2RD56LYKHGIDL4U2REWPTDHOK) |
+| **Lending pool used by the live app** (v3, Circle testnet USDC, real Apple price) | [`CCOM4RD25IFM76BXEKQUV4ZLF4AIDIK7XGANGA6FRJQUUWE7R3Q4EUHI`](https://stellar.expert/explorer/testnet/contract/CCOM4RD25IFM76BXEKQUV4ZLF4AIDIK7XGANGA6FRJQUUWE7R3Q4EUHI) |
+| **Apple price oracle** (SEP-40 interface) | [`CCA3MJ2G6JOYE3BY5QRHSXZ4B5WQ232OF7WV3JLNVRJ5CB6QEP7P4OMI`](https://stellar.expert/explorer/testnet/contract/CCA3MJ2G6JOYE3BY5QRHSXZ4B5WQ232OF7WV3JLNVRJ5CB6QEP7P4OMI) |
 | **Faucet used by the live app** (2 tAAPL per hour) | [`CD3MLCLA2SQHC2X7P3W6PRNHJTZVMT5ELHS2MXT6GOFVAPXRIJVFBNH7`](https://stellar.expert/explorer/testnet/contract/CD3MLCLA2SQHC2X7P3W6PRNHJTZVMT5ELHS2MXT6GOFVAPXRIJVFBNH7) |
+| Previous pool (v2), still online | [`CCWKS7YCP62XJI6B523JLUGNQMOYXES2RD56LYKHGIDL4U2REWPTDHOK`](https://stellar.expert/explorer/testnet/contract/CCWKS7YCP62XJI6B523JLUGNQMOYXES2RD56LYKHGIDL4U2REWPTDHOK) |
 | Previous pool (v1, USDC), still online | [`CAMRWYRLSSFF5VJB6FKZSJO3QG3CQQDMJS77LTY3E5H7C67R2NYMUDVQ`](https://stellar.expert/explorer/testnet/contract/CAMRWYRLSSFF5VJB6FKZSJO3QG3CQQDMJS77LTY3E5H7C67R2NYMUDVQ) |
 | Older pool (v1, tUSDC), still online | [`CC2IWLMTGP3F4WG4TOYOCE7ZOYD4KRE4R4AXPTVUWX6UWGUK2ID564BS`](https://stellar.expert/explorer/testnet/contract/CC2IWLMTGP3F4WG4TOYOCE7ZOYD4KRE4R4AXPTVUWX6UWGUK2ID564BS) |
 | Previous faucet (v1) | [`CBM2U75GMZKML2AO2E44YXU5QGQBAOFGIJFKSRR7FP4CZUKH3HTC4XTV`](https://stellar.expert/explorer/testnet/contract/CBM2U75GMZKML2AO2E44YXU5QGQBAOFGIJFKSRR7FP4CZUKH3HTC4XTV) |
@@ -47,7 +50,7 @@ Lenders put USDC in the pool and earn the interest paid by borrowers (rates foll
 | USDC (Circle testnet, SAC) | [`CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
 | **v2 test pool** (isolated, test tokens TAAPLS / USDS) | [`CDNTTZ5FLJHZMS7SSVHLANR6W7RBXT4RWDYU2XSY7XX7222PUFFWA33G`](https://stellar.expert/explorer/testnet/contract/CDNTTZ5FLJHZMS7SSVHLANR6W7RBXT4RWDYU2XSY7XX7222PUFFWA33G) |
 
-The current contracts (**v2**, used by the live app since 2026-11-14) add: borrow limits (per address and per share of the pool cash), admin-only global settings, a demo price and a demo time jump **per position** (they never affect other users or the rates), and liquidation / repayment with an exact amount where any extra is returned.
+The live app uses the **v3** lending pool: it reads the **real Apple price** from the oracle (two robots, Hyperliquid and Yahoo Finance, must agree within 1 %; see `robots/README.md`), and new loans pause if the price is more than 4 days old. Like v2, it adds: borrow limits (per address and per share of the pool cash), admin-only global settings, a demo price and a demo time jump **per position** (they never affect other users or the rates), and liquidation / repayment with an exact amount where any extra is returned.
 
 ## Repository
 
@@ -109,17 +112,17 @@ All hashes below were checked on Horizon testnet (`successful: true`).
 | Interest rates following pool usage, protocol reserve | **Real** (computed by the contract) |
 | Activity history with proofs | **Real** (contract events) |
 | Test tokens (faucet, USDC dispenser) | **Real** testnet tokens, no value |
-| Share price | **Demo oracle**: a reference price set by the admin, no market feed |
+| Share price | **Real**: Apple price reported by two free robots to an on-chain oracle (SEP-40 interface); free sources, no service guarantee |
 | Demo price / time jump | **Demo**: they apply to your own position only, never to other users or the rates (switched off on the previous v1 pools) |
 | Cash in / cash out with MoneyGram | **Partial**: real MoneyGram Ramps sandbox session; cash deposit and pickup cannot be completed on testnet |
 | Bank transfer (cash out) | **Simulation** (fixed demo rate 1 USDC = 0.92 €, nothing is sent) |
 | Léa's story (no wallet connected) | **Simulation** |
-| Real price oracle, more assets | **Planned** |
+| Professional price oracle (e.g. Reflector), more assets | **Planned** — see the in-app page “Path to real” |
 
 ## Limitations
 
-- Testnet only; the price is set by the admin (no oracle).
-- The previous v1 pools stay online so that their users can close their positions.
+- Testnet only. The Apple price comes from free sources (no service guarantee): if they stop, the price freezes and new loans pause after 4 days.
+- The previous v1 and v2 pools stay online so that their users can close their positions.
 - Contracts have unit tests but no external audit.
 
 ## More
