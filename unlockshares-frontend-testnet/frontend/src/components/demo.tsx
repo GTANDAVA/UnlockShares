@@ -98,7 +98,7 @@ export function Jar() {
   const total = Math.max(d.value * DEMO.liquidation, s.debt)
   return (
     <>
-      <small className="muted">Your shares jar</small>
+      <small className="muted">What your shares unlock</small>
       <p className="jarmsg">
         {d.liquidable ? (
           <><em className="s-danger">Your loan is above 80 % of your shares’ value.</em> A liquidator can now pay it back and take shares.</>
