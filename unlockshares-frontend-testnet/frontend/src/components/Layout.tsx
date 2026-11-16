@@ -1,6 +1,7 @@
 import {
   ArrowDownToLine, Banknote, HandCoins, CircleDollarSign, Gavel, Presentation, CirclePlay, Clock, Droplets, House, Percent, Plus, Search, Wallet, LogOut,
 } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useDemo } from '../lib/useDemo'
 import { chain } from '../chainConfig'
@@ -21,6 +22,22 @@ const MENU: { section?: string; items: Item[] }[] = [
   { section: 'Explore', items: [{ id: 'cash', label: 'Get cash', icon: HandCoins }, { id: 'preter', label: 'Earn', icon: Percent }, { id: 'emprunter', label: 'Borrow', icon: CircleDollarSign }, { id: 'ajouter', label: 'Add money', icon: ArrowDownToLine }, { id: 'retrait', label: 'Cash out', icon: Banknote }] },
   { section: 'Demo', items: [{ id: 'demo', label: 'Demo controls', icon: CirclePlay }, { id: 'liquidations', label: 'Liquidations', icon: Gavel }] },
 ]
+
+/** Bouton soleil / lune : version nuit par défaut, choix gardé dans ce navigateur (voir index.html). */
+function ThemeToggle() {
+  const [nuit, setNuit] = useState(() => document.documentElement.dataset.theme !== 'light')
+  const basculer = () => {
+    const t = nuit ? 'light' : 'dark'
+    document.documentElement.dataset.theme = t
+    try { localStorage.setItem('unlockshares.theme', t) } catch { /* stockage indisponible */ }
+    setNuit(!nuit)
+  }
+  return (
+    <button className="round" onClick={basculer} aria-label={nuit ? 'Switch to day mode' : 'Switch to night mode'} title={nuit ? 'Day mode' : 'Night mode'}>
+      {nuit ? <Sun className="i" aria-hidden /> : <Moon className="i" aria-hidden />}
+    </button>
+  )
+}
 
 function Logo() {
   return (
@@ -78,6 +95,7 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
           <div className="top">
             <label className="search"><Search className="i" aria-hidden /><input placeholder="Search assets and markets" aria-label="Search" /><span className="kbd">/</span></label>
             <button className="round" aria-label="Lend" title="Lend" onClick={() => open('lend')}><Plus className="i" aria-hidden /></button>
+            <ThemeToggle />
             {live && s.address && s.ready && (
               <button className="round" aria-label="Get test tokens" title={`Get test tokens: test Apple shares (hourly)${chain.distributeur ? ` + test ${jetonPret()} (daily)` : ''}`} onClick={faucet} disabled={!!s.busy}><Droplets className="i" aria-hidden /></button>
             )}
