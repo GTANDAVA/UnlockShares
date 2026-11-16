@@ -22,7 +22,7 @@
 .co-kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 13px; }
 .co-kv span { color: var(--muted); }
 .co-kv code { font-family: var(--mono); overflow-wrap: anywhere; }
-.co-ok, .co-err { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.co-ok, .co-err { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
 .co-ok { color: var(--safe); }
 .co-err { color: var(--danger); }
 .co .v-ic { display: inline-block; width: 1em; height: 1em; flex: none; vertical-align: -2px; }
@@ -95,3 +95,7 @@
 .co-choice-ic { width: 26px; height: 26px; flex: none; }
 .co-details summary { cursor: pointer; list-style: none; }
 .co-details summary::-webkit-details-marker { display: none; }
+
+/* Référence MoneyGram affichée sous « See my loan / Get more » (page Get cash) */
+.mg-ref { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--safe); min-width: 0; }
+.mg-ref code { font-size: 22px; font-weight: 600; color: var(--safe); overflow-wrap: anywhere; }

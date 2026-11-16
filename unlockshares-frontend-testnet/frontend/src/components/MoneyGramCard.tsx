@@ -5,7 +5,8 @@ import { addUsdcTrustline, openMoneyGram, usdcBalance, type RampMode } from '../
 import { tagTx } from '../services/movements'
 
 // Widget MoneyGram (sandbox, testnet). off-ramp : USDC de Circle → espèces. on-ramp : espèces au guichet → USDC dans le wallet.
-export function MoneyGramCard({ address, mode = 'off-ramp' }: { address: string; mode?: RampMode }) {
+/** `onRef` : si fourni, la page affiche elle-même la référence MoneyGram (ailleurs que dans la carte). */
+export function MoneyGramCard({ address, mode = 'off-ramp', onRef }: { address: string; mode?: RampMode; onRef?: (ref: string) => void }) {
   const cashIn = mode === 'on-ramp'
   const box = useRef<HTMLDivElement>(null)
   const close = useRef<(() => void) | null>(null)
@@ -34,7 +35,7 @@ export function MoneyGramCard({ address, mode = 'off-ramp' }: { address: string;
       setOpen(true)
       close.current = await openMoneyGram(box.current, address, {
         onPaid: (h) => { setHash(h); lastHash.current = h; tagTx(h, { kind: 'mg-out' }); refresh() },
-        onComplete: (r) => { setRef(r || (cashIn ? 'see “Compte #” in the widget' : '(no reference returned)')); if (lastHash.current && r) tagTx(lastHash.current, { kind: 'mg-out', ref: r }); refresh() },
+        onComplete: (r) => { const v = r || (cashIn ? 'see “Compte #” in the widget' : '(no reference returned)'); setRef(v); onRef?.(v); if (lastHash.current && r) tagTx(lastHash.current, { kind: 'mg-out', ref: r }); refresh() },
         onError: (m) => setErr(m),
       }, mode)
     } catch (e) {
@@ -61,7 +62,7 @@ export function MoneyGramCard({ address, mode = 'off-ramp' }: { address: string;
       </div>
       {err && <p className="co-err"><TriangleAlert className="v-ic" />{err}</p>}
       {hash && <small className="muted">USDC sent to MoneyGram · <a href={lienTx(hash)} target="_blank" rel="noreferrer">see the transaction</a></small>}
-      {ref && <p className="co-ok"><Check className="v-ic" />{cashIn ? 'MoneyGram deposit reference' : 'MoneyGram reference number'}: <code>{ref}</code></p>}
+      {ref && !onRef && <p className="co-ok"><Check className="v-ic" />{cashIn ? 'MoneyGram deposit reference' : 'MoneyGram reference number'}: <code>{ref}</code></p>}
       {/* Hauteur EXPLICITE obligatoire : l'iframe du SDK fait height:100%, sinon elle retombe à 150 px. Le widget peut ensuite l'ajuster (RAMPS_HEIGHT). */}
       <div ref={box} style={{ display: open ? 'block' : 'none', height: 'min(680px, 85vh)', borderRadius: 16, overflow: 'hidden' }} />
     </div>

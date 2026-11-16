@@ -45,6 +45,7 @@ export function GetCashPage() {
   const [etape, setEtape] = useState<Etape>('saisie')
   const [progres, setProgres] = useState('')
   const [preuves, setPreuves] = useState<{ label: string; hash?: string }[]>([])
+  const [refMg, setRefMg] = useState('')
   const montant = Math.max(0, Number(saisie.replace(',', '.')) || 0)
   const plan = planGetCash(s, montant)
   const ok = montant > 0 && montant <= plan.max && plan.aDeposer <= s.walletShares + 1e-9
@@ -134,8 +135,15 @@ export function GetCashPage() {
             ))}
             <div className="chips">
               <a className="btn" href="#accueil">See my loan</a>
-              <button className="btn" onClick={() => { setEtape('saisie'); setPreuves([]) }}>Get more</button>
+              <button className="btn" onClick={() => { setEtape('saisie'); setPreuves([]); setRefMg('') }}>Get more</button>
             </div>
+            {refMg && (
+              <div className="mg-ref">
+                <small className="muted">MoneyGram reference number</small>
+                <code>{refMg}</code>
+                <small className="muted">Show it at the MoneyGram counter to collect your cash.</small>
+              </div>
+            )}
           </div>
           <div className="chart jarbox">
             {!demo && s.address && J === 'USDC' ? (
@@ -144,7 +152,7 @@ export function GetCashPage() {
                 {pk ? (
                   <small className="muted">MoneyGram cash pickup needs the Varial wallet for now: your USDC stay in your passkey account.</small>
                 ) : (
-                  <MoneyGramCard address={s.address} />
+                  <MoneyGramCard address={s.address} onRef={setRefMg} />
                 )}
               </>
             ) : (
