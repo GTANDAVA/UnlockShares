@@ -67,7 +67,18 @@ try {
     console.log(`[${source}] lecture seule : rien n'est envoyé (ENVOYER=oui pour envoyer).`);
     process.exit(0);
   }
-  const { hash, resultat } = await soumettre(lu.prix);
+  // Les 2 robots votent à la même seconde : le vote du second, préparé avant que le premier soit inscrit, peut échouer
+  // (il ne prévoyait pas d'écrire le prix accepté). On le prépare à nouveau, une fois, après une courte pause.
+  let envoi;
+  try {
+    envoi = await soumettre(lu.prix);
+  } catch (e) {
+    if (!/transaction échouée/.test(e.message)) throw e;
+    console.log(`[${source}] 1er essai refusé (vote simultané de l'autre robot) : nouvel essai dans 8 s.`);
+    await new Promise((ok) => setTimeout(ok, 8000));
+    envoi = await soumettre(lu.prix);
+  }
+  const { hash, resultat } = envoi;
   console.log(`[${source}] envoyé, résultat du contrat : ${JSON.stringify(resultat, (_, v) => typeof v === 'bigint' ? v.toString() : v)}`);
   console.log(`[${source}] preuve : https://stellar.expert/explorer/${process.env.RESEAU === 'public' ? 'public' : 'testnet'}/tx/${hash}`);
 } catch (e) {
