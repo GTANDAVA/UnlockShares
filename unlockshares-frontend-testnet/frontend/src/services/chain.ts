@@ -43,6 +43,15 @@ const ERREURS_PRET: Record<number, string> = {
 
 export function messageErreur(e: unknown, contrat: 'pret' | 'robinet' = 'pret'): string {
   const t = e instanceof Error ? e.message : String(e)
+  // Refus d'Horizon (400) : le vrai motif est dans extras.result_codes, pas dans le message. On l'ajoute pour ne plus voir un simple « 400 Bad Request ».
+  const codes = (e as { response?: { data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } } } } })?.response?.data?.extras?.result_codes
+  if (codes) {
+    const c = [codes.transaction, ...(codes.operations ?? [])].filter(Boolean).join(', ')
+    if (/op_no_trust/.test(c)) return `The receiving account cannot hold this token yet (${c}).`
+    if (/op_underfunded/.test(c)) return `Insufficient balance (${c}).`
+    if (/tx_bad_seq/.test(c)) return `Your account changed in the meantime: please try again (${c}).`
+    return `Stellar refused the transaction (${c}).`
+  }
   const m = t.match(/Error\(Contract, #(\d+)\)/)
   if (m) {
     const n = Number(m[1])
