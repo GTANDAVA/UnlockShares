@@ -85,20 +85,20 @@ export function Jar() {
   if (!s.shares)
     return (
       <>
-        <p className="jarmsg">No shares in the jar yet.</p>
+        <p className="jarmsg">No shares deposited yet.</p>
         <p className="muted">Deposit shares to see what they can unlock.</p>
       </>
     )
   const parts: [number, string, string, string][] = [
-    [s.debt, 'var(--cash)', 'Cash received', 'debt'],
-    [d.available, 'var(--free)', 'Still available', 'borrow capacity'],
-    [d.cushion, 'var(--safe)', 'Safety cushion', 'buffer before liquidation'],
+    [s.debt, 'var(--cash)', 'Borrowed', 'debt'],
+    [d.available, 'var(--free)', 'You can still borrow', 'borrow capacity'],
+    [d.cushion, 'var(--safe)', 'Safety margin', 'buffer before liquidation'],
   ]
   // Le bocal représente la limite de 80 % : cash reçu + encore disponible + marge.
   const total = Math.max(d.value * DEMO.liquidation, s.debt)
   return (
     <>
-      <small className="muted">Your shares jar</small>
+      <small className="muted">What your shares unlock</small>
       <p className="jarmsg">
         {d.liquidable ? (
           <><em className="s-danger">Your loan is above 80 % of your shares’ value.</em> A liquidator can now pay it back and take shares.</>
