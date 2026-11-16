@@ -224,3 +224,7 @@ svg.net { background: none; color: var(--ink); width: 14px; height: 14px; displa
 /* Home : le bloc « position » mis en valeur, même fondu que la carte d'accueil de Presentation (.p-hero) */
 .home-hero { margin: 8px 0 24px; padding: clamp(18px, 3vw, 28px); border: 1px solid var(--line); border-radius: 18px; background: radial-gradient(120% 90% at 85% -10%, color-mix(in srgb, #fdda24 16%, transparent), transparent 60%), var(--surface); }
 .home-hero .jarbox { border: 0; background: transparent; padding: 0; }
+
+/* Version nuit (par défaut) : halos doux jaune et violet ; menu actif discret (texte jaune + barre) au lieu du bloc jaune plein. */
+:root:not([data-theme="light"]) body { background: radial-gradient(900px 520px at 85% -10%, rgba(253,218,36,.16), transparent 60%), radial-gradient(800px 600px at 0% 100%, rgba(120,90,255,.12), transparent 60%), var(--bg); background-attachment: fixed; }
+aside .nav.on { background: rgba(253,218,36,.12); color: var(--yellow); box-shadow: inset 3px 0 0 var(--yellow); }
