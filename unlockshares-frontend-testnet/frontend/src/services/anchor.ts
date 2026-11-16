@@ -111,8 +111,9 @@ export async function payerAnchor(account: string, t: Sep24Tx, asset: Asset): Pr
   if (!t.withdraw_anchor_account || !t.amount_in) throw new Error('The anchor has not given its payment details yet.')
   // Avant de demander la signature : le compte de l'anchor peut-il recevoir cet actif ? Sinon Stellar refuserait le paiement (op_no_trust).
   if (!asset.isNative()) {
-    const dest = await solde(t.withdraw_anchor_account, asset).catch(() => undefined)
-    if (dest === null) throw new Error(`The test anchor's account (${t.withdraw_anchor_account.slice(0, 4)}…${t.withdraw_anchor_account.slice(-4)}) cannot receive ${asset.getCode()} right now: the problem is on the anchor's side. Nothing was sent.`)
+    // 404 = le compte n'existe pas sur le testnet (op_no_destination) ; autre erreur réseau = on laisse Stellar trancher.
+    const dest = await solde(t.withdraw_anchor_account, asset).catch((e: { response?: { status?: number } }) => (e?.response?.status === 404 ? null : undefined))
+    if (dest === null) throw new Error(`The test anchor's account (${t.withdraw_anchor_account.slice(0, 4)}…${t.withdraw_anchor_account.slice(-4)}) does not exist or cannot receive ${asset.getCode()} right now: the problem is on the anchor's side. Nothing was sent.`)
   }
   const src = await horizon.loadAccount(account)
   const tx = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: PASS })
