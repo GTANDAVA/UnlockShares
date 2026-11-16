@@ -44,7 +44,10 @@ const ERREURS_PRET: Record<number, string> = {
 export function messageErreur(e: unknown, contrat: 'pret' | 'robinet' = 'pret'): string {
   const t = e instanceof Error ? e.message : String(e)
   // Refus d'Horizon (400) : le vrai motif est dans extras.result_codes, pas dans le message. On l'ajoute pour ne plus voir un simple « 400 Bad Request ».
-  const codes = (e as { response?: { data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } } } } })?.response?.data?.extras?.result_codes
+  const data = (e as { response?: { data?: { title?: string; detail?: string; extras?: { result_codes?: { transaction?: string; operations?: string[] } } } } })?.response?.data
+  const codes = data?.extras?.result_codes
+  // 400 sans codes (ex. « Transaction Malformed ») : on montre au moins le titre d'Horizon.
+  if (!codes && data?.title) return `Stellar refused the transaction: ${data.title}${data.detail ? ` (${data.detail.slice(0, 140)})` : ''}`
   if (codes) {
     const c = [codes.transaction, ...(codes.operations ?? [])].filter(Boolean).join(', ')
     if (/op_no_trust/.test(c)) return `The receiving account cannot hold this token yet (${c}).`
