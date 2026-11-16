@@ -135,10 +135,15 @@ export async function refresh() {
   }
 }
 
+/** L'utilisateur s'est déconnecté lui-même : on ne le reconnecte pas tout seul au rechargement. */
+const CLE_DECONNECTE = 'unlockshares.deconnecte'
+const lireDeconnecte = () => { try { return localStorage.getItem(CLE_DECONNECTE) === '1' } catch { return false } }
+const ecrireDeconnecte = (oui: boolean) => { try { if (oui) localStorage.setItem(CLE_DECONNECTE, '1'); else localStorage.removeItem(CLE_DECONNECTE) } catch { /* stockage indisponible */ } }
+
 if (chainReady) {
-  // Session passkey enregistrée sur cet appareil d'abord, sinon compte Varial déjà autorisé.
-  void pk.compteConnu()
-    .then((c) => c ?? ch.adresseConnue())
+  // Session passkey enregistrée sur cet appareil d'abord, sinon compte Varial déjà autorisé (sauf déconnexion volontaire).
+  void (lireDeconnecte() ? Promise.resolve(null) : pk.compteConnu())
+    .then((c) => c ?? (lireDeconnecte() ? null : ch.adresseConnue()))
     .then((a) => {
       if (a) patch({ address: a })
       void refresh()
@@ -179,6 +184,7 @@ export type Done = { text: string; hash?: string }
 export const actions = {
   async connect(): Promise<string> {
     const a = await ch.connecter()
+    ecrireDeconnecte(false)
     patch({ address: a })
     await refresh()
     return a
@@ -188,6 +194,7 @@ export const actions = {
     patch({ busy: 'Creating your account: confirm with Face ID or your fingerprint…' })
     try {
       const a = await pk.creerCompte()
+      ecrireDeconnecte(false)
       patch({ address: a })
       await refresh()
       return a
@@ -198,12 +205,14 @@ export const actions = {
   /** Se reconnecte avec une passkey déjà créée sur cet appareil (ou synchronisée). */
   async connectPasskey(): Promise<string> {
     const a = await pk.connecter(true)
+    ecrireDeconnecte(false)
     if (!a) throw new Error('No UnlockShares account found for this passkey.')
     patch({ address: a })
     await refresh()
     return a
   },
   disconnect() {
+    ecrireDeconnecte(true)
     if (ch.estPasskey(chainState.address)) void pk.deconnecter()
     patch({ address: null, shares: 0, walletShares: 0, debt: 0, lent: 0, usdc: 0, earnings: 0, xlm: 0, ready: false })
   },
