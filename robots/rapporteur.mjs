@@ -34,6 +34,22 @@ async function soumettre(prix) {
   const moi = Keypair.fromSecret(RAPPORTEUR_CLE);
   const serveur = new rpc.Server(process.env.RPC_URL || 'https://soroban-testnet.stellar.org');
   const reseau = process.env.RESEAU === 'public' ? Networks.PUBLIC : Networks.TESTNET;
+  // Les 2 robots votent souvent dans la même seconde. Celui qui passe en second a simulé AVANT le vote de l'autre :
+  // son vote déclenche alors le calcul du prix accepté, plus coûteux que prévu, et Stellar le refuse
+  // (INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED). Parade : nouvel essai avec une simulation à jour (jusqu'à 3 essais).
+  let derniere;
+  for (let essai = 1; essai <= 3; essai++) {
+    try {
+      return await unEssai();
+    } catch (e) {
+      derniere = e;
+      console.log(`[${source}] essai ${essai} refusé (${e.message}) : nouvelle simulation dans quelques secondes`);
+      await new Promise((ok) => setTimeout(ok, 3000 + Math.floor(Math.random() * 5000)));
+    }
+  }
+  throw derniere;
+
+  async function unEssai() {
   const compte = await serveur.getAccount(moi.publicKey());
   let tx = new TransactionBuilder(compte, { fee: BASE_FEE, networkPassphrase: reseau })
     .addOperation(Operation.invokeContractFunction({
@@ -54,6 +70,7 @@ async function soumettre(prix) {
     await new Promise((ok) => setTimeout(ok, 2000));
   }
   throw new Error(`pas de confirmation pour ${envoi.hash}`);
+  }
 }
 
 try {
