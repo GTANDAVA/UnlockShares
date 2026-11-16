@@ -1,6 +1,7 @@
 import { Banknote, Check, History, KeyRound, Landmark, LoaderCircle, Lock, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Choice } from '../components/Choice'
+import { AnchorWithdrawCard } from '../components/AnchorWithdrawCard'
 import { MoneyGramCard } from '../components/MoneyGramCard'
 import { useConnect } from '../components/Onboarding'
 import { useDemo } from '../lib/useDemo'
@@ -129,12 +130,15 @@ export function CashOutPage() {
       {s.mode === 'chain' && (
         <Choice label="Cash out method" value={method} onChange={setMethod} options={[
           { id: 'cash', icon: Banknote, title: 'Cash', sub: 'Pick up at a MoneyGram location', tag: 'Sandbox' },
-          { id: 'bank', icon: Landmark, title: 'Bank transfer', sub: 'Euros on your IBAN', tag: 'Simulation' },
+          { id: 'bank', icon: Landmark, title: 'Bank transfer', sub: 'Through a Stellar anchor', tag: 'Testnet' },
         ]} />
       )}
 
       {s.mode === 'chain' && method === 'cash' ? (
         estPasskey(s.address) ? <div className="empty"><b>Needs the Varial wallet for now</b><span className="muted">MoneyGram and bank anchors work with a classic Stellar account. Passkey accounts are coming to this page later.</span></div> : s.address ? <MoneyGramCard address={s.address} /> : <div className="empty"><b>Connect your wallet</b><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
+      ) : s.mode === 'chain' && method === 'bank' ? (
+        // Retrait réel via l'anchor de test de Stellar (le virement simulé reste pour la démo hors ligne de Léa).
+        estPasskey(s.address) ? <div className="empty"><b>Needs the Varial wallet for now</b><span className="muted">Bank anchors work with a classic Stellar account. Passkey accounts are coming to this page later.</span></div> : s.address ? <AnchorWithdrawCard address={s.address} /> : <div className="empty"><b>Connect your wallet</b><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
       ) : (<>
       <ol className="co-steps">
         {STEPS.map((st, i) => {
