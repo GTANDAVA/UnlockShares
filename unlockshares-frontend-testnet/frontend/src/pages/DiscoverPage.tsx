@@ -1,17 +1,17 @@
-// Page « Discover » : présentation du site façon aave.com/app (Greg, 17/11/2026), adaptée à UnlockShares.
-// Sections : promesse, vendre vs emprunter, simulateur, produits, filet de sécurité, comment ça marche,
-// chiffres lus en direct dans le contrat, sécurité, FAQ, appel final. Aucun chiffre inventé : tout ce qui est
-// « live » vient du contrat testnet, le reste est la règle du contrat ou une simulation affichée comme telle.
-import { ArrowDownToLine, Banknote, ChevronDown, ExternalLink, FileCode2, Fingerprint, HandCoins, KeyRound, LifeBuoy, Percent, ShieldCheck, Undo2 } from 'lucide-react'
-import { useState } from 'react'
-import { chain } from '../chainConfig'
+// Page « Discover » v2 : présentation façon aave.com/app, adaptée à UnlockShares.
+// Retours de Greg (17/11/2026) : plus fluide, moins de texte, plus d'air, plus d'envie.
+// Donc : une idée par écran, de grands chiffres, des pastilles qui flottent, des compteurs qui s'animent,
+// des sections qui apparaissent au défilement. Chiffres « live » = contrat testnet ; le reste = règles du contrat.
+import { ArrowDownToLine, Banknote, ChevronDown, Fingerprint, HandCoins, KeyRound, Percent, ShieldCheck } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { TokenLogo } from '../components/logos'
 import { useDemo } from '../lib/useDemo'
 import { DEMO } from '../services/mockDemo'
 
-const pct = (x: number) => `${(x * 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}%`
-const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: n < 100 ? 2 : 0 })}`
+const pct = (x: number) => `${(x * 100).toLocaleString('en-US', { maximumFractionDigits: 1 })}%`
+const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
+const calme = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
-/** Chiffres du contrat (testnet) ; null si la lecture échoue */
 function useLive() {
   const s = useDemo()
   const demo = s.mode === 'demo'
@@ -20,222 +20,200 @@ function useLive() {
     ok, demo,
     borrow: demo ? DEMO.borrowRate : s.market.borrowRate,
     lend: demo ? DEMO.lendRate : s.market.lendRate,
-    lent: s.market.totalLent, borrowed: s.market.totalBorrowed, cash: s.market.cash,
+    lent: demo ? 1_200_000 : s.market.totalLent,
+    borrowed: demo ? 912_000 : s.market.totalBorrowed,
     price: s.market.refPrice ?? s.price,
   }
+}
+
+/** Apparition douce quand la section entre à l'écran */
+function Reveal({ children, className = '' }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [vu, setVu] = useState(calme)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || vu) return
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVu(true); io.disconnect() } }, { threshold: 0.15 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [vu])
+  return <div ref={ref} className={`d-rev ${vu ? 'in' : ''} ${className}`}>{children}</div>
+}
+
+/** Nombre qui glisse vers sa nouvelle valeur */
+function useCount(cible: number, ms = 600) {
+  const [v, setV] = useState(cible)
+  const de = useRef(cible)
+  useEffect(() => {
+    const dur = calme() ? 0 : ms
+    const a = de.current, t0 = performance.now()
+    let id = 0
+    const pas = (t: number) => {
+      const k = dur ? Math.min(1, (t - t0) / dur) : 1, e = 1 - (1 - k) ** 3
+      const x = a + (cible - a) * e
+      setV(x); de.current = x
+      if (k < 1) id = requestAnimationFrame(pas)
+    }
+    id = requestAnimationFrame(pas)
+    return () => cancelAnimationFrame(id)
+  }, [cible, ms])
+  return v
 }
 
 function Hero() {
   const r = useLive()
   return (
     <section className="d-hero">
-      <span className="p-kicker">UnlockShares · on Stellar</span>
-      <h1>The cash app<br /><span className="v-hl">for people who own shares.</span></h1>
-      <p className="p-lead">Keep your shares. Get dollars against them in a minute, repay whenever you want, and take the cash out at a MoneyGram counter.</p>
-      <div className="p-cta">
-        <a className="btn primary" href="#cash">Get cash</a>
-        <a className="btn" href="#presentation">Watch the 70 s video</a>
+      <div className="d-float" aria-hidden>
+        <span className="d-chip c1"><i className="d-logo"><TokenLogo kind="aapl" /></i>10 AAPL kept</span>
+        <span className="d-chip c2 d-green">+ $1,250 cash</span>
+        <span className="d-chip c3"><Fingerprint />Face ID</span>
+        <span className="d-chip c4"><Banknote />Cash at MoneyGram</span>
+        <span className="d-chip c5"><i className="d-logo"><TokenLogo kind="usdc" /></i>{r.ok ? `${pct(r.lend)} for lenders` : 'Earn on USDC'}</span>
+        <span className="d-orb" />
       </div>
-      <small className="p-live">{r.ok && !r.demo && <i className="p-dot" />}
-        {r.ok ? `Borrow at ${pct(r.borrow)} a year today · lenders earn ${pct(r.lend)}` : 'Reading the contract…'}{r.demo ? ' (demo figures)' : ''}</small>
+      <h1>Keep your shares.<br /><span className="v-hl">Get the cash.</span></h1>
+      <p className="d-lead">Dollars against your stocks, in a minute.</p>
+      <a className="btn primary d-big" href="#cash">Get cash</a>
     </section>
   )
 }
 
-function SellVsBorrow() {
-  return (
-    <section className="p-sec">
-      <h2>Selling is final. Borrowing is not.</h2>
-      <div className="d-vs">
-        <div className="d-col">
-          <small className="muted">Sell your shares</small>
-          <ul>
-            <li className="no">The shares are gone</li>
-            <li className="no">You miss any future rise</li>
-            <li className="no">Buying back later costs more if the price went up</li>
-          </ul>
-        </div>
-        <div className="d-col d-us">
-          <small>Borrow with UnlockShares</small>
-          <ul>
-            <li className="yes">Your shares stay yours, locked as a guarantee</li>
-            <li className="yes">You keep every rise</li>
-            <li className="yes">Up to 50% of their value in dollars, repay anytime</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function Simulator() {
+function Play() {
   const r = useLive()
   const [n, setN] = useState(10)
-  const [price, setPrice] = useState<number | null>(null)
-  const p = price ?? (r.price > 0 ? Math.round(r.price * 100) / 100 : 250)
-  const value = n * p
-  const cash = value * 0.5
-  const monthly = (cash * r.borrow) / 12
+  const prix = r.price > 0 ? r.price : 250
+  const cash = useCount(n * prix * 0.5)
+  const mois = (n * prix * 0.5 * r.borrow) / 12
   return (
-    <section className="p-sec d-sim">
-      <div className="head">
-        <div><h2>Simulate your cash</h2><p className="muted">How much your shares could unlock, and what it costs per month.</p></div>
-        <span className="pill ef-sim">Simulation</span>
-      </div>
-      <div className="d-simgrid">
-        <div className="d-inputs">
-          <label><span className="muted small">Apple shares you own</span>
-            <span className="ef-input"><input type="number" min={0} inputMode="numeric" value={n} onChange={(e) => setN(Math.max(0, Number(e.target.value) || 0))} /></span></label>
-          <label><span className="muted small">Price per share {price === null && r.price > 0 ? '(today, from the price oracle)' : ''}</span>
-            <span className="ef-input">$<input type="number" min={0} inputMode="decimal" value={p} onChange={(e) => setPrice(Math.max(0, Number(e.target.value) || 0))} /></span></label>
-          <input type="range" min={1} max={200} value={Math.min(200, n)} onChange={(e) => setN(Number(e.target.value))} aria-label="Number of shares" />
+    <section className="d-play">
+      <Reveal>
+        <p className="d-eyebrow">Try it</p>
+        <h2>Slide your shares.</h2>
+        <div className="d-shares" aria-hidden>
+          {Array.from({ length: Math.min(n, 40) }, (_, i) => <i key={i} className="d-sh"><TokenLogo kind="aapl" /></i>)}
+          {n > 40 && <span className="muted">+{n - 40}</span>}
         </div>
-        <div className="d-out">
-          <small className="muted">You could get up to</small>
-          <b className="num">{money(cash)}</b>
-          <div className="d-outline"><span className="muted">Your shares are worth</span><span>{money(value)}</span></div>
-          <div className="d-outline"><span className="muted">Interest per month at {pct(r.borrow)}</span><span>{money(monthly)}</span></div>
-          <div className="d-outline"><span className="muted">Shares you keep</span><span>{n} AAPL</span></div>
-          <a className="btn primary" href="#cash">Get cash</a>
-        </div>
-      </div>
-      <p className="muted small">Simulation with the 50% borrowing limit and today's borrow rate, which moves with pool usage. Testnet only, not financial advice.</p>
+        <input className="d-range" type="range" min={1} max={100} value={n} onChange={(e) => setN(Number(e.target.value))} aria-label="Apple shares you own" />
+        <p className="muted">{n} Apple {n > 1 ? 'shares' : 'share'} unlock</p>
+        <div className="d-giant num">{money(cash)}</div>
+        <p className="muted small">{r.ok && r.borrow > 0 ? `about ${money(mois)} a month at today's rate · ` : ''}simulation, testnet</p>
+      </Reveal>
     </section>
   )
 }
 
-const PRODUCTS = [
-  { href: '#cash', icon: HandCoins, title: 'Get cash', text: 'Lock tokenized shares, receive USDC. One screen, one decision.' },
-  { href: '#preter', icon: Percent, title: 'Earn', text: 'Lend USDC to the pool and earn the interest borrowers pay.' },
-  { href: '#ajouter', icon: ArrowDownToLine, title: 'Add money', text: 'Bank transfer or cash at MoneyGram, turned into USDC.' },
-  { href: '#retrait', icon: Banknote, title: 'Cash out', text: 'Pick up your dollars as local cash at a MoneyGram counter.' },
+const TILES = [
+  { href: '#cash', icon: HandCoins, title: 'Get cash', line: 'Lock shares, receive dollars.' },
+  { href: '#preter', icon: Percent, title: 'Earn', line: 'Lend dollars, earn interest.' },
+  { href: '#ajouter', icon: ArrowDownToLine, title: 'Add money', line: 'Bank or cash in.' },
+  { href: '#retrait', icon: Banknote, title: 'Cash out', line: 'Pick it up at MoneyGram.' },
 ]
 
-function Products() {
+function Tiles() {
   return (
-    <section className="p-sec">
-      <h2>Everything in one app</h2>
-      <div className="d-prods">
-        {PRODUCTS.map(({ href, icon: I, title, text }) => (
-          <a key={title} className="p-card d-prod" href={href}><span className="p-ico"><I /></span><b>{title}</b><p>{text}</p><span className="d-go">Open →</span></a>
-        ))}
-      </div>
+    <section>
+      <Reveal>
+        <h2 className="d-center">One app. Four moves.</h2>
+        <div className="d-tiles">
+          {TILES.map(({ href, icon: I, title, line }, i) => (
+            <a key={title} href={href} className="d-tile" style={{ transitionDelay: `${i * 80}ms` }}>
+              <span className="d-tic"><I /></span><b>{title}</b><span className="muted">{line}</span>
+            </a>
+          ))}
+        </div>
+      </Reveal>
     </section>
   )
 }
 
 function Cushion() {
   return (
-    <section className="p-sec">
-      <h2>A safety cushion, built in</h2>
-      <p className="muted">If the share price falls, nothing happens until your loan reaches 80% of your shares' value. Then only part is sold, just enough to come back to 60%.</p>
-      <div className="d-bar" aria-hidden>
-        <span className="d-z safe" style={{ width: '50%' }}>Borrow up to 50%</span>
-        <span className="d-z watch" style={{ width: '30%' }}>Cushion</span>
-        <span className="d-z danger" style={{ width: '20%' }}>80%+ partial sale</span>
-      </div>
-      <div className="d-cols3">
-        <div><Undo2 className="d-ic" /><b>Repay anytime</b><p className="muted">Any amount, no penalty. Interest only for the time you borrow.</p></div>
-        <div><LifeBuoy className="d-ic" /><b>Partial, not total</b><p className="muted">A protection sale never takes everything, only what brings the loan back to 60%.</p></div>
-        <div><ShieldCheck className="d-ic" /><b>Real prices</b><p className="muted">Two independent sources must agree within 1% before a price is accepted.</p></div>
-      </div>
-    </section>
-  )
-}
-
-function HowItWorks() {
-  return (
-    <section className="p-sec">
-      <h2>How UnlockShares works</h2>
-      <ol className="d-steps">
-        <li><b>Lenders</b> put USDC in a shared pool and earn interest.</li>
-        <li><b>Borrowers</b> lock tokenized shares and take up to 50% of their value from the pool.</li>
-        <li><b>The contract</b> sets the rate from pool usage and protects lenders with the safety cushion.</li>
-      </ol>
+    <section>
+      <Reveal className="d-cushion">
+        <p className="d-eyebrow">Peace of mind</p>
+        <h2>Prices fall. You're cushioned.</h2>
+        <div className="d-gauge" aria-label="Borrow up to 50%, cushion up to 80%">
+          <span className="g1" /><span className="g2" /><span className="g3" />
+          <i className="d-needle" />
+        </div>
+        <div className="d-glabels"><span>Borrow up to <b>50%</b></span><span>Partial sale only from <b>80%</b></span></div>
+      </Reveal>
     </section>
   )
 }
 
 function Numbers() {
   const r = useLive()
+  const a = useCount(r.ok ? r.lent : 0, 1200)
+  const b = useCount(r.ok ? r.borrowed : 0, 1200)
   if (!r.ok) return null
   return (
-    <section className="p-sec">
-      <h2>Live on Stellar</h2>
-      <div className="d-nums">
-        <div><b className="num">{r.demo ? DEMO.poolDeposits : money(r.lent)}</b><small className="muted">lent to the pool</small></div>
-        <div><b className="num">{r.demo ? '$912k' : money(r.borrowed)}</b><small className="muted">borrowed against shares</small></div>
-        <div><b className="num">{pct(r.borrow)}</b><small className="muted">borrow rate today</small></div>
-      </div>
-      <small className="muted">{r.demo ? 'Demo figures.' : 'Read live from the Stellar testnet contract. Test tokens, no real money.'}</small>
+    <section>
+      <Reveal>
+        <div className="d-nums">
+          <div><b className="num">{money(a)}</b><span className="muted">lent</span></div>
+          <div><b className="num">{money(b)}</b><span className="muted">borrowed</span></div>
+          <div><b className="num">{pct(r.borrow)}</b><span className="muted">rate today</span></div>
+        </div>
+        <p className="muted small d-center">{r.demo ? 'Demo figures' : 'Live from Stellar testnet'}</p>
+      </Reveal>
     </section>
   )
 }
 
-function Security() {
-  const url = `${chain.explorer}/contract/${chain.pret}`
+const TRUST = [
+  { icon: Fingerprint, t: 'Face ID login' },
+  { icon: KeyRound, t: 'Your keys, your shares' },
+  { icon: ShieldCheck, t: 'Public contract' },
+]
+
+function Trust() {
   return (
-    <section className="p-sec">
-      <h2>Security you can check</h2>
-      <div className="p-cards">
-        <div className="p-card"><span className="p-ico"><Fingerprint /></span><b>Fingerprint or Face ID</b><p>Create an account with a passkey. No seed phrase, no password.</p></div>
-        <div className="p-card"><span className="p-ico"><KeyRound /></span><b>You keep control</b><p>Non-custodial. Nobody, not even us, can move your shares or dollars without your signature.</p></div>
-        <div className="p-card"><span className="p-ico"><FileCode2 /></span><b>Open contract</b><p>The rules live in a public Stellar smart contract, tested before every release.</p>
-          <a className="p-link" href={url} target="_blank" rel="noreferrer">See it on stellar.expert<ExternalLink className="v-ic" /></a></div>
-      </div>
-      <small className="muted">No external audit yet: planned before any real-money launch.</small>
+    <section>
+      <Reveal>
+        <div className="d-trust">{TRUST.map(({ icon: I, t }) => <span key={t}><I />{t}</span>)}</div>
+      </Reveal>
     </section>
   )
 }
 
 const FAQ: [string, string][] = [
-  ['What is UnlockShares?', 'An app on Stellar that lets you borrow dollars (USDC) against tokenized shares, without selling them, and lets others earn by lending.'],
-  ['Do I lose my shares?', 'No. They are locked in the contract and come back to you when you repay.'],
-  ['Is the rate fixed?', 'No. It follows how much of the pool is borrowed: up to 6% a year at 80% usage, higher above. You see the live rate before you sign.'],
-  ['What if the price falls?', 'Nothing happens until your loan reaches 80% of your shares\' value. Then only part of your shares is sold, to bring it back to 60%.'],
-  ['Who holds my money?', 'Nobody. Everything runs on a public Stellar smart contract and your own account.'],
-  ['Is this real money?', 'Not yet. This is the Stellar testnet: test tokens, no real value.'],
+  ['Do I lose my shares?', 'No. They are locked and come back when you repay.'],
+  ['Is the rate fixed?', 'No. It follows pool usage, and you see it before you sign.'],
+  ['What if the price falls?', 'Nothing until your loan hits 80%. Then only a part is sold.'],
+  ['Is this real money?', 'Not yet: Stellar testnet, test tokens only. No external audit yet.'],
 ]
 
 function Questions() {
-  const [open, setOpen] = useState<number | null>(0)
+  const [open, setOpen] = useState<number | null>(null)
   return (
-    <section className="p-sec">
-      <h2>FAQs</h2>
-      <div className="p-faq">
-        {FAQ.map(([q, a], j) => (
-          <div key={q} className={`p-q ${open === j ? 'on' : ''}`}>
-            <button aria-expanded={open === j} onClick={() => setOpen(open === j ? null : j)}>{q}<ChevronDown className="v-ic" /></button>
-            {open === j && <p>{a}</p>}
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function FinalCta() {
-  return (
-    <section className="d-final">
-      <h2>Keep your shares. Unlock your cash.</h2>
-      <div className="p-cta"><a className="btn primary" href="#cash">Get cash</a><a className="btn" href="#preter">Earn</a></div>
+    <section>
+      <Reveal>
+        <div className="p-faq d-faq">
+          {FAQ.map(([q, a], j) => (
+            <div key={q} className={`p-q ${open === j ? 'on' : ''}`}>
+              <button aria-expanded={open === j} onClick={() => setOpen(open === j ? null : j)}>{q}<ChevronDown className="v-ic" /></button>
+              {open === j && <p>{a}</p>}
+            </div>
+          ))}
+        </div>
+      </Reveal>
     </section>
   )
 }
 
 export function DiscoverPage() {
   return (
-    <div className="v d">
+    <div className="d">
       <Hero />
-      <SellVsBorrow />
-      <Simulator />
-      <Products />
+      <Play />
+      <Tiles />
       <Cushion />
-      <HowItWorks />
       <Numbers />
-      <Security />
+      <Trust />
       <Questions />
-      <FinalCta />
+      <section className="d-final"><h2>Your shares can do more.</h2><a className="btn primary d-big" href="#cash">Get cash</a></section>
     </div>
   )
 }
