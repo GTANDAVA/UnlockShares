@@ -6,6 +6,7 @@ import { AddMoneyPage } from './pages/AddMoneyPage'
 import { BorrowPage } from './pages/BorrowPage'
 import { CashOutPage } from './pages/CashOutPage'
 import { DemoPage } from './pages/DemoPage'
+import { DiscoverPage } from './pages/DiscoverPage'
 import { EarnPage } from './pages/EarnPage'
 import { GetCashPage } from './pages/GetCashPage'
 import { HomePage } from './pages/HomePage'
@@ -18,6 +19,7 @@ const fromHash = (): PageId => {
 }
 
 const VIEWS: Record<PageId, () => React.JSX.Element> = {
+  decouvrir: DiscoverPage,
   accueil: HomePage,
   presentation: PresentationPage,
   activite: ActivityPage,

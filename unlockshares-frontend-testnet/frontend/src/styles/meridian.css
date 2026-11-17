@@ -228,3 +228,49 @@ svg.net { background: none; color: var(--ink); width: 14px; height: 14px; displa
 /* Version nuit (par défaut) : halos doux jaune et violet ; menu actif discret (texte jaune + barre) au lieu du bloc jaune plein. */
 :root:not([data-theme="light"]) body { background: radial-gradient(900px 520px at 85% -10%, rgba(253,218,36,.16), transparent 60%), radial-gradient(800px 600px at 0% 100%, rgba(120,90,255,.12), transparent 60%), var(--bg); background-attachment: fixed; }
 aside .nav.on { background: rgba(253,218,36,.12); color: var(--yellow); box-shadow: inset 3px 0 0 var(--yellow); }
+
+/* Page Discover (présentation façon aave.com/app, adaptée à UnlockShares) */
+.d { gap: 28px; }
+.d-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: clamp(32px, 7vw, 72px) 16px; border: 1px solid var(--line); border-radius: 22px; background: radial-gradient(110% 90% at 50% -20%, color-mix(in srgb, #fdda24 18%, transparent), transparent 60%), var(--surface); }
+.d-hero h1 { font-family: var(--display); font-weight: 900; font-size: clamp(32px, 6vw, 58px); line-height: 1.04; letter-spacing: -.03em; }
+.d-hero .v-hl { color: var(--accent); }
+.d-hero .p-lead { max-width: 620px; }
+.d-hero .p-cta { justify-content: center; }
+.ef-sim { color: var(--muted); }
+.ef-input { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 12px; padding: 7px 12px; font: 600 18px var(--font); }
+.ef-input input { width: 110px; background: none; border: 0; color: var(--ink); font: inherit; outline: none; }
+.d-vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.d-col { border: 1px solid var(--line); border-radius: 16px; padding: 20px; background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.d-col small { font-family: var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.d-us { border-color: var(--yellow); background: radial-gradient(120% 90% at 85% -10%, color-mix(in srgb, #fdda24 14%, transparent), transparent 60%), var(--surface); }
+.d-us small { color: var(--yellow); }
+.d-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
+.d-col li::before { display: inline-block; width: 22px; font-weight: 700; }
+.d-col li.no::before { content: "✕"; color: var(--danger); }
+.d-col li.yes::before { content: "✓"; color: var(--safe); }
+.d-sim { border: 1px solid var(--line); border-radius: 18px; padding: clamp(18px, 3vw, 28px); background: var(--surface); }
+.d-simgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; align-items: start; }
+.d-inputs { display: flex; flex-direction: column; gap: 14px; }
+.d-inputs label { display: flex; flex-direction: column; gap: 4px; }
+.d-inputs input[type=range] { accent-color: var(--yellow); width: 100%; }
+.d-out { display: flex; flex-direction: column; gap: 8px; border-radius: 14px; padding: 18px; background: var(--raise); }
+.d-out > b { font-family: var(--display); font-weight: 900; font-size: clamp(34px, 6vw, 48px); line-height: 1.05; }
+.d-outline { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.d-out .btn { align-self: flex-start; margin-top: 6px; }
+.d-prods { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.d-prod { color: inherit; text-decoration: none; transition: border-color .15s; }
+.d-prod:hover { border-color: var(--yellow); }
+.d-go { margin-top: auto; color: var(--yellow); font-family: var(--mono); font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; }
+.d-bar { display: flex; border-radius: 12px; overflow: hidden; font: 600 12px var(--mono); letter-spacing: .03em; }
+.d-z { padding: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #0f0f0f; }
+.d-z.safe { background: var(--safe); } .d-z.watch { background: var(--watch); } .d-z.danger { background: var(--danger); }
+.d-cols3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+.d-cols3 > div { display: flex; flex-direction: column; gap: 6px; }
+.d-ic { width: 22px; height: 22px; color: var(--yellow); }
+.d-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
+.d-steps li::marker { color: var(--yellow); font-weight: 700; }
+.d-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.d-nums > div { border: 1px solid var(--line); border-radius: 16px; padding: 18px; background: var(--surface); display: flex; flex-direction: column; gap: 4px; }
+.d-nums b { font-family: var(--display); font-weight: 900; font-size: 34px; }
+.d-final { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: clamp(28px, 5vw, 48px) 16px; border-radius: 22px; background: radial-gradient(110% 90% at 50% 120%, color-mix(in srgb, #fdda24 18%, transparent), transparent 60%), var(--surface); border: 1px solid var(--line); }
+.d-final .p-cta { justify-content: center; }
