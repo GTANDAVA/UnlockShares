@@ -1,30 +1,12 @@
-// Page « Discover » v2 : présentation façon aave.com/app, adaptée à UnlockShares.
-// Retours de Greg (17/11/2026) : plus fluide, moins de texte, plus d'air, plus d'envie.
-// Donc : une idée par écran, de grands chiffres, des pastilles qui flottent, des compteurs qui s'animent,
-// des sections qui apparaissent au défilement. Chiffres « live » = contrat testnet ; le reste = règles du contrat.
-import { ArrowDownToLine, Banknote, ChevronDown, Fingerprint, HandCoins, KeyRound, Percent, ShieldCheck } from 'lucide-react'
+// Page « Discover » v3 (Greg, 17/11/2026) : tout est déjà dans la vidéo de l'onglet Presentation,
+// cette page l'illustre de façon ludique, propre, aérée et simple. Même histoire (Léa), mêmes chiffres,
+// un chapitre par écran, et chaque chapitre se « joue » (clic ou curseur) au lieu d'être lu.
+import { Banknote, Briefcase, Car, Lock, LockOpen, ShieldCheck, TriangleAlert, TrendingUp, ArrowDown } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { TokenLogo } from '../components/logos'
-import { useDemo } from '../lib/useDemo'
-import { DEMO } from '../services/mockDemo'
 
-const pct = (x: number) => `${(x * 100).toLocaleString('en-US', { maximumFractionDigits: 1 })}%`
-const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
+const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
 const calme = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-
-function useLive() {
-  const s = useDemo()
-  const demo = s.mode === 'demo'
-  const ok = demo || (s.loaded && !s.error)
-  return {
-    ok, demo,
-    borrow: demo ? DEMO.borrowRate : s.market.borrowRate,
-    lend: demo ? DEMO.lendRate : s.market.lendRate,
-    lent: demo ? 1_200_000 : s.market.totalLent,
-    borrowed: demo ? 912_000 : s.market.totalBorrowed,
-    price: s.market.refPrice ?? s.price,
-  }
-}
 
 /** Apparition douce quand la section entre à l'écran */
 function Reveal({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -33,7 +15,7 @@ function Reveal({ children, className = '' }: { children: ReactNode; className?:
   useEffect(() => {
     const el = ref.current
     if (!el || vu) return
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVu(true); io.disconnect() } }, { threshold: 0.15 })
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVu(true); io.disconnect() } }, { threshold: 0.2 })
     io.observe(el)
     return () => io.disconnect()
   }, [vu])
@@ -41,7 +23,7 @@ function Reveal({ children, className = '' }: { children: ReactNode; className?:
 }
 
 /** Nombre qui glisse vers sa nouvelle valeur */
-function useCount(cible: number, ms = 600) {
+function useCount(cible: number, ms = 700) {
   const [v, setV] = useState(cible)
   const de = useRef(cible)
   useEffect(() => {
@@ -49,8 +31,8 @@ function useCount(cible: number, ms = 600) {
     const a = de.current, t0 = performance.now()
     let id = 0
     const pas = (t: number) => {
-      const k = dur ? Math.min(1, (t - t0) / dur) : 1, e = 1 - (1 - k) ** 3
-      const x = a + (cible - a) * e
+      const k = dur ? Math.min(1, (t - t0) / dur) : 1
+      const x = a + (cible - a) * (1 - (1 - k) ** 3)
       setV(x); de.current = x
       if (k < 1) id = requestAnimationFrame(pas)
     }
@@ -60,146 +42,189 @@ function useCount(cible: number, ms = 600) {
   return v
 }
 
+const Apple = ({ cls = '', style }: { cls?: string; style?: React.CSSProperties }) => <i className={`d-sh ${cls}`} style={style}><TokenLogo kind="aapl" /></i>
+
+function Chapter({ n, title, children }: { n: string; title: ReactNode; children: ReactNode }) {
+  return (
+    <section className="d-ch">
+      <Reveal>
+        <p className="d-eyebrow">{n}</p>
+        <h2>{title}</h2>
+        <div className="d-stage">{children}</div>
+      </Reveal>
+    </section>
+  )
+}
+
 function Hero() {
-  const r = useLive()
   return (
     <section className="d-hero">
       <div className="d-float" aria-hidden>
-        <span className="d-chip c1"><i className="d-logo"><TokenLogo kind="aapl" /></i>10 AAPL kept</span>
-        <span className="d-chip c2 d-green">+ $1,250 cash</span>
-        <span className="d-chip c3"><Fingerprint />Face ID</span>
-        <span className="d-chip c4"><Banknote />Cash at MoneyGram</span>
-        <span className="d-chip c5"><i className="d-logo"><TokenLogo kind="usdc" /></i>{r.ok ? `${pct(r.lend)} for lenders` : 'Earn on USDC'}</span>
+        <span className="d-chip c1"><i className="d-logo"><TokenLogo kind="aapl" /></i>10 shares, still hers</span>
+        <span className="d-chip c2 d-green">+ $400 cash</span>
+        <span className="d-chip c3"><Lock />Locked, not sold</span>
+        <span className="d-chip c4">Repay anytime</span>
+        <span className="d-chip c5">Built on Stellar</span>
         <span className="d-orb" />
       </div>
       <h1>Keep your shares.<br /><span className="v-hl">Get the cash.</span></h1>
-      <p className="d-lead">Dollars against your stocks, in a minute.</p>
-      <a className="btn primary d-big" href="#cash">Get cash</a>
+      <p className="d-lead">Meet Léa. Scroll her story.</p>
+      <span className="d-scroll" aria-hidden><ArrowDown /></span>
     </section>
   )
 }
 
-function Play() {
-  const r = useLive()
-  const [n, setN] = useState(10)
-  const prix = r.price > 0 ? r.price : 250
-  const cash = useCount(n * prix * 0.5)
-  const mois = (n * prix * 0.5 * r.borrow) / 12
+/** Intro : 10 actions, portefeuille vide */
+function Intro() {
   return (
-    <section className="d-play">
-      <Reveal>
-        <p className="d-eyebrow">Try it</p>
-        <h2>Slide your shares.</h2>
-        <div className="d-shares" aria-hidden>
-          {Array.from({ length: Math.min(n, 40) }, (_, i) => <i key={i} className="d-sh"><TokenLogo kind="aapl" /></i>)}
-          {n > 40 && <span className="muted">+{n - 40}</span>}
-        </div>
-        <input className="d-range" type="range" min={1} max={100} value={n} onChange={(e) => setN(Number(e.target.value))} aria-label="Apple shares you own" />
-        <p className="muted">{n} Apple {n > 1 ? 'shares' : 'share'} unlock</p>
-        <div className="d-giant num">{money(cash)}</div>
-        <p className="muted small">{r.ok && r.borrow > 0 ? `about ${money(mois)} a month at today's rate · ` : ''}simulation, testnet</p>
-      </Reveal>
-    </section>
+    <Chapter n="Léa" title={<>She owns <span className="v-hl">$1,000</span> of Apple.<br />Her wallet: <span className="d-red">$0</span>.</>}>
+      <div className="d-row10">{Array.from({ length: 10 }, (_, i) => <Apple key={i} style={{ animationDelay: `${i * 70}ms` }} />)}</div>
+      <p className="muted">Shares are worth money. You just can't pay with them.</p>
+    </Chapter>
   )
 }
 
-const TILES = [
-  { href: '#cash', icon: HandCoins, title: 'Get cash', line: 'Lock shares, receive dollars.' },
-  { href: '#preter', icon: Percent, title: 'Earn', line: 'Lend dollars, earn interest.' },
-  { href: '#ajouter', icon: ArrowDownToLine, title: 'Add money', line: 'Bank or cash in.' },
-  { href: '#retrait', icon: Banknote, title: 'Cash out', line: 'Pick it up at MoneyGram.' },
+const BESOINS = [
+  { icon: Briefcase, t: 'Cash advance', m: 3000 },
+  { icon: Car, t: 'Emergency', m: 400 },
+  { icon: TrendingUp, t: 'Investment', m: 5000 },
+  { icon: Banknote, t: 'Off-ramp', m: 900 },
 ]
 
-function Tiles() {
+/** 1. Le besoin : on choisit une carte */
+function Need() {
+  const [on, setOn] = useState(1)
   return (
-    <section>
-      <Reveal>
-        <h2 className="d-center">One app. Four moves.</h2>
-        <div className="d-tiles">
-          {TILES.map(({ href, icon: I, title, line }, i) => (
-            <a key={title} href={href} className="d-tile" style={{ transitionDelay: `${i * 80}ms` }}>
-              <span className="d-tic"><I /></span><b>{title}</b><span className="muted">{line}</span>
-            </a>
-          ))}
-        </div>
-      </Reveal>
-    </section>
+    <Chapter n="01 · The need" title="When do you need cash, fast?">
+      <div className="d-needs">
+        {BESOINS.map(({ icon: I, t, m }, i) => (
+          <button key={t} className={`d-need ${on === i ? 'on' : ''}`} onClick={() => setOn(i)}>
+            <I /><b>{t}</b><span>{usd(m)}</span>
+          </button>
+        ))}
+      </div>
+      <p className="muted">Sell your shares for this? There's a better way.</p>
+    </Chapter>
   )
 }
 
-function Cushion() {
+/** 2. La solution : un clic verrouille, l'argent arrive */
+function Solution() {
+  const [lock, setLock] = useState(false)
+  const cash = useCount(lock ? 400 : 0, 900)
   return (
-    <section>
-      <Reveal className="d-cushion">
-        <p className="d-eyebrow">Peace of mind</p>
-        <h2>Prices fall. You're cushioned.</h2>
-        <div className="d-gauge" aria-label="Borrow up to 50%, cushion up to 80%">
-          <span className="g1" /><span className="g2" /><span className="g3" />
-          <i className="d-needle" />
-        </div>
-        <div className="d-glabels"><span>Borrow up to <b>50%</b></span><span>Partial sale only from <b>80%</b></span></div>
-      </Reveal>
-    </section>
+    <Chapter n="02 · The solution" title="Lock your shares. Borrow against them.">
+      <div className="d-lane">
+        <div className={`d-heap ${lock ? 'gone' : ''}`}>{Array.from({ length: 10 }, (_, i) => <Apple key={i} style={{ transitionDelay: `${i * 40}ms` }} />)}</div>
+        <button className={`d-vault ${lock ? 'shut' : ''}`} onClick={() => setLock(!lock)} aria-pressed={lock}>
+          {lock ? <Lock /> : <LockOpen />}<small>{lock ? '10 AAPL locked' : 'Tap to lock'}</small>
+        </button>
+        <div className="d-wallet"><small className="muted">Léa's wallet</small><b className="num">{usd(cash)}</b></div>
+      </div>
+      <div className="d-pills"><span>Up to 50% of their value</span><span>In 5 seconds</span><span>24/7, no banker</span></div>
+    </Chapter>
   )
 }
 
-function Numbers() {
-  const r = useLive()
-  const a = useCount(r.ok ? r.lent : 0, 1200)
-  const b = useCount(r.ok ? r.borrowed : 0, 1200)
-  if (!r.ok) return null
+/** 3. Vendre ou emprunter : deux boutons */
+function Versus() {
+  const [choix, setChoix] = useState<'sell' | 'borrow' | null>(null)
   return (
-    <section>
-      <Reveal>
-        <div className="d-nums">
-          <div><b className="num">{money(a)}</b><span className="muted">lent</span></div>
-          <div><b className="num">{money(b)}</b><span className="muted">borrowed</span></div>
-          <div><b className="num">{pct(r.borrow)}</b><span className="muted">rate today</span></div>
-        </div>
-        <p className="muted small d-center">{r.demo ? 'Demo figures' : 'Live from Stellar testnet'}</p>
-      </Reveal>
-    </section>
+    <Chapter n="03 · Why not just sell?" title="She needs $400. Sell or borrow?">
+      <div className="d-seg">
+        <button className={choix === 'sell' ? 'on ko' : ''} onClick={() => setChoix('sell')}>Sell 4 shares</button>
+        <button className={choix === 'borrow' ? 'on ok' : ''} onClick={() => setChoix('borrow')}>Borrow $400</button>
+      </div>
+      <div className="d-row10 d-vs">
+        {Array.from({ length: 10 }, (_, i) => (
+          <Apple key={i} cls={choix === 'sell' && i < 4 ? 'fly' : choix === 'borrow' ? 'locked' : ''} style={{ transitionDelay: `${i * 30}ms` }} />
+        ))}
+      </div>
+      <div className="d-verdict">
+        {choix === 'sell' && <span className="d-stamp ko">Sold · upside gone</span>}
+        {choix === 'borrow' && <span className="d-stamp ok">Still yours · 100% of the upside</span>}
+        {!choix && <span className="muted">Pick one.</span>}
+      </div>
+    </Chapter>
   )
 }
 
-const TRUST = [
-  { icon: Fingerprint, t: 'Face ID login' },
-  { icon: KeyRound, t: 'Your keys, your shares' },
-  { icon: ShieldCheck, t: 'Public contract' },
+const PAIEMENTS = [
+  { q: 'Month 1', a: 'pays $50', reste: 350 },
+  { q: 'Month 3', a: 'pays $0', reste: 350 },
+  { q: 'Month 7', a: 'pays $200', reste: 150 },
+  { q: 'Whenever', a: 'repays the rest', reste: 0 },
 ]
 
-function Trust() {
+/** 4. Remboursement libre : on avance mois par mois */
+function Flex() {
+  const [i, setI] = useState(-1)
+  const dette = useCount(i < 0 ? 400 : PAIEMENTS[i].reste)
   return (
-    <section>
-      <Reveal>
-        <div className="d-trust">{TRUST.map(({ icon: I, t }) => <span key={t}><I />{t}</span>)}</div>
-      </Reveal>
-    </section>
+    <Chapter n="04 · Flexible repayment" title="Pay back when you want, what you want.">
+      <div className="d-debt">
+        <div className="d-debtline"><small className="muted">Debt</small><b className="num">{usd(dette)}</b></div>
+        <div className="d-track"><span style={{ width: `${(dette / 400) * 100}%` }} /></div>
+      </div>
+      <div className="d-steps">
+        {PAIEMENTS.map((p, j) => (
+          <button key={p.q} className={j <= i ? 'on' : ''} onClick={() => setI(j)}><b>{p.q}</b><span>{p.a}</span></button>
+        ))}
+      </div>
+      <p className="muted">{i === 3 ? 'Shares unlocked: back in her wallet.' : 'No schedule, no penalty. Tap the months.'}</p>
+    </Chapter>
   )
 }
 
-const FAQ: [string, string][] = [
-  ['Do I lose my shares?', 'No. They are locked and come back when you repay.'],
-  ['Is the rate fixed?', 'No. It follows pool usage, and you see it before you sign.'],
-  ['What if the price falls?', 'Nothing until your loan hits 80%. Then only a part is sold.'],
-  ['Is this real money?', 'Not yet: Stellar testnet, test tokens only. No external audit yet.'],
-]
-
-function Questions() {
-  const [open, setOpen] = useState<number | null>(null)
+/** 5. Un an plus tard */
+function OneYear() {
+  const [vu, setVu] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVu(true); io.disconnect() } }, { threshold: 0.5 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  const prix = useCount(vu ? 120 : 100, 1400)
+  const sold = useCount(vu ? 720 : 0, 1600)
+  const kept = useCount(vu ? 785 : 0, 1600)
   return (
-    <section>
-      <Reveal>
-        <div className="p-faq d-faq">
-          {FAQ.map(([q, a], j) => (
-            <div key={q} className={`p-q ${open === j ? 'on' : ''}`}>
-              <button aria-expanded={open === j} onClick={() => setOpen(open === j ? null : j)}>{q}<ChevronDown className="v-ic" /></button>
-              {open === j && <p>{a}</p>}
-            </div>
-          ))}
+    <Chapter n="05 · One year later" title={<>Apple goes from $100 to <span className="d-green">{usd(prix)}</span>.</>}>
+      <div className="d-bars" ref={ref}>
+        <div><span className="muted">If she had sold</span><div className="d-hb"><i style={{ width: `${(sold / 785) * 100}%` }} /></div><b className="num">{usd(sold)}</b></div>
+        <div><span>She borrowed</span><div className="d-hb win"><i style={{ width: `${(kept / 785) * 100}%` }} /></div><b className="num">{usd(kept)}</b></div>
+      </div>
+      <span className={`d-stamp ok ${vu ? '' : 'hide'}`}>+$65, and all 10 shares are still hers</span>
+    </Chapter>
+  )
+}
+
+/** 6. Et si l'action chute : on fait glisser le prix */
+function Fall() {
+  const [prix, setPrix] = useState(100)
+  const ltv = 415 / (10 * prix)
+  const zone = ltv <= 0.5 ? 'safe' : ltv < 0.8 ? 'watch' : 'danger'
+  const msg = {
+    safe: { icon: ShieldCheck, t: 'Big cushion. Nothing happens.' },
+    watch: { icon: TriangleAlert, t: 'Watch zone. She can repay a little, anytime.' },
+    danger: { icon: ArrowDown, t: 'Protection sale: only part of her shares, back to 60%.' },
+  }[zone]
+  const M = msg.icon
+  return (
+    <Chapter n="06 · What if the share falls?" title="A safety net, in three zones.">
+      <div className="d-fall">
+        <div className="d-price"><small className="muted">Apple</small><b className={`num ${prix < 100 ? 'd-red' : ''}`}>{usd(prix)}</b></div>
+        <input className="d-range" type="range" min={40} max={100} value={prix} onChange={(e) => setPrix(Number(e.target.value))} aria-label="Apple price" />
+        <small className="muted">← drag left to make Apple fall</small>
+        <div className="d-gauge3">
+          <span className="z1">Safe</span><span className="z2">Watch</span><span className="z3">Protection</span>
+          <i className={`d-ndl ${zone}`} style={{ left: `${Math.min(100, ltv * 100)}%` }}><em>{Math.round(ltv * 100)}%</em></i>
         </div>
-      </Reveal>
-    </section>
+        <div className={`d-msg ${zone}`}><M />{msg.t}</div>
+      </div>
+    </Chapter>
   )
 }
 
@@ -207,13 +232,18 @@ export function DiscoverPage() {
   return (
     <div className="d">
       <Hero />
-      <Play />
-      <Tiles />
-      <Cushion />
-      <Numbers />
-      <Trust />
-      <Questions />
-      <section className="d-final"><h2>Your shares can do more.</h2><a className="btn primary d-big" href="#cash">Get cash</a></section>
+      <Intro />
+      <Need />
+      <Solution />
+      <Versus />
+      <Flex />
+      <OneYear />
+      <Fall />
+      <section className="d-final">
+        <h2>Borrow <span className="v-hl">without selling.</span></h2>
+        <div className="p-cta"><a className="btn primary d-big" href="#cash">Try it</a><a className="btn d-big" href="#presentation">Watch the video</a></div>
+        <small className="muted">Stellar testnet · test tokens · tax rules depend on your country</small>
+      </section>
     </div>
   )
 }
