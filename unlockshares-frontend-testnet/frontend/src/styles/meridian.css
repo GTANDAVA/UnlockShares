@@ -228,3 +228,22 @@ svg.net { background: none; color: var(--ink); width: 14px; height: 14px; displa
 /* Version nuit (par défaut) : halos doux jaune et violet ; menu actif discret (texte jaune + barre) au lieu du bloc jaune plein. */
 :root:not([data-theme="light"]) body { background: radial-gradient(900px 520px at 85% -10%, rgba(253,218,36,.16), transparent 60%), radial-gradient(800px 600px at 0% 100%, rgba(120,90,255,.12), transparent 60%), var(--bg); background-attachment: fixed; }
 aside .nav.on { background: rgba(253,218,36,.12); color: var(--yellow); box-shadow: inset 3px 0 0 var(--yellow); }
+
+/* Visuels inspirés d'Aave : compteur en direct + simulateur « Futur » */
+.live { display: flex; flex-direction: column; gap: 6px; }
+.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--safe); margin-right: 8px; vertical-align: middle; animation: live-pulse 1.6s ease-in-out infinite; }
+.live-dot.cost { background: var(--cash); }
+@keyframes live-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+.future { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+.future-res, .future-in { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.future-in label { display: flex; flex-direction: column; gap: 4px; }
+.fut-bars { display: flex; align-items: flex-end; gap: 14px; height: 160px; padding-top: 8px; }
+.fut-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; }
+.fut-pair { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 4px; }
+.fut-pair i { width: 40%; max-width: 34px; border-radius: 6px 6px 2px 2px; transition: height .3s; min-height: 2px; }
+.fut-pair i.up, .fut-key.up { background: var(--yellow); }
+.fut-pair i.cost, .fut-key.cost { background: var(--cash); }
+.fut-key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; }
+@media (max-width: 760px) { .future { grid-template-columns: 1fr; } }
+.future .big { font-family: var(--display); font-size: clamp(34px, 6vw, 48px); font-weight: 800; letter-spacing: -.02em; line-height: 1.05; }

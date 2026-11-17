@@ -6,6 +6,7 @@ import { useDemo } from '../lib/useDemo'
 import { jetonPret, nomJetonPret } from '../services/chain'
 import { DEMO, derive } from '../services/mockDemo'
 import { Onboarding } from '../components/Onboarding'
+import { FutureSim, LiveInterest } from '../components/Live'
 
 const pct = (x: number) => `${(x * 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`
 
@@ -47,11 +48,16 @@ export function HomePage() {
           <div className="divider" />
           <div className="line"><span className="muted">Yearly yield on what you lend<Term>position APY</Term></span><span>{s.lent ? lendRate : '–'}</span></div>
           <div className="line"><span className="muted">Total earnings</span><span>{s.lent ? earnings : `0 ${jetonPret()}`}</span></div>
+          <LiveInterest lent={s.lent} lendRate={demo ? DEMO.lendRate : s.market.lendRate} debt={s.debt} borrowRate={demo ? DEMO.borrowRate : s.market.borrowRate} />
           <div className="divider" />
           <LimitBlock />
         </div>
         <div className="chart jarbox"><Jar /></div>
       </section>
+
+      <div className="divider" />
+      <h2>Keep or sell?</h2>
+      <FutureSim shares={s.shares + s.walletShares} price={aaplPrice} debt={s.debt} borrowRate={demo ? DEMO.borrowRate : s.market.borrowRate} />
 
       <div className="divider" />
       <h2>Earn</h2>
