@@ -1,4 +1,5 @@
 import { Coin, Filters, Term, usdc, useDemoUi } from '../components/demo'
+import { EarnFuture, EarnHero } from '../components/EarnFuture'
 import { StellarLogo } from '../components/logos'
 import { useDemo } from '../lib/useDemo'
 import { jetonPret, nomJetonPret } from '../services/chain'
@@ -18,6 +19,7 @@ export function EarnPage() {
         <div><h1>Earn</h1><p className="muted">Lend {jetonPret()} to the pool. Earn interest paid by borrowers.</p></div>
         <div className="kpis"><div className="kpi"><small>Pool deposits{demo ? ' (demo)' : ''}</small><b>{deposits}</b></div><div className="kpi"><small>Available in the pool</small><b>{demo ? `288 k ${jetonPret()}` : usdc(s.market.cash)}</b></div></div>
       </div>
+      <EarnHero />
       <Filters list={['Hubs', 'Assets']} wallet />
       <div className="hub">
         <h3><StellarLogo />UnlockShares Lending Hub</h3>
@@ -34,6 +36,7 @@ export function EarnPage() {
           </tr></tbody>
         </table></div>
       </div>
+      <EarnFuture />
     </>
   )
 }
