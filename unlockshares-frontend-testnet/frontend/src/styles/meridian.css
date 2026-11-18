@@ -346,3 +346,5 @@ aside .nav.on { background: rgba(253,218,36,.12); color: var(--yellow); box-shad
 @keyframes d-stamp { from { scale: 1.8; opacity: 0 } }
 @media (prefers-reduced-motion: reduce) { .d *, .d-rev { animation: none !important; transition: none !important; opacity: 1 !important; } .d-rev { transform: none !important; } }
 @media (max-width: 520px) { .d-gauge3 { font-size: 10px; } .d-gauge3 span { overflow: hidden; white-space: nowrap; } .d-gauge3 .z3 { font-size: 0; } .d-gauge3 .z3::after { content: "Sale"; font-size: 10px; } }
+/* Discover : la vidéo (ex-onglet Presentation), la confiance et la FAQ, sous l'histoire */
+.d-video .d-rev { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 26px; }

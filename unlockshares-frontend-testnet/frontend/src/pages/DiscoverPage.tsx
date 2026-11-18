@@ -4,6 +4,7 @@
 import { Banknote, Briefcase, Car, Lock, LockOpen, ShieldCheck, TriangleAlert, TrendingUp, ArrowDown } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { TokenLogo } from '../components/logos'
+import { Questions, Trust, Video } from './PresentationPage'
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
 const calme = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -239,9 +240,20 @@ export function DiscoverPage() {
       <Flex />
       <OneYear />
       <Fall />
+      <section id="d-video" className="d-ch d-video">
+        <Reveal>
+          <p className="d-eyebrow">The whole story</p>
+          <h2>Watch it in 70 seconds.</h2>
+        </Reveal>
+        <div className="v">
+          <Video />
+          <Trust />
+          <Questions />
+        </div>
+      </section>
       <section className="d-final">
         <h2>Borrow <span className="v-hl">without selling.</span></h2>
-        <div className="p-cta"><a className="btn primary d-big" href="#cash">Try it</a><a className="btn d-big" href="#presentation">Watch the video</a></div>
+        <div className="p-cta"><a className="btn primary d-big" href="#cash">Try it</a><button className="btn d-big" onClick={() => document.getElementById('d-video')?.scrollIntoView({ behavior: 'smooth' })}>Watch the video</button></div>
         <small className="muted">Stellar testnet · test tokens · tax rules depend on your country</small>
       </section>
     </div>

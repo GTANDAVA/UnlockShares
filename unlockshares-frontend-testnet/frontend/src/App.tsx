@@ -11,17 +11,17 @@ import { EarnPage } from './pages/EarnPage'
 import { GetCashPage } from './pages/GetCashPage'
 import { HomePage } from './pages/HomePage'
 import { LiquidationsPage } from './pages/LiquidationsPage'
-import { PresentationPage } from './pages/PresentationPage'
 
 const fromHash = (): PageId => {
   const h = window.location.hash.slice(1) as PageId
-  return PAGES.includes(h) ? h : 'accueil'
+  return PAGES.includes(h) ? h : 'decouvrir'
 }
 
 const VIEWS: Record<PageId, () => React.JSX.Element> = {
   decouvrir: DiscoverPage,
   accueil: HomePage,
-  presentation: PresentationPage,
+  // Ancien onglet Presentation fusionné dans Discover (Greg, 18/11/2026) : les anciens liens #presentation restent valides
+  presentation: DiscoverPage,
   activite: ActivityPage,
   preter: EarnPage,
   emprunter: BorrowPage,

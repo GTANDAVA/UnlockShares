@@ -350,7 +350,7 @@ const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).
 
 // ---------- mode vidéo ----------
 
-function Video() {
+export function Video() {
   // « ?t=33 » dans l'adresse ouvre la vidéo à 33 s (pratique pour partager un chapitre)
   const [t, setT] = useState(() => clamp(Number(new URLSearchParams(window.location.search).get('t')) / TOTAL || 0) * TOTAL)
   const [play, setPlay] = useState(false)
@@ -487,7 +487,7 @@ function Hero({ onWatch }: { onWatch: () => void }) {
   )
 }
 
-function Trust() {
+export function Trust() {
   const r = useLiveRates()
   const url = `${chain.explorer}/contract/${chain.pret}`
   return (
@@ -497,7 +497,7 @@ function Trust() {
         <div className="p-card">
           <span className="p-ico"><KeyRound /></span>
           <b>You keep control</b>
-          <p>Non-custodial. You sign every operation with Varial. Nobody can move your shares without your signature.</p>
+          <p>Non-custodial. You sign every operation, with your fingerprint or Varial. Nobody can move your shares without your signature.</p>
         </div>
         <div className="p-card">
           <span className="p-ico"><FileCode2 /></span>
@@ -534,7 +534,7 @@ const FAQ: [string, string][] = [
   ['Who holds my money?', 'Nobody. Everything runs on a public Stellar smart contract and your own wallet.'],
 ]
 
-function Questions() {
+export function Questions() {
   const [open, setOpen] = useState<number | null>(0)
   const r = useLiveRates()
   return (
