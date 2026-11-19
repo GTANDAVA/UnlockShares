@@ -67,7 +67,7 @@ async function depot(token) {
     const x = await (await fetch(`${ANCHOR}/sep24/transaction?id=${dep.id}`, { headers: { Authorization: `Bearer ${token}` } })).json()
     const st = x.transaction?.status
     if (st === 'completed') return Number(x.transaction.amount_out ?? 0)
-    if (['error', 'expired', 'refunded'].includes(st)) throw new Error(`Dépôt ${st}`)
+    if (['error', 'expired', 'refunded'].includes(st)) throw new Error(`Dépôt ${st}${x.transaction?.message ? ` : ${x.transaction.message}` : ''}`)
   }
   throw new Error('Dépôt trop long (2 min)')
 }
