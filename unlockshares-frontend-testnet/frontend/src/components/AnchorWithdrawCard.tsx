@@ -4,7 +4,6 @@ import { demarrerRetrait, lireRetrait, lireToml, payerAnchor, type Sep24Tx } fro
 import { estPasskey, lienTx, lireCompte, messageErreur } from '../services/chain'
 import { usdcBalance } from '../services/moneygram'
 import { tagTx } from '../services/movements'
-import { AnchorFrame } from './AnchorFrame'
 
 // Retrait réel sur testnet via l'anchor de test de Stellar (SEP-10 ou SEP-45, puis SEP-24) : USDC de Circle → « virement bancaire » de test.
 // Analogie : au bureau de change, on remplit le bordereau (formulaire de l'anchor), puis on dépose les billets au guichet (paiement USDC).
@@ -40,7 +39,6 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
   const [err, setErr] = useState('')
   const [tx, setTx] = useState<Sep24Tx | null>(null)
   const [formUrl, setFormUrl] = useState('')
-  const [frameOpen, setFrameOpen] = useState(false)
   const [paid, setPaid] = useState('')
   const id = useRef('')
 
@@ -93,12 +91,6 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
     return () => document.removeEventListener('visibilitychange', relire)
   }, [address])
 
-  // L'anchor signale la fin du formulaire : on relit le statut tout de suite (le suivi ferme la feuille)
-  const relireMaintenant = useCallback(() => {
-    if (!id.current) return
-    lireRetrait(address, id.current).then((t) => { setTx(t); if (t.status !== 'incomplete') setFrameOpen(false) }, () => {})
-  }, [address])
-
   const a = Number(amount.replace(',', '.')) || 0
   const amountOk = a >= 1 && a <= (usdc ?? 0)
 
@@ -111,7 +103,7 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
       id.current = r.id
       ecrireEnCours(address, r.id)
       if (win) win.location.href = r.url
-      else if (passkey) { setFormUrl(r.url); setFrameOpen(true) }
+      else if (passkey) setFormUrl(r.url)
       else window.open(r.url, '_blank')
       setTx({ id: r.id, status: 'incomplete' })
     } catch (e) {
@@ -165,9 +157,12 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
         </button>
       </div>
       {formUrl && tx?.status === 'incomplete' && (
-        frameOpen
-          ? <AnchorFrame url={formUrl} onClose={() => setFrameOpen(false)} onMessage={relireMaintenant} />
-          : <div className="chips"><button className="btn primary" onClick={() => setFrameOpen(true)}>Open the anchor’s form</button></div>
+        // Même onglet : sur téléphone, un nouvel onglet (ou une fenêtre intégrée, refusée par l'anchor) fait perdre l'appli.
+        // L'utilisateur revient avec le bouton Retour ; le retrait en cours est mémorisé pour reprendre.
+        <>
+          <div className="chips"><a className="btn primary" href={formUrl}>Open the anchor’s form</a></div>
+          <small className="muted">Fill it in, then come back here with your browser’s Back button.</small>
+        </>
       )}
       {toPay && (
         <div className="co-kv">
