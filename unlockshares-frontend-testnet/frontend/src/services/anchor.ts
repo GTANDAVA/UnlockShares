@@ -1,8 +1,10 @@
 // Off-ramp réel sur testnet avec l'anchor de référence de la Stellar Development Foundation.
-// SEP-1 (stellar.toml) → SEP-10 (connexion signée Varial) → SEP-24 (retrait interactif) → paiement vers l'anchor.
+// SEP-1 (stellar.toml) → SEP-10 (connexion signée Varial) ou SEP-45 (compte passkey C…) → SEP-24 (formulaire interactif) → paiement.
 // Analogie : l'anchor est le bureau de change. SEP-10 = montrer sa pièce d'identité, SEP-24 = remplir le bordereau au guichet.
 import { Asset, BASE_FEE, Memo, Operation, StellarToml, TransactionBuilder, WebAuth, type Transaction } from '@stellar/stellar-sdk'
-import { horizon, PASS, signerFreighter } from './chain'
+import { estPasskey, horizon, PASS, signerFreighter } from './chain'
+import { signerAutorisation } from './passkey'
+import { encoderReponse, verifierDefi } from './sep45Defi'
 
 export const ANCHOR_DOMAIN = 'testanchor.stellar.org'
 
@@ -22,7 +24,7 @@ export type Sep24Tx = {
   message?: string
 }
 
-type Toml = { auth: string; sep24: string; signingKey: string; assets: AnchorAsset[] }
+type Toml = { auth: string; sep24: string; signingKey: string; assets: AnchorAsset[]; authContrats?: string; contratAuth?: string }
 
 let tomlCache: Toml | null = null
 
@@ -35,7 +37,11 @@ export async function lireToml(): Promise<Toml> {
   for (const c of t.CURRENCIES ?? []) {
     if ((c.code === 'USDC' || c.code === 'SRT') && c.issuer) assets.push({ code: c.code, label: c.code, asset: new Asset(c.code, c.issuer) })
   }
-  tomlCache = { auth: t.WEB_AUTH_ENDPOINT, sep24: t.TRANSFER_SERVER_SEP0024, signingKey: t.SIGNING_KEY, assets }
+  // SEP-45 (facultatif) : connexion des comptes intelligents C…
+  const ext = t as Record<string, unknown>
+  const authContrats = typeof ext.WEB_AUTH_FOR_CONTRACTS_ENDPOINT === 'string' ? ext.WEB_AUTH_FOR_CONTRACTS_ENDPOINT : undefined
+  const contratAuth = typeof ext.WEB_AUTH_CONTRACT_ID === 'string' ? ext.WEB_AUTH_CONTRACT_ID : undefined
+  tomlCache = { auth: t.WEB_AUTH_ENDPOINT, sep24: t.TRANSFER_SERVER_SEP0024, signingKey: t.SIGNING_KEY, assets, authContrats, contratAuth }
   return tomlCache
 }
 
@@ -46,6 +52,7 @@ export async function connexionAnchor(account: string): Promise<string> {
   const known = tokens.get(account)
   if (known) return known
   const toml = await lireToml()
+  if (estPasskey(account)) return connexionAnchorPasskey(account, toml)
   const r = await fetch(`${toml.auth}?account=${encodeURIComponent(account)}`)
   if (!r.ok) throw new Error(`Anchor sign-in refused (${r.status}).`)
   const { transaction } = (await r.json()) as { transaction: string }
@@ -54,6 +61,28 @@ export async function connexionAnchor(account: string): Promise<string> {
   const signed = await signerFreighter(tx as Transaction, account)
   const p = await fetch(toml.auth, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transaction: signed.toXDR() }) })
   const j = (await p.json()) as { token?: string; error?: string }
+  if (!p.ok || !j.token) throw new Error(j.error ?? 'Anchor sign-in failed.')
+  tokens.set(account, j.token)
+  return j.token
+}
+
+/**
+ * SEP-45 : même idée que SEP-10, pour un compte passkey (adresse C…). L'anchor envoie une autorisation à signer
+ * (appel à son contrat web_auth_verify, jamais soumis au réseau). On la vérifie, la passkey la signe, l'anchor rend un jeton.
+ */
+async function connexionAnchorPasskey(account: string, toml: Toml): Promise<string> {
+  if (!toml.authContrats || !toml.contratAuth) throw new Error('This anchor does not support passkey accounts yet (SEP-45).')
+  const r = await fetch(`${toml.authContrats}?account=${encodeURIComponent(account)}&home_domain=${encodeURIComponent(ANCHOR_DOMAIN)}`)
+  const c = (await r.json().catch(() => ({}))) as { authorization_entries?: string; network_passphrase?: string; error?: string }
+  if (!r.ok || !c.authorization_entries) throw new Error(c.error ?? `Anchor sign-in refused (${r.status}).`)
+  if (c.network_passphrase && c.network_passphrase !== PASS) throw new Error('The anchor is on another network.')
+  // Contrôle complet avant toute signature (contrat, fonction, domaines, compte, signature de l'anchor).
+  const defi = verifierDefi(c.authorization_entries, {
+    account, homeDomain: ANCHOR_DOMAIN, webAuthDomain: new URL(toml.authContrats).host, contrat: toml.contratAuth, cleServeur: toml.signingKey, passphrase: PASS,
+  })
+  const signee = await signerAutorisation(defi.entrees[defi.indexClient].toXdr('base64'), defi.expiration, 1)
+  const p = await fetch(toml.authContrats, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authorization_entries: encoderReponse(defi, signee) }) })
+  const j = (await p.json().catch(() => ({}))) as { token?: string; error?: string }
   if (!p.ok || !j.token) throw new Error(j.error ?? 'Anchor sign-in failed.')
   tokens.set(account, j.token)
   return j.token

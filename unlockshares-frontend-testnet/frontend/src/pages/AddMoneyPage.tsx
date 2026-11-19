@@ -26,15 +26,18 @@ export function AddMoneyPage() {
 
       {s.mode !== 'chain' ? (
         <div className="empty"><b>Available on testnet only</b></div>
-      ) : !s.address || estPasskey(s.address) ? (
-        <VarialOnly connect={connect} passkey={!!s.address} />
+      ) : !s.address ? (
+        <VarialOnly connect={connect} />
       ) : (
         <>
           <Choice label="Deposit method" value={method} onChange={setMethod} options={[
             { id: 'bank', icon: Landmark, title: 'Bank transfer', sub: 'Through a Stellar anchor', tag: 'Testnet' },
             { id: 'cash', icon: Banknote, title: 'Cash', sub: 'At a MoneyGram location', tag: 'Sandbox' },
           ]} />
-          {method === 'bank' ? <AnchorDepositCard address={s.address} /> : <MoneyGramCard address={s.address} mode="on-ramp" />}
+          {/* Virement : Varial (SEP-10) ou passkey (SEP-45). Espèces MoneyGram : Varial seulement pour l'instant. */}
+          {method === 'bank' ? <AnchorDepositCard address={s.address} />
+            : estPasskey(s.address) ? <VarialOnly connect={connect} passkey />
+            : <MoneyGramCard address={s.address} mode="on-ramp" />}
         </>
       )}
     </div>

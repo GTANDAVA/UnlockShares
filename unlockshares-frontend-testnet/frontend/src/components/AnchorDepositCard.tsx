@@ -1,11 +1,11 @@
 import { Check, LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { demarrerDepot, lireRetrait, type Sep24Tx } from '../services/anchor'
-import { lienTx, messageErreur } from '../services/chain'
+import { estPasskey, lienTx, lireCompte, messageErreur } from '../services/chain'
 import { addUsdcTrustline, usdcBalance } from '../services/moneygram'
 import { tagTx } from '../services/movements'
 
-// Dépôt réel sur testnet via un anchor Stellar (SEP-10 + SEP-24) : « virement bancaire » simulé → USDC de Circle dans le wallet.
+// Dépôt réel sur testnet via un anchor Stellar (SEP-10 ou SEP-45 pour les passkeys, + SEP-24) : « virement bancaire » simulé → USDC de Circle dans le wallet.
 // Analogie : on passe au guichet d'un bureau de change agréé ; il vérifie ton identité (SEP-10), tu remplis son formulaire (SEP-24), il t'envoie les USDC.
 
 const FINAL = ['completed', 'refunded', 'expired', 'error', 'no_market', 'too_small', 'too_large']
@@ -25,9 +25,14 @@ export function AnchorDepositCard({ address }: { address: string }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [tx, setTx] = useState<Sep24Tx | null>(null)
+  const [formUrl, setFormUrl] = useState('')
   const id = useRef('')
 
-  const refresh = useCallback(() => { usdcBalance(address).then(setUsdc, () => setUsdc(null)) }, [address])
+  // Compte passkey (C…) : pas de trustline, le solde USDC se lit dans le contrat du jeton.
+  const refresh = useCallback(() => {
+    const lire = estPasskey(address) ? lireCompte(address).then((c) => c.usdc) : usdcBalance(address)
+    lire.then(setUsdc, () => setUsdc(null))
+  }, [address])
   useEffect(refresh, [refresh])
 
   // Suivi du statut toutes les 5 s jusqu'à un état final
@@ -53,13 +58,17 @@ export function AnchorDepositCard({ address }: { address: string }) {
   }
 
   const start = async () => {
-    // Fenêtre ouverte tout de suite (pendant le clic), sinon le navigateur bloque la popup.
-    const win = window.open('', 'anchor', 'width=480,height=720')
-    setBusy(true); setErr(''); setTx(null)
+    // Varial : fenêtre ouverte tout de suite (pendant le clic), sinon le navigateur bloque la popup.
+    // Passkey : pas de fenêtre avant la signature (Face ID / empreinte exige que la page reste au premier plan) ;
+    // le formulaire s'ouvre ensuite avec un bouton.
+    const passkey = estPasskey(address)
+    const win = passkey ? null : window.open('', 'anchor', 'width=480,height=720')
+    setBusy(true); setErr(''); setTx(null); setFormUrl('')
     try {
       const r = await demarrerDepot(address, 'USDC', String(a))
       id.current = r.id
       if (win) win.location.href = r.url
+      else if (passkey) setFormUrl(r.url)
       else window.open(r.url, '_blank')
       setTx({ id: r.id, status: 'incomplete' })
     } catch (e) {
@@ -90,6 +99,9 @@ export function AnchorDepositCard({ address }: { address: string }) {
             </button>
           </div>
         </>
+      )}
+      {formUrl && tx?.status === 'incomplete' && (
+        <div className="chips"><a className="btn primary" href={formUrl} target="_blank" rel="noreferrer">Open the anchor’s form</a></div>
       )}
       {tx && (
         <p className={done ? 'co-ok' : 'muted'}>
