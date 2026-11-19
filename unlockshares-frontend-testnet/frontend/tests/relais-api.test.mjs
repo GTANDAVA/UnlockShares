@@ -128,3 +128,31 @@ test('relay failure gives a clean error', async () => {
   assert.equal(out.status, 502)
   assert.equal(out.body.error, 'SIMULATION_FAILED')
 })
+
+// Retrait vers un anchor (compte passkey → adresse M… de l'anchor, en USDC)
+import { MAX_RETRAIT_ANCHOR, USDC_SAC } from '../api/_relais.js'
+import { MuxedAccount } from '@stellar/stellar-sdk'
+const ANCHOR_M = new MuxedAccount(new Account(Keypair.random().publicKey(), '0'), '146903468709584972').accountId()
+const transfert = (contrat, de, vers, montant) =>
+  new TransactionBuilder(new Account(DEPLOYEUR, '0'), { fee: BASE_FEE, networkPassphrase: Networks.TESTNET })
+    .addOperation(new Contract(contrat).call('transfer', new Address(de).toScVal(), new Address(vers).toScVal(), nativeToScVal(montant, { type: 'i128' })))
+    .setTimeout(30).build().operations[0].func
+
+test('a passkey USDC transfer to an anchor (M… address) is accepted', async () => {
+  const v = await verifier({ func: b64(transfert(USDC_SAC, COMPTE, ANCHOR_M, 20_000_000n)), auth: [b64(autorisation(COMPTE, USDC_SAC, 'transfer'))] }, bonWasm)
+  assert.deepEqual(v, { creation: false, compte: COMPTE })
+})
+
+test('USDC transfer to a plain address, above the cap, from someone else or of another token is refused', async () => {
+  const g = Keypair.random().publicKey()
+  const cas = [
+    transfert(USDC_SAC, COMPTE, g, 20_000_000n),
+    transfert(USDC_SAC, COMPTE, ANCHOR_M, MAX_RETRAIT_ANCHOR + 1n),
+    transfert(USDC_SAC, AUTRE_CONTRAT, ANCHOR_M, 20_000_000n),
+    transfert(AUTRE_CONTRAT, COMPTE, ANCHOR_M, 20_000_000n),
+  ]
+  for (const f of cas) {
+    const v = await verifier({ func: b64(f), auth: [b64(autorisation(COMPTE, USDC_SAC, 'transfer'))] }, bonWasm)
+    assert.equal(v.status, 403)
+  }
+})

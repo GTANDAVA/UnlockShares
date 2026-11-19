@@ -1,9 +1,12 @@
 // Relais de frais pour les comptes passkey : on transmet l'appel à OpenZeppelin Channels, qui paie les frais réseau.
 // La clé API (OZ_CHANNELS_KEY) reste ici, côté serveur. Le relais refuse tout ce qui n'est pas :
 //   1. la création d'un compte passkey officiel (smart-account-kit, stellar-accounts v0.8.0), ou
-//   2. un appel d'un compte passkey vers NOS contrats (prêt, robinet, distributeur), fonctions utilisateur seulement.
+//   2. un appel d'un compte passkey vers NOS contrats (prêt, robinet, distributeur), fonctions utilisateur seulement, ou
+//   3. un retrait vers un anchor : transfert d'USDC (Circle) du compte passkey vers une adresse « M… » (anchor + numéro
+//      du retrait), 50 USDC maximum. L'adresse de l'anchor change selon les anchors : on exige le format M…, que seul
+//      un retrait d'anchor utilise ici, plus le plafond et la limite d'appels par IP.
 // But : que personne ne puisse faire payer n'importe quelle transaction par notre clé.
-import { Address, rpc, xdr } from '@stellar/stellar-sdk'
+import { Address, rpc, scValToNative, xdr } from '@stellar/stellar-sdk'
 import { originAllowed } from './_moneygram.js'
 
 export const CHANNELS_URL = 'https://channels.openzeppelin.com/testnet'
@@ -19,6 +22,24 @@ export const CIBLES = {
   CCOM4RD25IFM76BXEKQUV4ZLF4AIDIK7XGANGA6FRJQUUWE7R3Q4EUHI: ['fournir', 'retirer_fonds', 'deposer', 'retirer', 'emprunter', 'rembourser', 'liquider', 'fixer_prix_demo', 'avancer_temps_perso'],
   CD3MLCLA2SQHC2X7P3W6PRNHJTZVMT5ELHS2MXT6GOFVAPXRIJVFBNH7: ['recevoir'], // robinet tAAPL
   CAMCKH3GBDEPO7ONTAMIRYJ7YCZWYT3G7F6Q33L2KEPLF7AFIB43A275: ['recevoir'], // distributeur USDC
+}
+
+/** USDC de Circle sur testnet (contrat SAC) et plafond d'un retrait vers un anchor (unités, 7 décimales) */
+export const USDC_SAC = 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA'
+export const MAX_RETRAIT_ANCHOR = 50n * 10_000_000n
+
+/** Transfert d'USDC vers un anchor : de soi-même, vers une adresse M…, montant entre 0 et le plafond */
+function retraitAnchor(appel, signataires) {
+  const args = appel.args
+  if (args.length !== 3 || new Set(signataires).size !== 1) return false
+  try {
+    const de = Address.fromScAddress(args[0].address).toString()
+    const vers = Address.fromScAddress(args[1].address).toString()
+    const montant = scValToNative(args[2])
+    return de === signataires[0] && vers.startsWith('M') && typeof montant === 'bigint' && montant > 0n && montant <= MAX_RETRAIT_ANCHOR
+  } catch {
+    return false
+  }
 }
 
 const MAX_AUTH = 3
@@ -82,7 +103,8 @@ export async function verifier(body, wasmDe = lireWasm) {
   if (f.type !== 'hostFunctionTypeInvokeContract') return refus(403, 'Unsupported operation.')
   const cible = Address.fromScAddress(f.invokeContract.contractAddress).toString()
   const fn = String(f.invokeContract.functionName)
-  if (!CIBLES[cible]?.includes(fn)) return refus(403, 'Only UnlockShares contracts can be called through this relay.')
+  const versAnchor = cible === USDC_SAC && fn === 'transfer' && retraitAnchor(f.invokeContract, signataires)
+  if (!versAnchor && !CIBLES[cible]?.includes(fn)) return refus(403, 'Only UnlockShares contracts can be called through this relay.')
   // Chaque signataire doit être un compte passkey officiel (adresse C… avec le bon code).
   for (const s of new Set(signataires)) {
     if (!s.startsWith('C')) return refus(403, 'Only passkey accounts are sponsored.')
