@@ -101,11 +101,11 @@ export function AnchorDepositCard({ address }: { address: string }) {
         </>
       )}
       {formUrl && tx?.status === 'incomplete' && (
-        // Même onglet : sur téléphone, un nouvel onglet (ou une fenêtre intégrée, refusée par l'anchor) fait perdre l'appli.
-        // L'utilisateur revient avec le bouton Retour ; le retrait en cours est mémorisé pour reprendre.
+        // Onglet séparé : l'appli reste ouverte derrière. Fermer l'onglet de l'anchor ramène ici (statut relu au retour,
+        // retrait mémorisé si le téléphone a rechargé la page). Même onglet = retour impossible ; fenêtre intégrée = refusée par l'anchor.
         <>
-          <div className="chips"><a className="btn primary" href={formUrl}>Open the anchor’s form</a></div>
-          <small className="muted">Fill it in, then come back here with your browser’s Back button.</small>
+          <div className="chips"><a className="btn primary" href={formUrl} target="_blank" rel="noreferrer">Open the anchor’s form</a></div>
+          <small className="muted">It opens in a new tab. When the anchor shows its summary, close that tab to come back here.</small>
         </>
       )}
       {tx && (
