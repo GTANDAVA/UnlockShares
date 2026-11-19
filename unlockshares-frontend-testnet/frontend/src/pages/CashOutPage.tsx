@@ -2,6 +2,7 @@ import { Banknote, Check, History, KeyRound, Landmark, LoaderCircle, Lock, Shiel
 import { useEffect, useState } from 'react'
 import { Choice } from '../components/Choice'
 import { MoneyGramCard } from '../components/MoneyGramCard'
+import { VarialOnly } from '../components/VarialOnly'
 import { useConnect } from '../components/Onboarding'
 import { useDemo } from '../lib/useDemo'
 import { estPasskey, jetonPret } from '../services/chain'
@@ -134,7 +135,7 @@ export function CashOutPage() {
       )}
 
       {s.mode === 'chain' && method === 'cash' ? (
-        estPasskey(s.address) ? <div className="empty"><b>Needs the Varial wallet for now</b><span className="muted">MoneyGram and bank anchors work with a classic Stellar account. Passkey accounts are coming to this page later.</span></div> : s.address ? <MoneyGramCard address={s.address} /> : <div className="empty"><b>Connect your wallet</b><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
+        s.address && !estPasskey(s.address) ? <MoneyGramCard address={s.address} /> : <VarialOnly connect={connect} passkey={!!s.address} />
       ) : (<>
       <ol className="co-steps">
         {STEPS.map((st, i) => {
@@ -151,7 +152,7 @@ export function CashOutPage() {
       </ol>
 
       {needWallet ? (
-        <div className="empty"><b>Connect your wallet</b><span className="muted">We read your real {jetonPret()} balance. Nothing is sent.</span><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
+        <VarialOnly connect={connect} note={`We read your real ${jetonPret()} balance. Nothing is sent.`} />
       ) : phase === 'amount' ? (
         <div className="co-card">
           <label className="co-label" htmlFor="co-amount">Amount to cash out</label>

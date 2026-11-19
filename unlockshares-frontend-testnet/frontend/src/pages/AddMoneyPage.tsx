@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { AnchorDepositCard } from '../components/AnchorDepositCard'
 import { Choice } from '../components/Choice'
 import { MoneyGramCard } from '../components/MoneyGramCard'
+import { VarialOnly } from '../components/VarialOnly'
 import { useConnect } from '../components/Onboarding'
 import { useDemo } from '../lib/useDemo'
 import { estPasskey } from '../services/chain'
@@ -25,10 +26,8 @@ export function AddMoneyPage() {
 
       {s.mode !== 'chain' ? (
         <div className="empty"><b>Available on testnet only</b></div>
-      ) : !s.address ? (
-        <div className="empty"><b>Connect your wallet</b><button className="btn primary" onClick={() => void connect()}>Connect Varial</button></div>
-      ) : estPasskey(s.address) ? (
-        <div className="empty"><b>Needs the Varial wallet for now</b><span className="muted">MoneyGram and bank anchors work with a classic Stellar account. Passkey accounts are coming to this page later.</span></div>
+      ) : !s.address || estPasskey(s.address) ? (
+        <VarialOnly connect={connect} passkey={!!s.address} />
       ) : (
         <>
           <Choice label="Deposit method" value={method} onChange={setMethod} options={[
