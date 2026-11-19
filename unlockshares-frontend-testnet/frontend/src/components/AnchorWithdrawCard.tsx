@@ -152,7 +152,7 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
         <input id="wd-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-invalid={!amountOk} />
         <span>USDC</span>
       </div>
-      <small className="muted">{usdc === undefined ? 'Reading your balance…' : `Your balance: ${usdc ?? 0} USDC``}</small>
+      <small className="muted">{usdc === undefined ? 'Reading your balance…' : `Your balance: ${usdc ?? 0} USDC`}</small>
       <div className="chips">
         <button className="btn primary" onClick={() => void start()} disabled={busy || !amountOk || (!!tx && !FINAL.includes(tx.status))}>
           {busy && !tx ? <LoaderCircle className="i spin" /> : null}Cash out with the anchor
