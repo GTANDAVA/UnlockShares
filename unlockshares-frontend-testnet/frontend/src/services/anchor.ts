@@ -73,15 +73,19 @@ export async function connexionAnchor(account: string): Promise<string> {
 async function connexionAnchorPasskey(account: string, toml: Toml): Promise<string> {
   if (!toml.authContrats || !toml.contratAuth) throw new Error('This anchor does not support passkey accounts yet (SEP-45).')
   const r = await fetch(`${toml.authContrats}?account=${encodeURIComponent(account)}&home_domain=${encodeURIComponent(ANCHOR_DOMAIN)}`)
-  const c = (await r.json().catch(() => ({}))) as { authorization_entries?: string; network_passphrase?: string; error?: string }
-  if (!r.ok || !c.authorization_entries) throw new Error(c.error ?? `Anchor sign-in refused (${r.status}).`)
-  if (c.network_passphrase && c.network_passphrase !== PASS) throw new Error('The anchor is on another network.')
+  // La spec écrit authorization_entries ; testanchor (Anchor Platform) répond en camelCase (authorizationEntries) : on accepte les deux.
+  const c = (await r.json().catch(() => ({}))) as { authorization_entries?: string; authorizationEntries?: string; network_passphrase?: string; networkPassphrase?: string; error?: string }
+  const entrees = c.authorization_entries ?? c.authorizationEntries
+  const reseau = c.network_passphrase ?? c.networkPassphrase
+  if (!r.ok || !entrees) throw new Error(c.error ?? `Anchor sign-in refused (${r.status}).`)
+  if (reseau && reseau !== PASS) throw new Error('The anchor is on another network.')
   // Contrôle complet avant toute signature (contrat, fonction, domaines, compte, signature de l'anchor).
-  const defi = verifierDefi(c.authorization_entries, {
+  const defi = verifierDefi(entrees, {
     account, homeDomain: ANCHOR_DOMAIN, webAuthDomain: new URL(toml.authContrats).host, contrat: toml.contratAuth, cleServeur: toml.signingKey, passphrase: PASS,
   })
   const signee = await signerAutorisation(defi.entrees[defi.indexClient].toXdr('base64'), defi.expiration, 1)
-  const p = await fetch(toml.authContrats, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authorization_entries: encoderReponse(defi, signee) }) })
+  // Envoi en formulaire : le format que la spec et Anchor Platform lisent tous deux sous le nom authorization_entries.
+  const p = await fetch(toml.authContrats, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ authorization_entries: encoderReponse(defi, signee) }) })
   const j = (await p.json().catch(() => ({}))) as { token?: string; error?: string }
   if (!p.ok || !j.token) throw new Error(j.error ?? 'Anchor sign-in failed.')
   tokens.set(account, j.token)

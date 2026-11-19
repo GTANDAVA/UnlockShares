@@ -37,3 +37,15 @@ test('re-encoding without changes gives back the same entries', () => {
   const d = verifierDefi(EXEMPLE, OK)
   assert.equal(encoderReponse(d, d.entrees[0].toXdr('base64')), EXEMPLE)
 })
+
+// Défi réel de testanchor.stellar.org (19/11/2026), compte de l'exemple officiel
+test('real testanchor challenge is accepted', () => {
+  const b64 = readFileSync(new URL('./fixtures/sep45-testanchor.b64', import.meta.url), 'utf8').trim()
+  const d = verifierDefi(b64, {
+    ...OK, homeDomain: 'testanchor.stellar.org', webAuthDomain: 'testanchor.stellar.org',
+    contrat: 'CD3LA6RKF5D2FN2R2L57MWXLBRSEWWENE74YBEFZSSGNJRJGICFGQXMX',
+  })
+  assert.equal(d.entrees.length, 2)
+  assert.ok(d.indexClient === 0 || d.indexClient === 1)
+  assert.ok(d.expiration > 0)
+})
