@@ -4,6 +4,7 @@ import { demarrerRetrait, lireRetrait, lireToml, payerAnchor, type Sep24Tx } fro
 import { estPasskey, lienTx, lireCompte, messageErreur } from '../services/chain'
 import { usdcBalance } from '../services/moneygram'
 import { tagTx } from '../services/movements'
+import { AnchorInlineForm } from './AnchorInlineForm'
 
 // Retrait réel sur testnet via l'anchor de test de Stellar (SEP-10 ou SEP-45, puis SEP-24) : USDC de Circle → « virement bancaire » de test.
 // Analogie : au bureau de change, on remplit le bordereau (formulaire de l'anchor), puis on dépose les billets au guichet (paiement USDC).
@@ -91,23 +92,24 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
     return () => document.removeEventListener('visibilitychange', relire)
   }, [address])
 
+  // Formulaire envoyé : on relit le statut tout de suite (le suivi toutes les 5 s prend le relais)
+  const relireMaintenant = () => {
+    if (!id.current) return
+    lireRetrait(address, id.current).then(setTx, (e) => setErr(messageErreur(e)))
+  }
+
   const a = Number(amount.replace(',', '.')) || 0
   const amountOk = a >= 1 && a <= (usdc ?? 0)
 
   const start = async () => {
-    // Varial : fenêtre ouverte pendant le clic (sinon bloquée). Passkey : après la signature, avec un bouton.
-    const win = passkey ? null : window.open('', 'anchor', 'width=480,height=720')
     setBusy(true); setErr(''); setTx(null); setFormUrl(''); setPaid('')
     try {
       const r = await demarrerRetrait(address, 'USDC')
       id.current = r.id
       ecrireEnCours(address, r.id)
-      if (win) win.location.href = r.url
-      else if (passkey) setFormUrl(r.url)
-      else window.open(r.url, '_blank')
+      setFormUrl(r.url)
       setTx({ id: r.id, status: 'incomplete' })
     } catch (e) {
-      win?.close()
       setErr(messageErreur(e))
     } finally {
       setBusy(false)
@@ -145,24 +147,19 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
         </div>
       )}
       <span className="muted">The Stellar test anchor takes your testnet USDC and simulates the bank transfer. No real money moves.</span>
-      <label className="co-label" htmlFor="wd-amount">Amount you plan to cash out</label>
+      <label className="co-label" htmlFor="wd-amount">Amount to cash out</label>
       <div className="co-amount">
         <input id="wd-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-invalid={!amountOk} />
         <span>USDC</span>
       </div>
-      <small className="muted">{usdc === undefined ? 'Reading your balance…' : `Your balance: ${usdc ?? 0} USDC · you confirm the exact amount in the anchor’s form.`}</small>
+      <small className="muted">{usdc === undefined ? 'Reading your balance…' : `Your balance: ${usdc ?? 0} USDC``}</small>
       <div className="chips">
         <button className="btn primary" onClick={() => void start()} disabled={busy || !amountOk || (!!tx && !FINAL.includes(tx.status))}>
           {busy && !tx ? <LoaderCircle className="i spin" /> : null}Cash out with the anchor
         </button>
       </div>
       {formUrl && tx?.status === 'incomplete' && (
-        // Onglet séparé : l'appli reste ouverte derrière. Fermer l'onglet de l'anchor ramène ici (statut relu au retour,
-        // retrait mémorisé si le téléphone a rechargé la page). Même onglet = retour impossible ; fenêtre intégrée = refusée par l'anchor.
-        <>
-          <div className="chips"><a className="btn primary" href={formUrl} target="_blank" rel="noreferrer">Open the anchor’s form</a></div>
-          <small className="muted">It opens in a new tab. When the anchor shows its summary, close that tab to come back here.</small>
-        </>
+        <AnchorInlineForm url={formUrl} kind="withdrawal" amount={String(a)} onDone={relireMaintenant} />
       )}
       {toPay && (
         <div className="co-kv">
