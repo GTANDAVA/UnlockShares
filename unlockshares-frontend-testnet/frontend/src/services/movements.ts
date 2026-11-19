@@ -4,7 +4,7 @@
 import { chain } from '../chainConfig'
 import { horizon } from './chain'
 
-export type Kind = 'mg-out' | 'mg-in' | 'anchor-in'
+export type Kind = 'mg-out' | 'mg-in' | 'anchor-in' | 'anchor-out'
 type Tag = { kind: Kind; ref?: string }
 export type Movement = { hash: string; date: Date; dir: 'in' | 'out'; amount: number; other: string; label: string; ref?: string }
 
@@ -23,7 +23,7 @@ export function tagTx(hash: string, tag: Tag) {
   } catch { /* stockage indisponible : le mouvement s'affichera sans nom de guichet */ }
 }
 
-const LABELS: Record<Kind, string> = { 'mg-out': 'Cash out · MoneyGram', 'mg-in': 'Cash in · MoneyGram', 'anchor-in': 'Bank deposit · Stellar anchor' }
+const LABELS: Record<Kind, string> = { 'mg-out': 'Cash out · MoneyGram', 'mg-in': 'Cash in · MoneyGram', 'anchor-in': 'Bank deposit · Stellar anchor', 'anchor-out': 'Bank cash out · Stellar anchor' }
 
 type Change = { asset_code?: string; asset_issuer?: string; from?: string; to?: string; amount?: string }
 type Rec = { transaction_attr?: { memo_type?: string }; type: string; transaction_hash: string; created_at: string; from?: string; to?: string; amount?: string; asset_code?: string; asset_issuer?: string; asset_balance_changes?: Change[] }

@@ -257,6 +257,15 @@ async function appelerPasskey(qui: string, contractId: string, methode: string, 
   return passkey.envoyerParRelais(op.func.toXDR('base64'), auth)
 }
 
+/**
+ * Compte passkey : transfert d'un jeton (contrat SAC) vers une adresse G…, C… ou M… (G… + numéro, CAP-67),
+ * signé par la passkey et payé par le relais. `montant` en unités du jeton (7 décimales). Renvoie le hash.
+ */
+export async function transfererPasskey(qui: string, jeton: string, vers: string, montant: bigint): Promise<string> {
+  if (!estPasskey(qui)) throw new Error('Passkey account expected.')
+  return appelerPasskey(qui, jeton, 'transfer', [addr(qui), new Address(vers).toScVal(), nativeToScVal(montant, { type: 'i128' })])
+}
+
 async function appeler(qui: string, contractId: string, methode: string, args: xdr.ScVal[]): Promise<string> {
   if (estPasskey(qui)) return appelerPasskey(qui, contractId, methode, args)
   const src = await server.getAccount(qui)

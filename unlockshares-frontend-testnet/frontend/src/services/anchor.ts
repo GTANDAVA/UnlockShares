@@ -1,8 +1,8 @@
 // Off-ramp réel sur testnet avec l'anchor de référence de la Stellar Development Foundation.
 // SEP-1 (stellar.toml) → SEP-10 (connexion signée Varial) ou SEP-45 (compte passkey C…) → SEP-24 (formulaire interactif) → paiement.
 // Analogie : l'anchor est le bureau de change. SEP-10 = montrer sa pièce d'identité, SEP-24 = remplir le bordereau au guichet.
-import { Asset, BASE_FEE, Memo, Operation, StellarToml, TransactionBuilder, WebAuth, type Transaction } from '@stellar/stellar-sdk'
-import { estPasskey, horizon, PASS, signerFreighter } from './chain'
+import { Account, Asset, BASE_FEE, Memo, MuxedAccount, Operation, StellarToml, TransactionBuilder, WebAuth, type Transaction } from '@stellar/stellar-sdk'
+import { estPasskey, horizon, PASS, signerFreighter, toUnits, transfererPasskey } from './chain'
 import { signerAutorisation } from './passkey'
 import { encoderReponse, verifierDefi } from './sep45Defi'
 
@@ -142,6 +142,7 @@ function memo(t: Sep24Tx): Memo {
 /** Dernière étape : envoyer les fonds à l'anchor, avec le mémo qui identifie ce retrait. Renvoie le hash. */
 export async function payerAnchor(account: string, t: Sep24Tx, asset: Asset): Promise<string> {
   if (!t.withdraw_anchor_account || !t.amount_in) throw new Error('The anchor has not given its payment details yet.')
+  if (estPasskey(account)) return payerAnchorPasskey(account, t, asset)
   const src = await horizon.loadAccount(account)
   const tx = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: PASS })
     .addOperation(Operation.payment({ destination: t.withdraw_anchor_account, asset, amount: Number(t.amount_in).toFixed(7) }))
@@ -151,6 +152,19 @@ export async function payerAnchor(account: string, t: Sep24Tx, asset: Asset): Pr
   const signed = await signerFreighter(tx, account)
   const res = await horizon.submitTransaction(signed)
   return res.hash
+}
+
+/**
+ * Compte passkey : un appel de contrat n'a pas de mémo. On envoie donc les USDC à l'adresse « M… » de l'anchor
+ * (son adresse G… + le numéro du retrait) : l'anchor lit ce numéro dans l'événement du transfert (CAP-67).
+ */
+async function payerAnchorPasskey(account: string, t: Sep24Tx, asset: Asset): Promise<string> {
+  let dest = t.withdraw_anchor_account!
+  if (t.withdraw_memo) {
+    if (t.withdraw_memo_type !== 'id') throw new Error('This anchor asks for a text memo: not possible from a passkey account yet.')
+    dest = new MuxedAccount(new Account(dest, '0'), t.withdraw_memo).accountId()
+  }
+  return transfererPasskey(account, asset.contractId(PASS), dest, toUnits(Number(t.amount_in)))
 }
 
 /** Solde d'un actif sur le compte (null = pas de ligne de confiance) */

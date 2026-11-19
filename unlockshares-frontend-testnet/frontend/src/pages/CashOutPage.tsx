@@ -1,5 +1,6 @@
 import { Banknote, Check, History, KeyRound, Landmark, LoaderCircle, Lock, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { AnchorWithdrawCard } from '../components/AnchorWithdrawCard'
 import { Choice } from '../components/Choice'
 import { MoneyGramCard } from '../components/MoneyGramCard'
 import { VarialOnly } from '../components/VarialOnly'
@@ -8,7 +9,7 @@ import { useDemo } from '../lib/useDemo'
 import { estPasskey, jetonPret } from '../services/chain'
 import '../styles/cashout.css'
 
-// Off-ramp SIMULÉ : imite fidèlement un retrait SEP-24 (connexion SEP-10, fenêtre de l'anchor, statuts),
+// Mode démo (sans wallet) : off-ramp SIMULÉ qui imite fidèlement un retrait SEP-24 (connexion SEP-10, fenêtre de l'anchor, statuts),
 // sans aucune transaction ni appel réseau. Analogie : une répétition générale avec de faux billets.
 
 const RATE = 0.92 // 1 USDC = 0,92 € (taux fixe de démo)
@@ -130,12 +131,15 @@ export function CashOutPage() {
       {s.mode === 'chain' && (
         <Choice label="Cash out method" value={method} onChange={setMethod} options={[
           { id: 'cash', icon: Banknote, title: 'Cash', sub: 'Pick up at a MoneyGram location', tag: 'Sandbox' },
-          { id: 'bank', icon: Landmark, title: 'Bank transfer', sub: 'Euros on your IBAN', tag: 'Simulation' },
+          { id: 'bank', icon: Landmark, title: 'Bank transfer', sub: 'Through a Stellar anchor', tag: 'Testnet' },
         ]} />
       )}
 
       {s.mode === 'chain' && method === 'cash' ? (
         s.address && !estPasskey(s.address) ? <MoneyGramCard address={s.address} /> : <VarialOnly connect={connect} passkey={!!s.address} />
+      ) : s.mode === 'chain' ? (
+        // Virement : vrai retrait testnet via l'anchor de test (Varial ou passkey). La simulation ne reste qu'en mode démo.
+        s.address ? <AnchorWithdrawCard address={s.address} /> : <VarialOnly connect={connect} />
       ) : (<>
       <ol className="co-steps">
         {STEPS.map((st, i) => {
@@ -161,7 +165,7 @@ export function CashOutPage() {
             <span>{jetonPret()}</span>
             <button className="btn" onClick={() => setAmount(String(balance))} disabled={!balance}>Max</button>
           </div>
-          <small className="muted">Max {num(balance)} {jetonPret()} · your wallet balance{s.mode === 'chain' ? ' read on Stellar testnet' : ''}</small>
+          <small className="muted">Max {num(balance)} {jetonPret()} · demo balance</small>
           {a > balance && <p className="co-err"><TriangleAlert className="v-ic" />More than your balance.</p>}
 
           <div className="co-kv">
