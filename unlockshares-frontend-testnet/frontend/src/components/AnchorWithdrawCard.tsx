@@ -21,6 +21,16 @@ const LABEL: Record<string, string> = {
   refunded: 'Refunded',
 }
 
+// Retrait en cours mémorisé dans le navigateur : sur téléphone, la page est souvent rechargée en revenant
+// du formulaire de l'anchor ; on reprend alors le même retrait au lieu de tout perdre.
+const KEY = 'unlockshares.anchorWithdraw'
+const lireEnCours = (address: string): string => {
+  try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null') as { address: string; id: string } | null; return v?.address === address ? v.id : '' } catch { return '' }
+}
+const ecrireEnCours = (address: string, id: string) => {
+  try { if (id) localStorage.setItem(KEY, JSON.stringify({ address, id })); else localStorage.removeItem(KEY) } catch { /* stockage indisponible */ }
+}
+
 export function AnchorWithdrawCard({ address }: { address: string }) {
   const passkey = estPasskey(address)
   const [usdc, setUsdc] = useState<number | null | undefined>(undefined)
@@ -31,6 +41,25 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
   const [formUrl, setFormUrl] = useState('')
   const [paid, setPaid] = useState('')
   const id = useRef('')
+
+  // Reprise d'un retrait commencé avant un rechargement de la page. La reconnexion à l'anchor peut redemander
+  // la passkey : on attend donc un clic (« Resume ») plutôt que de l'ouvrir toute seule.
+  const [reprise, setReprise] = useState(() => lireEnCours(address))
+  const reprendre = async () => {
+    setBusy(true); setErr('')
+    try {
+      const t = await lireRetrait(address, reprise)
+      id.current = reprise
+      setReprise('')
+      if (FINAL.includes(t.status) && t.status !== 'completed') ecrireEnCours(address, '')
+      setTx(t)
+    } catch (e) {
+      setErr(messageErreur(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const oublier = () => { ecrireEnCours(address, ''); setReprise('') }
 
   const refresh = useCallback(() => {
     const lire = passkey ? lireCompte(address).then((c) => c.usdc) : usdcBalance(address)
@@ -45,11 +74,22 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
       try {
         const next = await lireRetrait(address, id.current)
         setTx(next)
+        if (FINAL.includes(next.status)) ecrireEnCours(address, '')
         if (next.status === 'completed') refresh()
       } catch (e) { setErr(messageErreur(e)) }
     }, 5000)
     return () => window.clearTimeout(t)
   }, [tx, address, refresh])
+
+  // Retour sur l'onglet (après le formulaire de l'anchor) : on relit le statut tout de suite
+  useEffect(() => {
+    const relire = () => {
+      if (document.visibilityState !== 'visible' || !id.current) return
+      lireRetrait(address, id.current).then((t) => setTx((old) => (old && FINAL.includes(old.status) ? old : t)), () => {})
+    }
+    document.addEventListener('visibilitychange', relire)
+    return () => document.removeEventListener('visibilitychange', relire)
+  }, [address])
 
   const a = Number(amount.replace(',', '.')) || 0
   const amountOk = a >= 1 && a <= (usdc ?? 0)
@@ -61,6 +101,7 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
     try {
       const r = await demarrerRetrait(address, 'USDC')
       id.current = r.id
+      ecrireEnCours(address, r.id)
       if (win) win.location.href = r.url
       else if (passkey) setFormUrl(r.url)
       else window.open(r.url, '_blank')
@@ -97,6 +138,12 @@ export function AnchorWithdrawCard({ address }: { address: string }) {
 
   return (
     <div className="co-card">
+      {reprise && !tx && (
+        <div className="chips">
+          <button className="btn primary" onClick={() => void reprendre()} disabled={busy}>{busy ? <LoaderCircle className="i spin" /> : null}Resume your cash out</button>
+          <button className="btn" onClick={oublier} disabled={busy}>Start a new one</button>
+        </div>
+      )}
       <span className="muted">The Stellar test anchor takes your testnet USDC and simulates the bank transfer. No real money moves.</span>
       <label className="co-label" htmlFor="wd-amount">Amount you plan to cash out</label>
       <div className="co-amount">
