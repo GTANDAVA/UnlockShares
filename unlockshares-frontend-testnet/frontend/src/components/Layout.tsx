@@ -1,5 +1,5 @@
 import {
-  ArrowDownToLine, Banknote, HandCoins, CircleDollarSign, Gavel, CirclePlay, Clock, Droplets, House, Percent, Plus, Search, Wallet, LogOut, Sparkles,
+  ArrowDownToLine, Banknote, HandCoins, CircleDollarSign, Gavel, CirclePlay, Clock, Droplets, House, Percent, Plus, Search, Wallet, LogOut, Sparkles, Menu, X,
 } from 'lucide-react'
 import { Moon, Sun } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -60,17 +60,27 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
   const passkey = usePasskey()
   const faucet = useFaucet()
   const live = s.mode === 'chain'
+  // Téléphone : le menu se replie derrière un bouton ☰ ; il reste ouvert seulement sur la page où on l'a ouvert,
+  // donc il se referme tout seul quand on choisit une page.
+  const [menuSur, setMenuSur] = useState<PageId | null>(null)
+  const menu = menuSur === page
 
   return (
     <div className={`app ${terms ? 'terms-on' : ''}`}>
-      <aside aria-label="Menu">
-        <Logo />
+      <aside aria-label="Menu" className={menu ? 'open' : ''}>
+        <div className="side-head">
+          <Logo />
+          <button className="round menu-btn" onClick={() => setMenuSur(menu ? null : page)} aria-expanded={menu} aria-controls="menu-liens" aria-label={menu ? 'Close menu' : 'Open menu'}>
+            {menu ? <X className="i" aria-hidden /> : <Menu className="i" aria-hidden />}
+          </button>
+        </div>
+        <div id="menu-liens" className="menu-liens">
         {MENU.map(({ section, items }, i) => (
           <nav key={i} aria-label={section ?? 'Main'} className="contents">
             {section && <div className="sec">{section}</div>}
             {items.map(({ id, label, icon: Icon, ext }) =>
               id ? (
-                <a key={label} href={`#${id}`} className={`nav ${page === id ? 'on' : ''}`} aria-current={page === id ? 'page' : undefined}>
+                <a key={label} href={`#${id}`} className={`nav ${page === id ? 'on' : ''}`} aria-current={page === id ? 'page' : undefined} onClick={() => setMenuSur(null)}>
                   <Icon className="i" aria-hidden />{label}
                 </a>
               ) : (
@@ -81,6 +91,7 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
             )}
           </nav>
         ))}
+        </div>
         <div className="promo">
           <Percent className="i" style={{ width: 28, height: 28 }} aria-hidden />
           <b>Borrow without selling</b>
@@ -109,7 +120,7 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
             ) : (
               <>
                 {passkeyPossible() && <button className="wallet" onClick={() => void passkey(true)}><Wallet className="i" aria-hidden />Create account</button>}
-                <button className="wallet" onClick={connect} title="Connect the Varial wallet (formerly Freighter)"><Wallet className="i" aria-hidden />Varial</button>
+                <button className="wallet varial" onClick={connect} title="Connect the Varial wallet (formerly Freighter)"><Wallet className="i" aria-hidden />Varial</button>
               </>
             )}
           </div>

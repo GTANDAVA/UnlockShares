@@ -348,3 +348,24 @@ aside .nav.on { background: rgba(253,218,36,.12); color: var(--yellow); box-shad
 @media (max-width: 520px) { .d-gauge3 { font-size: 10px; } .d-gauge3 span { overflow: hidden; white-space: nowrap; } .d-gauge3 .z3 { font-size: 0; } .d-gauge3 .z3::after { content: "Sale"; font-size: 10px; } }
 /* Discover : la vidéo (ex-onglet Presentation), la confiance et la FAQ, sous l'histoire */
 .d-video .d-rev { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 26px; }
+
+/* Version téléphone : menu replié derrière ☰, en-tête compact, pas de débordement horizontal */
+.side-head { display: contents; }
+.menu-btn { display: none; }
+.menu-liens { display: contents; }
+@media (max-width: 820px) {
+  aside { padding-block: 10px; }
+  .side-head { display: flex; width: 100%; align-items: center; justify-content: space-between; }
+  .side-head .logo { width: auto; padding: 0 4px; font-size: 18px; }
+  .side-head .logo .lock { width: 24px; height: 24px; }
+  .menu-btn { display: grid; background: transparent; color: #f7f6f2; border-color: #3a3a3a; }
+  .menu-liens { display: none; }
+  aside.open .menu-liens { display: flex; flex-direction: column; width: 100%; gap: 2px; padding-top: 8px; }
+  aside.open .menu-liens nav { display: flex; flex-direction: column; }
+  aside.open .nav { width: 100%; padding: 12px 10px; }
+  .metabar { display: none; }
+  .top { flex-wrap: wrap; }
+}
+@media (max-width: 520px) { .top .search { display: none; } }
+/* Varial est une extension de navigateur d'ordinateur : inutile sur un écran tactile */
+@media (pointer: coarse) { .top .wallet.varial { display: none; } }
