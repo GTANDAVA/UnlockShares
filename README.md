@@ -1,6 +1,6 @@
 # UnlockShares — Borrow without selling (Stellar testnet)
 
-**▶ Live app: https://unlockshares.vercel.app** (create an account with Face ID / fingerprint, or use the Varial wallet extension set to **Testnet**)
+**▶ Live app: https://unlockshares.vercel.app** (works on phone and computer: create an account with Face ID / fingerprint, no extension and no XLM needed, or use the Varial wallet extension set to **Testnet**)
 
 UnlockShares lets you borrow dollars (USDC) against tokenized shares (tAAPL) on Stellar / Soroban, instead of selling them.
 Everything runs on **Stellar testnet**: tokens have no value.
@@ -27,7 +27,11 @@ Lenders put USDC in the pool and earn the interest paid by borrowers (rates foll
         │                  Stellar Asset Contracts (SAC): tAAPL (collateral), USDC (lent token)
         ▼
  Web app (Vite + React + TypeScript): reads with RPC simulations (free), writes with signed transactions,
- history from contract events, balances from Horizon. Optional MoneyGram Ramps (sandbox) for cash in / cash out.
+ history from contract events, balances from Horizon.
+ Passkey accounts: smart accounts (OpenZeppelin smart-account-kit, WebAuthn); network fees paid by a fee relay
+ (Vercel function api/relais wrapping OpenZeppelin Channels) that only accepts UnlockShares calls.
+ Money in / out: Stellar test anchor (SEP-10 or SEP-45 sign-in, SEP-24 deposit and withdrawal),
+ and MoneyGram Ramps sandbox for cash (Varial accounts).
 ```
 
 - Collateral and lent tokens are **classic Stellar assets** used in Soroban through their SAC.
@@ -57,13 +61,13 @@ The live app uses the **v3** lending pool: it reads the **real Apple price** fro
 | Folder | Content |
 |---|---|
 | `unlockshares-app/unlockshares-app` | Soroban contracts in Rust: `pret`, `robinet`, `distributeur`, with unit tests. Testnet scripts in `scripts/`. Deployment notes in `DEPLOIEMENT.md`. |
-| `unlockshares-frontend-testnet/frontend` | Web app (Vite, React, TypeScript, Varial). Serverless functions in `api/` (MoneyGram sandbox session). |
+| `unlockshares-frontend-testnet/frontend` | Web app (Vite, React, TypeScript, passkeys, Varial). Serverless functions in `api/`: fee relay for passkey accounts, MoneyGram sandbox session, display prices. |
 
 ## Prerequisites
 
 - Rust (stable) with the `wasm32v1-none` target, and the [Stellar CLI](https://developers.stellar.org/docs/tools/cli) (tested with 28.0.0)
 - Node.js 22 or later
-- The Varial browser extension (formerly Freighter), set to Testnet
+- Optional: the Varial browser extension (formerly Freighter), set to Testnet. Passkey accounts need no extension.
 
 ## Install and run
 
@@ -83,13 +87,13 @@ npm run dev -- --mode staging-v2  # same app on the isolated v2 test pool
 Without contract addresses, the app runs in **demo mode** with simulated data (Léa's story).
 See [TESTING.md](TESTING.md) for all tests and the on-chain scenario.
 
-## Suggested path for a juror (about 5 minutes)
+## Suggested path for a first visit (about 5 minutes)
 
-1. Open the app, connect Varial (Testnet), click **Get test tokens**.
-2. **Borrow**: use your shares as a guarantee, then receive USDC.
-3. **Activity**: every operation with its link to stellar.expert.
-4. **Liquidations**: positions above 80 % can be liquidated by anyone.
-5. **Presentation**: the story and the numbers behind the product.
+1. **Discover** (opening page): Léa's story, a short video and the FAQ.
+2. **Create an account** with Face ID / fingerprint (or connect Varial on Testnet), then **Get test tokens**: test shares (tAAPL) and 20 test USDC, once per day per account, while the dispenser has some left.
+3. **Get cash**: use your shares as a guarantee and receive USDC.
+4. **Add money / Cash out → Bank transfer**: a real round trip with the Stellar test anchor (test bank details are pre-filled).
+5. **Activity**: every operation with its link to stellar.expert. **Liquidations**: positions above 80 % can be liquidated by anyone.
 
 ## Proofs on testnet
 
@@ -108,15 +112,16 @@ All hashes below were checked on Horizon testnet (`successful: true`).
 
 | Feature | Status |
 |---|---|
-| Lend, deposit shares, borrow, repay, withdraw, liquidate | **Real** (testnet transactions signed in Varial) |
+| Lend, deposit shares, borrow, repay, withdraw, liquidate | **Real** (testnet transactions signed with a passkey or in Varial) |
+| Passkey accounts, network fees paid for the user | **Real** (testnet smart accounts; the fee relay only accepts UnlockShares calls and small USDC payments to an anchor) |
 | Interest rates following pool usage, protocol reserve | **Real** (computed by the contract) |
 | Activity history with proofs | **Real** (contract events) |
 | Test tokens (faucet, USDC dispenser) | **Real** testnet tokens, no value |
 | Share price | **Real**: Apple price reported by two free robots to an on-chain oracle (SEP-40 interface); free sources, no service guarantee |
 | Demo price / time jump | **Demo**: they apply to your own position only, never to other users or the rates (switched off on the previous v1 pools) |
 | Cash in / cash out with MoneyGram | **Partial**: real MoneyGram Ramps sandbox session; cash deposit and pickup cannot be completed on testnet |
-| Bank transfer (cash out) | **Simulation** (fixed demo rate 1 USDC = 0.92 €, nothing is sent) |
-| Léa's story (no wallet connected) | **Simulation** |
+| Bank transfer in and out | **Real on testnet**: Stellar test anchor `testanchor.stellar.org` (SEP-24); the USDC really moves, the bank side is the anchor's test bank |
+| Léa's story (Discover page, demo mode without contract addresses) | **Simulation** |
 | Professional price oracle (e.g. Reflector), more assets | **Planned** |
 
 ## Limitations
