@@ -277,6 +277,9 @@ export async function transfererPasskey(qui: string, jeton: string, vers: string
   return appelerPasskey(qui, jeton, 'transfer', [addr(qui), new Address(vers).toScVal(), nativeToScVal(montant, { type: 'i128' })])
 }
 
+/** Instructions de calcul ajoutées à l'estimation (coût : une fraction de centime de XLM de test). */
+const MARGE_CPU = 1_000_000
+
 async function appeler(qui: string, contractId: string, methode: string, args: xdr.ScVal[]): Promise<string> {
   if (estPasskey(qui)) return appelerPasskey(qui, contractId, methode, args)
   const src = await server.getAccount(qui)
@@ -285,8 +288,10 @@ async function appeler(qui: string, contractId: string, methode: string, args: x
     .setTimeout(120)
     .build()
   // La simulation calcule les frais et révèle les erreurs du contrat avant la signature.
-  const prete = await server.prepareTransaction(tx)
-  return envoyer(await signer(prete, qui))
+  // Petite marge de calcul : avec 12 actions, l'estimation est parfois trop juste de quelques millièmes.
+  const sim = await server.simulateTransaction(tx, { cpuInstructions: MARGE_CPU })
+  if (rpc.Api.isSimulationError(sim)) throw new Error(sim.error)
+  return envoyer(await signer(rpc.assembleTransaction(tx, sim).build(), qui))
 }
 
 export const pret = {
