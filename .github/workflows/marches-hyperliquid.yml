@@ -10,18 +10,12 @@ jobs:
   lister:
     runs-on: ubuntu-latest
     steps:
-      - name: Lister les marchés
+      - name: Annuaire SODAX et Yahoo pour la liste de Greg
         run: |
-          node -e "
-          const post=(b)=>fetch('https://api.hyperliquid.xyz/info',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json())
-          ;(async()=>{
-            const dexs=(await post({type:'perpDexs'})).filter(Boolean).map(d=>d.name)
-            for (const dex of dexs) {
-              const [m,c]=await post({type:'metaAndAssetCtxs',dex})
-              console.log('DEX',dex,m.universe.map((a,i)=>a.name+'='+c[i].oraclePx+(a.isDelisted?'(delisted)':'')).join(' '))
-            }
-          })()"
-      - name: Annuaire SODAX (texte brut)
-        run: |
-          curl -sL -A 'Mozilla/5.0' https://www.sodax.com/partners/asset-directory -o sodax.html; wc -c sodax.html
-          grep -oE '\b[A-Z]{2,6}(x|on)?\b' sodax.html | sort | uniq -c | sort -rn | head -150 | tr '\n' ' '
+          curl -sL -A 'Mozilla/5.0' https://www.sodax.com/partners/asset-directory -o sodax.html
+          for t in AAPL AMZN CRCL INTC SPCX ANT ANTH ANTHROPIC SPY AMD COIN IBM NOK BB NVDA; do
+            n=$(grep -oE "[^A-Za-z]$t(x|on)?[^A-Za-z]" sodax.html | wc -l)
+            ctx=$(grep -oE ".{0,60}[^A-Za-z]$t[^A-Za-z].{0,60}" sodax.html | head -1 | tr -d '\n' | cut -c1-140)
+            y=$(curl -s -A 'Mozilla/5.0' "https://query1.finance.yahoo.com/v8/finance/chart/$t" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const m=JSON.parse(d).chart.result[0].meta;console.log(m.regularMarketPrice,m.longName||m.shortName||'')}catch{console.log('absent')}})")
+            echo "TICKER $t sodax=$n yahoo=[$y] ctx=[$ctx]"
+          done
