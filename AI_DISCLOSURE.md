@@ -18,6 +18,8 @@ Facts from the git history:
 
 No percentage is given: the history does not allow an honest estimate.
 
+Update 2026-11-20: 98 of the 106 commits on `main` up to `462051d` carry a `Co-Authored-By: Claude` trailer. Later work (passkey accounts and fee relay, oracle robots, Discover page, mobile layout, test anchor deposit and withdrawal) was also written with Claude Code, under the same rules.
+
 ## What Greg decided, tested and signed
 
 - **Decided**: the product direction, the scope of each step, the risk rules to keep, the v2 plan, and every action that touches the blockchain or production. Rules he set for the AI: autonomous only for local code, tests and docs; no on-chain transaction, fund move, production or Vercel change, push to `main` or licence change without his explicit OK.
