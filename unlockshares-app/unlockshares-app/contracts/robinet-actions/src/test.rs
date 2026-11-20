@@ -84,4 +84,47 @@ fn reglages_reserves_a_l_admin() {
     let id = env.register(RobinetActions, (Address::generate(&env), 3_600u64));
     let r = RobinetActionsClient::new(&env, &id);
     assert!(r.try_fixer_jeton(&Address::generate(&env), &U).is_err());
+    assert!(r.try_fixer_pack(&soroban_sdk::vec![&env]).is_err());
+}
+
+#[test]
+fn le_pack_ne_donne_que_ses_titres() {
+    let (env, r, aapl, nvda, tsla) = decor();
+    r.fixer_pack(&soroban_sdk::vec![&env, aapl.clone(), tsla.clone()]);
+    assert_eq!(r.pack().len(), 2);
+    let lea = Address::generate(&env);
+    r.recevoir(&lea);
+    assert_eq!(TokenClient::new(&env, &aapl).balance(&lea), 2 * U);
+    assert_eq!(TokenClient::new(&env, &tsla).balance(&lea), U);
+    assert_eq!(TokenClient::new(&env, &nvda).balance(&lea), 0);
+    let inconnu = Address::generate(&env);
+    assert_eq!(r.try_fixer_pack(&soroban_sdk::vec![&env, inconnu]), Err(Ok(Erreur::JetonInconnu)));
+}
+
+#[test]
+fn un_titre_a_la_demande_une_fois_par_delai_et_par_titre() {
+    let (env, r, aapl, nvda, tsla) = decor();
+    r.fixer_pack(&soroban_sdk::vec![&env, aapl.clone()]);
+    let lea = Address::generate(&env);
+    r.recevoir(&lea);
+    // Le pack ne bloque pas les titres à la demande.
+    r.recevoir_titre(&lea, &nvda);
+    assert_eq!(TokenClient::new(&env, &nvda).balance(&lea), 3 * U);
+    assert!(StellarAssetClient::new(&env, &nvda).authorized(&lea));
+    assert_eq!(r.try_recevoir_titre(&lea, &nvda), Err(Ok(Erreur::TropTot)));
+    // Un autre titre reste possible tout de suite.
+    r.recevoir_titre(&lea, &tsla);
+    assert_eq!(TokenClient::new(&env, &tsla).balance(&lea), U);
+    env.ledger().set_timestamp(env.ledger().timestamp() + 3_600);
+    r.recevoir_titre(&lea, &nvda);
+    assert_eq!(TokenClient::new(&env, &nvda).balance(&lea), 6 * U);
+}
+
+#[test]
+fn titre_inconnu_ou_coupe_refuse() {
+    let (env, r, _, nvda, _) = decor();
+    let lea = Address::generate(&env);
+    assert_eq!(r.try_recevoir_titre(&lea, &Address::generate(&env)), Err(Ok(Erreur::JetonInconnu)));
+    r.fixer_jeton(&nvda, &0);
+    assert_eq!(r.try_recevoir_titre(&lea, &nvda), Err(Ok(Erreur::JetonInconnu)));
 }

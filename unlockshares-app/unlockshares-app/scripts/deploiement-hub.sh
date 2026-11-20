@@ -15,6 +15,7 @@ EMETTEUR="${EMETTEUR:-emetteur-actions}"
 USDC=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA     # jeton prêté (le même que le prêt v3)
 ORACLE_AAPL=CCA3MJ2G6JOYE3BY5QRHSXZ4B5WQ232OF7WV3JLNVRJ5CB6QEP7P4OMI # oracle Apple déjà en service, réutilisé
 TITRES="AAPL AMZN NVDA CRCL INTC SPCX ANT AMD COIN IBM NOK BB"
+PACK="AAPL BB NOK"                                                  # pack de bienvenue du robinet (Greg)
 IDS=deploiement-hub.ids
 touch "$IDS"; source "$IDS"
 garder() { grep -v "^$1=" "$IDS" > "$IDS.tmp"; echo "$1=$2" >> "$IDS.tmp"; mv "$IDS.tmp" "$IDS"; }
@@ -78,8 +79,9 @@ if [ -z "$ETAPE" ]; then
  H7          Déployer le hub (USDC, 50 USDC max par adresse, 20 % de la caisse, démo perso) [$ADMIN]
  H8 <TITRE>  Ajouter l'action au hub avec ses règles et son prix (12 fois)                  [$ADMIN]
  H9 <TITRE>  Brancher l'oracle de l'action sur le hub (12 fois)                             [$ADMIN]
- H10 <TITRE> Le robinet distribue 2 actions de ce jeton (12 fois)                           [$ADMIN]
+ H10 <TITRE> Le robinet distribue 2 actions de ce titre, à la demande (12 fois)               [$ADMIN]
  H11         Le robinet autorise le hub à détenir toutes les actions                       [$ADMIN]
+ H12         Pack de bienvenue : $PACK en une signature (les autres titres à la demande)  [$ADMIN]
 Titres : $TITRES
 Ensuite, hors script et avec ton accord : variables GitHub ORACLE_ID_<TITRE>, remplir la caisse (étape 6), site (étape 7).
 Rien ici ne touche le prêt v3, le robinet v2 ni le site en ligne.
@@ -146,5 +148,10 @@ case "$ETAPE" in
     [ -n "${ROBINET:-}" ] && [ -n "${HUB:-}" ] || { echo "Faire H4 et H7 d'abord"; exit 1; }
     confirmer "le robinet autorise le hub $HUB à détenir toutes ses actions"
     stellar contract invoke --id "$ROBINET" --source-account "$ADMIN" $N -- autoriser --qui "$HUB" && garder AUTORISE ok;;
-  *) echo "Étape inconnue : H1 à H11 (lance le script sans argument pour voir le plan)"; exit 1;;
+  H12)
+    [ -n "${ROBINET:-}" ] || { echo "Faire H4 d'abord"; exit 1; }
+    L=""; for t in $PACK; do S=$(val SAC_$t); [ -n "$(val ROBINET_$t)" ] || { echo "Faire H10 $t d'abord"; exit 1; }; L="$L${L:+,}\"$S\""; done
+    confirmer "le pack de bienvenue du robinet devient : $PACK"
+    stellar contract invoke --id "$ROBINET" --source-account "$ADMIN" $N -- fixer_pack --titres "[$L]" && garder PACK_OK ok;;
+  *) echo "Étape inconnue : H1 à H12 (lance le script sans argument pour voir le plan)"; exit 1;;
 esac
