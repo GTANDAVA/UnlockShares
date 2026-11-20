@@ -78,16 +78,16 @@ export function BorrowPage() {
         </table></div>
         <div className="tbl"><table>
           <thead>{hub
-            ? <tr><th>Accepted guarantee</th><th>Price</th><th>Your shares</th><th>Borrow up to<Term>max LTV · liquidation threshold</Term></th><th>Yearly cost<Term>base + risk premium</Term></th><th /></tr>
+            ? <tr><th>Accepted guarantee</th><th>Price</th><th>Your shares</th><th>Borrow up to<Term>max LTV</Term></th><th>Yearly cost<Term>base + risk premium</Term></th><th /></tr>
             : <tr><th>Accepted guarantee</th><th>Price</th><th>Your shares</th><th>You can borrow<Term>max LTV</Term></th><th>Protection sale at<Term>liquidation threshold</Term></th><th>Status</th></tr>}</thead>
           <tbody>
             {hub && s.stocks.map((x) => (
               <tr key={x.jeton} className={x.active ? undefined : 'soon'}>
                 <td><div className="asset"><StockCoin ticker={x.ticker} /><div>{x.nom}<small>{x.active ? (x.fonds ? 'tokenized fund' : 'tokenized share') : 'paused'}</small></div></div></td>
-                <td>{x.refPrice ? usd(x.refPrice) : '–'}{x.priceDate && <small>{x.oracle ? 'robots' : 'admin'} · {x.priceDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</small>}</td>
-                <td>{x.shares} {x.ticker} locked<small>{x.walletShares} in wallet{x.debt ? ` · ${usdc(x.debt)} borrowed` : ''}</small></td>
-                <td>{pct(x.ltvMax)} of value<small>sale at {pct(x.seuil)} · {usd(x.capLeft)} left</small></td>
-                <td>{pct(x.rate)}{x.prime > 0 && <small>incl. +{pct(x.prime)} premium</small>}</td>
+                <td>{x.refPrice ? usd(x.refPrice) : '–'}</td>
+                <td>{x.shares} {x.ticker} locked</td>
+                <td>{pct(x.ltvMax)} of value</td>
+                <td>{pct(x.rate)}</td>
                 <td><div className="chips" style={{ flexWrap: 'nowrap' }}>
                   {x.shares > 0
                     ? <button className="btn primary" onClick={() => pick(x.jeton, 'borrow')} disabled={!x.active}>Borrow</button>
@@ -106,7 +106,7 @@ export function BorrowPage() {
             {roadmap.map((r) => (
               <tr key={r.code} className="soon">
                 <td><div className="asset"><Coin kind={r.kind}>{r.code}</Coin><div>{r.name}<small>{r.type}</small></div></div></td>
-                <td>{roadmapPrices[r.code] ? `$${roadmapPrices[r.code].toFixed(2)}` : '–'}</td><td>–</td>{hub ? <><td>{r.max} of value<small>sale at {r.liq}</small></td><td>–</td></> : <><td>{r.max} of value</td><td>{r.liq} of value</td></>}<td><span className="tag">Roadmap</span></td>
+                <td>{roadmapPrices[r.code] ? `$${roadmapPrices[r.code].toFixed(2)}` : '–'}</td><td>–</td>{hub ? <><td>{r.max} of value</td><td>–</td></> : <><td>{r.max} of value</td><td>{r.liq} of value</td></>}<td><span className="tag">Roadmap</span></td>
               </tr>
             ))}
           </tbody>
