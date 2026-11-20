@@ -8,6 +8,7 @@
 # Les adresses créées sont gardées dans deploiement-hub.ids (adresses publiques, aucun secret).
 set -uo pipefail
 N="--network testnet"
+MARGE="--instruction-leeway 500000"   # marge de calcul : avec 12 spokes, la simulation est parfois trop juste
 W=target/wasm32v1-none/release
 U=10000000
 ADMIN="${ADMIN:-greg}"
@@ -116,7 +117,7 @@ case "$ETAPE" in
   H5)
     besoin_titre; S=$(val SAC_$T); [ -n "$S" ] && [ -n "${ROBINET:-}" ] || { echo "Faire H3 $T et H4 d'abord"; exit 1; }
     confirmer "le robinet $ROBINET devient admin du jeton T$T ($S)"
-    stellar contract invoke --id "$S" --source-account "$EMETTEUR" $N -- set_admin --new_admin "$ROBINET" && garder "ADMIN_$T" ok;;
+    stellar contract invoke --id "$S" --source-account "$EMETTEUR" $N $MARGE -- set_admin --new_admin "$ROBINET" && garder "ADMIN_$T" ok;;
   H6)
     besoin_titre
     [ "$T" = AAPL ] && { echo "Apple réutilise l'oracle en service : $ORACLE_AAPL"; garder ORACLE_AAPL "$ORACLE_AAPL"; exit 0; }
@@ -135,23 +136,23 @@ case "$ETAPE" in
     besoin_titre; S=$(val SAC_$T); [ -n "$S" ] && [ -n "${HUB:-}" ] || { echo "Faire H3 $T et H7 d'abord"; exit 1; }
     P=$(prix $T); [ -n "$P" ] || { echo "Prix de $T introuvable, réessaie"; exit 1; }
     confirmer "ajouter $T au hub, règles $(regles $T), prix $(dollars $P) \$"
-    stellar contract invoke --id "$HUB" --source-account "$ADMIN" $N -- ajouter_spoke --jeton "$S" --regles "$(regles_json $T)" --prix "$P" && garder "SPOKE_$T" ok;;
+    stellar contract invoke --id "$HUB" --source-account "$ADMIN" $N $MARGE -- ajouter_spoke --jeton "$S" --regles "$(regles_json $T)" --prix "$P" && garder "SPOKE_$T" ok;;
   H9)
     besoin_titre; S=$(val SAC_$T); O=$(val ORACLE_$T); [ -n "$S" ] && [ -n "$O" ] && [ -n "$(val SPOKE_$T)" ] || { echo "Faire H6 $T et H8 $T d'abord"; exit 1; }
     confirmer "le hub lit le prix de $T chez l'oracle $O"
-    stellar contract invoke --id "$HUB" --source-account "$ADMIN" $N -- fixer_oracle --jeton "$S" --oracle "[\"$O\",{\"Other\":\"$T\"}]" && garder "BRANCHE_$T" ok;;
+    stellar contract invoke --id "$HUB" --source-account "$ADMIN" $N $MARGE -- fixer_oracle --jeton "$S" --oracle "[\"$O\",{\"Other\":\"$T\"}]" && garder "BRANCHE_$T" ok;;
   H10)
     besoin_titre; S=$(val SAC_$T); [ -n "$S" ] && [ -n "$(val ADMIN_$T)" ] || { echo "Faire H5 $T d'abord"; exit 1; }
     confirmer "le robinet donne 2 T$T par passage"
-    stellar contract invoke --id "$ROBINET" --source-account "$ADMIN" $N -- fixer_jeton --jeton "$S" --montant $((2*U)) && garder "ROBINET_$T" ok;;
+    stellar contract invoke --id "$ROBINET" --source-account "$ADMIN" $N $MARGE -- fixer_jeton --jeton "$S" --montant $((2*U)) && garder "ROBINET_$T" ok;;
   H11)
     [ -n "${ROBINET:-}" ] && [ -n "${HUB:-}" ] || { echo "Faire H4 et H7 d'abord"; exit 1; }
     confirmer "le robinet autorise le hub $HUB à détenir toutes ses actions"
-    stellar contract invoke --id "$ROBINET" --source-account "$ADMIN" $N -- autoriser --qui "$HUB" && garder AUTORISE ok;;
+    stellar contract invoke --id "$ROBINET" --source-account "$ADMIN" $N $MARGE -- autoriser --qui "$HUB" && garder AUTORISE ok;;
   H12)
     [ -n "${ROBINET:-}" ] || { echo "Faire H4 d'abord"; exit 1; }
     L=""; for t in $PACK; do S=$(val SAC_$t); [ -n "$(val ROBINET_$t)" ] || { echo "Faire H10 $t d'abord"; exit 1; }; L="$L${L:+,}\"$S\""; done
     confirmer "le pack de bienvenue du robinet devient : $PACK"
-    stellar contract invoke --id "$ROBINET" --source-account "$ADMIN" $N -- fixer_pack --titres "[$L]" && garder PACK_OK ok;;
+    stellar contract invoke --id "$ROBINET" --source-account "$ADMIN" $N $MARGE -- fixer_pack --titres "[$L]" && garder PACK_OK ok;;
   *) echo "Étape inconnue : H1 à H12 (lance le script sans argument pour voir le plan)"; exit 1;;
 esac
