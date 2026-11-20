@@ -1,4 +1,4 @@
-// Lecture du cours d'Apple dans les deux sources gratuites.
+// Lecture du cours d'une action (Apple par défaut) dans les deux sources gratuites.
 // Aucune dépendance : ce fichier se teste sans réseau (on lui passe un faux `fetch`).
 
 export const DECIMALES = 7;
@@ -59,15 +59,16 @@ export async function lireHyperliquid(fetchFn = fetch, marche = 'xyz:AAPL') {
 }
 
 /** Yahoo Finance : dernier cours de bourse (adresse publique du graphique, sans clé, non officielle). */
-export async function lireYahoo(fetchFn = fetch, maintenant = new Date(), ageMaxS = AGE_MAX_BOURSE_S) {
-  const r = await fetchFn('https://query1.finance.yahoo.com/v8/finance/chart/AAPL?interval=1m&range=1d', {
+export async function lireYahoo(fetchFn = fetch, maintenant = new Date(), ageMaxS = AGE_MAX_BOURSE_S, titre = 'AAPL') {
+  if (!/^[A-Z]{1,6}$/.test(titre)) throw new Error(`titre invalide : ${titre}`);
+  const r = await fetchFn(`https://query1.finance.yahoo.com/v8/finance/chart/${titre}?interval=1m&range=1d`, {
     headers: { 'user-agent': 'Mozilla/5.0 (UnlockShares price robot)', accept: 'application/json' },
   });
   if (!r.ok) throw new Error(`Yahoo HTTP ${r.status}`);
   const j = await r.json();
   const meta = j?.chart?.result?.[0]?.meta;
   if (!meta || !(meta.regularMarketPrice > 0) || !(meta.regularMarketTime > 0)) throw new Error('cours Yahoo vide');
-  if (meta.symbol && meta.symbol !== 'AAPL') throw new Error(`mauvais titre : ${meta.symbol}`);
+  if (meta.symbol && meta.symbol !== titre) throw new Error(`mauvais titre : ${meta.symbol}`);
   if (meta.currency && meta.currency !== 'USD') throw new Error(`mauvaise devise : ${meta.currency}`);
   const age = Math.floor(maintenant.getTime() / 1000) - meta.regularMarketTime;
   if (age > ageMaxS) throw new Error(`cours Yahoo trop vieux (${Math.round(age / 60)} min)`);

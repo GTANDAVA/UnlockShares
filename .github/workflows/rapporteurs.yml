@@ -1,7 +1,9 @@
-# Les 2 robots rapporteurs du prix d'Apple (voir robots/ et contracts/oracle-prix).
+# Les 2 robots rapporteurs du prix de chaque action (voir robots/ et contracts/oracle-prix) : un oracle par action.
+# Apple utilise la variable ORACLE_ID ; les autres actions ORACLE_ID_<TITRE> (par ex. ORACLE_ID_NVDA).
+# Une action sans variable d'oracle reste en lecture seule.
 # SÉCURITÉ : tant que la variable du dépôt ROBOTS_ACTIFS ne vaut pas "oui", ils sont en LECTURE SEULE
 # (ils lisent et affichent le prix, n'envoient rien). Les clés viennent des secrets GitHub, jamais du code.
-name: Rapporteurs prix AAPL
+name: Rapporteurs prix actions
 
 on:
   schedule:
@@ -9,7 +11,7 @@ on:
   workflow_dispatch:
   # Essai en lecture seule depuis la branche de travail (jamais d'envoi sur un push).
   push:
-    branches: [feature/oracle-gratuit]
+    branches: [feature/oracle-gratuit, feature/hub-spokes]
     paths: ['robots/**', '.github/workflows/rapporteurs.yml']
 
 permissions:
@@ -41,9 +43,22 @@ jobs:
         with:
           node-version: 22
       - run: npm ci --omit=dev --no-audit --no-fund
-      - run: node rapporteur.mjs ${{ matrix.source }}
+      # Les actions passent l'une après l'autre : un même robot (une même clé) ne peut pas envoyer
+      # deux transactions en même temps (numéro de séquence du compte).
+      - name: Une action après l'autre
+        run: |
+          code=0
+          for titre in AAPL NVDA TSLA; do
+            if [ "$titre" = AAPL ]; then oracle="$ORACLE_AAPL"; else var="ORACLE_$titre"; oracle="${!var}"; fi
+            envoyer=non
+            if [ "$ACTIFS" = oui ] && [ -n "$oracle" ]; then envoyer=oui; fi
+            TITRE=$titre ORACLE_ID="$oracle" ENVOYER=$envoyer node rapporteur.mjs ${{ matrix.source }} || code=1
+          done
+          exit $code
         env:
-          ENVOYER: ${{ github.event_name != 'push' && vars.ROBOTS_ACTIFS == 'oui' && 'oui' || 'non' }}
-          ORACLE_ID: ${{ vars.ORACLE_ID }}
+          ACTIFS: ${{ github.event_name != 'push' && vars.ROBOTS_ACTIFS == 'oui' && 'oui' || 'non' }}
+          ORACLE_AAPL: ${{ vars.ORACLE_ID }}
+          ORACLE_NVDA: ${{ vars.ORACLE_ID_NVDA }}
+          ORACLE_TSLA: ${{ vars.ORACLE_ID_TSLA }}
           RAPPORTEUR_CLE: ${{ secrets[matrix.cle] }}
           FORCER_LECTURE: ${{ github.event_name == 'push' && 'oui' || 'non' }}

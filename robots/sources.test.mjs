@@ -50,3 +50,12 @@ test('séance de New York', () => {
   assert.equal(seanceOuverte(new Date('2026-11-15T16:00:00Z')), false); // dimanche
   assert.equal(seanceOuverte(new Date('2026-07-06T13:45:00Z')), true); // été (EDT) : 9 h 45
 });
+
+test('Yahoo : autre action (hub & spokes), titre vérifié et titre invalide refusé', async () => {
+  const t = 1_763_200_000;
+  const maintenant = new Date((t + 60) * 1000);
+  const lu = await lireYahoo(reponse(yahoo(181.2, t, { symbol: 'NVDA' })), maintenant, undefined, 'NVDA');
+  assert.equal(lu.prix, 1_812_000_000n);
+  await assert.rejects(lireYahoo(reponse(yahoo(181.2, t)), maintenant, undefined, 'NVDA'), /mauvais titre/);
+  await assert.rejects(lireYahoo(reponse(yahoo(181.2, t)), maintenant, undefined, 'nvda/../x'), /titre invalide/);
+});
