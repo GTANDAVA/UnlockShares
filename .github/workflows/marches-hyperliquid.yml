@@ -1,0 +1,27 @@
+# Lecture seule : liste les marchés d'actions de Hyperliquid (tous les « dex » HIP-3), pour choisir les spokes du hub.
+name: Marchés Hyperliquid (lecture)
+on:
+  push:
+    branches: [feature/hub-spokes]
+    paths: [.github/workflows/marches-hyperliquid.yml]
+permissions:
+  contents: read
+jobs:
+  lister:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lister les marchés
+        run: |
+          node -e "
+          const post=(b)=>fetch('https://api.hyperliquid.xyz/info',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json())
+          ;(async()=>{
+            const dexs=(await post({type:'perpDexs'})).filter(Boolean).map(d=>d.name)
+            for (const dex of dexs) {
+              const [m,c]=await post({type:'metaAndAssetCtxs',dex})
+              console.log('DEX',dex,m.universe.map((a,i)=>a.name+'='+c[i].oraclePx+(a.isDelisted?'(delisted)':'')).join(' '))
+            }
+          })()"
+      - name: Annuaire SODAX (texte brut)
+        run: |
+          curl -sL -A 'Mozilla/5.0' https://www.sodax.com/partners/asset-directory -o sodax.html; wc -c sodax.html
+          grep -oE '\b[A-Z]{2,6}(x|on)?\b' sodax.html | sort | uniq -c | sort -rn | head -150 | tr '\n' ' '
