@@ -14,7 +14,7 @@ ADMIN="${ADMIN:-greg}"
 EMETTEUR="${EMETTEUR:-emetteur-actions}"
 USDC=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA     # jeton prêté (le même que le prêt v3)
 ORACLE_AAPL=CCA3MJ2G6JOYE3BY5QRHSXZ4B5WQ232OF7WV3JLNVRJ5CB6QEP7P4OMI # oracle Apple déjà en service, réutilisé
-TITRES="AAPL MSFT NVDA GOOGL AMZN META TSLA NOK SPY QQQ GLD EWY"
+TITRES="AAPL AMZN NVDA CRCL INTC SPCX ANT AMD COIN IBM NOK BB"
 IDS=deploiement-hub.ids
 touch "$IDS"; source "$IDS"
 garder() { grep -v "^$1=" "$IDS" > "$IDS.tmp"; echo "$1=$2" >> "$IDS.tmp"; mv "$IDS.tmp" "$IDS"; }
@@ -25,31 +25,31 @@ dollars() { awk -v u="$1" 'BEGIN{printf "%.2f", u/10000000}'; }
 # Règles de chaque spoke : ratio max, seuil, bonus, cible, prime, plafond (points de base), montant du robinet (actions)
 regles() {
   case "$1" in
-    AAPL) echo "5000 8000 500 6000 50 4000";;
-    NVDA) echo "4500 8000 500 6000 100 2500";;
-    TSLA) echo "4000 8000 500 6000 200 1500";;
-    SPY)  echo "6000 8000 500 6000 0 4000";;
-    NOK)  echo "4500 8000 500 6000 100 1500";;
-    EWY)  echo "5500 8000 500 6000 50 2000";;
-    MSFT) echo "5000 8000 500 6000 50 2500";;
-    GOOGL) echo "5000 8000 500 6000 50 2500";;
-    AMZN) echo "5000 8000 500 6000 50 2500";;
-    META) echo "4500 8000 500 6000 100 2000";;
-    QQQ)  echo "6000 8000 500 6000 0 3000";;
-    GLD)  echo "6000 8000 500 6000 0 2000";;
+    AAPL) echo "5000 8000 500 6000 50 2500";;
+    AMZN) echo "5000 8000 500 6000 50 2000";;
+    IBM)  echo "5000 8000 500 6000 50 1500";;
+    NVDA) echo "4500 8000 500 6000 100 2000";;
+    AMD)  echo "4500 8000 500 6000 100 1500";;
+    INTC) echo "4500 8000 500 6000 100 1500";;
+    NOK)  echo "4500 8000 500 6000 100 1000";;
+    BB)   echo "4000 8000 500 6000 200 1000";;
+    COIN) echo "3500 8000 500 6000 250 1000";;
+    CRCL) echo "3500 8000 500 6000 250 1000";;
+    SPCX) echo "3500 8000 500 6000 300 1000";;
+    ANT)  echo "3500 8000 500 6000 300 1000";;
   esac
 }
 regles_json() {
   read -r l s b c p pl <<< "$(regles "$1")"
   echo "{\"ltv_max_bps\":\"$l\",\"seuil_bps\":\"$s\",\"bonus_bps\":\"$b\",\"cible_bps\":\"$c\",\"prime_bps\":\"$p\",\"plafond_bps\":\"$pl\"}"
 }
-# Prix du moment (unités à 7 décimales) : Hyperliquid pour les actions, Yahoo pour les ETF (SPY, QQQ, GLD, EWY).
+# Prix du moment (unités à 7 décimales) : Hyperliquid, sinon Yahoo.
 prix() {
   node -e "
 const t='$1'
 const hl=()=>fetch('https://api.hyperliquid.xyz/info',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'metaAndAssetCtxs',dex:'xyz'})}).then(r=>r.json()).then(([m,c])=>{const i=m.universe.findIndex(a=>a.name==='xyz:'+t);if(i<0)throw 0;return Number(c[i].oraclePx)})
 const yh=()=>fetch('https://query1.finance.yahoo.com/v8/finance/chart/'+t,{headers:{'user-agent':'Mozilla/5.0'}}).then(r=>r.json()).then(j=>j.chart.result[0].meta.regularMarketPrice)
-;(['SPY','QQQ','GLD','EWY'].includes(t)?yh():hl().catch(yh)).then(p=>console.log(Math.round(p*1e7))).catch(()=>console.log(''))"
+;hl().catch(yh).then(p=>console.log(Math.round(p*1e7))).catch(()=>console.log(''))"
 }
 
 ETAPE="${1:-}"; T="${2:-}"

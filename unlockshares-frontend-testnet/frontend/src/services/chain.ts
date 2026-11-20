@@ -413,10 +413,10 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
 
 /** Nom affiché de chaque ticker connu (les jetons de test s'appellent TAAPL, TNVDA…) */
 const NOMS_ACTIONS: Record<string, string> = {
-  AAPL: 'Apple', MSFT: 'Microsoft', NVDA: 'Nvidia', GOOGL: 'Alphabet', AMZN: 'Amazon', META: 'Meta', TSLA: 'Tesla', NOK: 'Nokia',
-  SPY: 'S&P 500', QQQ: 'Nasdaq 100', GLD: 'Gold', EWY: 'South Korea',
+  AAPL: 'Apple', AMZN: 'Amazon', NVDA: 'Nvidia', CRCL: 'Circle', INTC: 'Intel', SPCX: 'SpaceX', ANT: 'Anthropic',
+  AMD: 'AMD', COIN: 'Coinbase', IBM: 'IBM', NOK: 'Nokia', BB: 'BlackBerry',
 }
-const FONDS = new Set(['SPY', 'QQQ', 'GLD', 'EWY'])
+const FONDS = new Set<string>()
 
 export type InfoAction = { jeton: string; code: string; emetteur: string; ticker: string; nom: string; fonds: boolean }
 const infos = new Map<string, InfoAction>()
