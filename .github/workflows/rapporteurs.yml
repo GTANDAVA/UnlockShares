@@ -48,7 +48,9 @@ jobs:
       - name: Une action après l'autre
         run: |
           code=0
-          for titre in AAPL NVDA TSLA; do
+          # Hyperliquid ne cote pas les ETF (SPY, EWY) : ils n'ont que Yahoo.
+          if [ "${{ matrix.source }}" = yahoo ]; then titres="AAPL NVDA TSLA NOK SPY EWY"; else titres="AAPL NVDA TSLA NOK"; fi
+          for titre in $titres; do
             if [ "$titre" = AAPL ]; then oracle="$ORACLE_AAPL"; else var="ORACLE_$titre"; oracle="${!var}"; fi
             envoyer=non
             if [ "$ACTIFS" = oui ] && [ -n "$oracle" ]; then envoyer=oui; fi
@@ -60,5 +62,8 @@ jobs:
           ORACLE_AAPL: ${{ vars.ORACLE_ID }}
           ORACLE_NVDA: ${{ vars.ORACLE_ID_NVDA }}
           ORACLE_TSLA: ${{ vars.ORACLE_ID_TSLA }}
+          ORACLE_NOK: ${{ vars.ORACLE_ID_NOK }}
+          ORACLE_SPY: ${{ vars.ORACLE_ID_SPY }}
+          ORACLE_EWY: ${{ vars.ORACLE_ID_EWY }}
           RAPPORTEUR_CLE: ${{ secrets[matrix.cle] }}
           FORCER_LECTURE: ${{ github.event_name == 'push' && 'oui' || 'non' }}
