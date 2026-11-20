@@ -1,25 +1,26 @@
-// Robot rapporteur : lit le cours d'Apple et l'envoie au contrat oracle-prix.
+// Robot rapporteur : lit le cours d'une action (TITRE, Apple par défaut) et l'envoie à SON contrat oracle-prix.
 // Par défaut il est en LECTURE SEULE : il affiche le prix et n'envoie rien.
 // Il n'envoie que si ENVOYER=oui ET que les secrets sont présents.
 //
 //   node rapporteur.mjs hyperliquid      (24 h/24)
 //   node rapporteur.mjs yahoo            (pendant la séance de New York seulement)
 //
-// Variables : ENVOYER, ORACLE_ID, RAPPORTEUR_CLE (secret),
+// Variables : TITRE (AAPL, NVDA, TSLA… ; défaut AAPL), ENVOYER, ORACLE_ID (l'oracle de ce titre), RAPPORTEUR_CLE (secret),
 //             FORCER_LECTURE=oui (lecture seule : lit Yahoo même séance fermée, pour tester),
 //             RPC_URL (défaut testnet), RESEAU (défaut testnet).
 import { lireYahoo, lireHyperliquid, seanceOuverte, versDollars } from './sources.mjs';
 
 const source = process.argv[2];
+const titre = (process.env.TITRE || 'AAPL').trim().toUpperCase();
 const envoyer = process.env.ENVOYER === 'oui';
 
 async function lire() {
-  if (source === 'hyperliquid') return lireHyperliquid(fetch, process.env.MARCHE_HL || 'xyz:AAPL');
+  if (source === 'hyperliquid') return lireHyperliquid(fetch, process.env.MARCHE_HL || `xyz:${titre}`);
   if (source === 'yahoo') {
     // Le test forcé n'existe qu'en lecture seule : un vieux cours n'est jamais envoyé.
-    if (process.env.FORCER_LECTURE === 'oui' && !envoyer) return lireYahoo(fetch, new Date(), Infinity);
+    if (process.env.FORCER_LECTURE === 'oui' && !envoyer) return lireYahoo(fetch, new Date(), Infinity, titre);
     if (!seanceOuverte()) return null;
-    return lireYahoo(fetch);
+    return lireYahoo(fetch, new Date(), undefined, titre);
   }
   throw new Error('source inconnue : hyperliquid ou yahoo');
 }
@@ -79,7 +80,7 @@ try {
     console.log(`[${source}] séance de New York fermée : rien à faire.`);
     process.exit(0);
   }
-  console.log(`[${source}] AAPL = ${versDollars(lu.prix)} $ (unités : ${lu.prix}, cours du ${lu.date.toISOString()})`);
+  console.log(`[${source}] ${titre} = ${versDollars(lu.prix)} $ (unités : ${lu.prix}, cours du ${lu.date.toISOString()})`);
   if (!envoyer) {
     console.log(`[${source}] lecture seule : rien n'est envoyé (ENVOYER=oui pour envoyer).`);
     process.exit(0);
