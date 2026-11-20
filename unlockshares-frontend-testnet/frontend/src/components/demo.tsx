@@ -5,7 +5,7 @@ import { StellarLogo, TokenLogo, type TokenKind } from './logos'
 import { useDemo } from '../lib/useDemo'
 import { actions, chainReady, type Done, type Kind } from '../services/app'
 import { estPasskey, jetonPret, lienTx } from '../services/chain'
-import { DEMO, derive, zoneOf } from '../services/mockDemo'
+import { derive, zoneOf, type Regles } from '../services/mockDemo'
 
 /** Montants en dollars : 1 jeton prêté (USDC) = 1 $ (hypothèse affichée dans le bandeau du haut) */
 export const usd = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: Math.abs(n) < 1000 ? 2 : 0 })}`
@@ -26,20 +26,25 @@ export const Stack = () => (
 )
 
 /** Jauge tricolore : part de la limite utilisée */
-export function Gauge({ ltv }: { ltv: number }) {
-  const z = zoneOf(ltv)
-  const pct = Math.round((ltv / DEMO.liquidation) * 100)
+export function Gauge({ ltv, rules }: { ltv: number; rules?: Regles }) {
+  const s = useDemo()
+  const r = rules ?? s.stock
+  const z = zoneOf(ltv, r)
+  const pct = Math.round((ltv / r.seuil) * 100)
+  // Les 3 couleurs suivent les règles de l'action : vert jusqu'à l'emprunt max, orange, puis rouge à 10 points du seuil.
+  const vert = (r.ltvMax / r.seuil) * 100
+  const rouge = ((r.seuil - 0.1) / r.seuil) * 100
   return (
     <>
       <div className="line">
-        <span>You are using <b>{pct} %</b> of your limit<Term>LTV {Math.round(ltv * 100)} % / CF 80 %</Term></span>
+        <span>You are using <b>{pct} %</b> of your limit<Term>LTV {Math.round(ltv * 100)} % / CF {Math.round(r.seuil * 100)} %</Term></span>
         <Pill cls={z.cls}>{z.label}</Pill>
       </div>
       <div className="gwrap">
         <div className="gtrack">
-          <b style={{ width: '62.5%', background: 'var(--safe)' }} />
-          <b style={{ width: '25%', background: 'var(--watch)' }} />
-          <b style={{ width: '12.5%', background: 'var(--danger)' }} />
+          <b style={{ width: `${vert}%`, background: 'var(--safe)' }} />
+          <b style={{ width: `${Math.max(0, rouge - vert)}%`, background: 'var(--watch)' }} />
+          <b style={{ width: `${100 - Math.max(vert, rouge)}%`, background: 'var(--danger)' }} />
         </div>
         <div className="gmark" style={{ left: `${Math.min(99.5, pct)}%` }} />
       </div>
@@ -73,7 +78,7 @@ export function LimitBlock() {
         <span className="tick" style={{ left: `${d.maxBorrowPct}%` }} />
       </div>
       <div className="limitlbl"><span>0 %</span><span style={{ left: `${d.maxBorrowPct}%` }}>Max borrow</span><span>Protection sale</span></div>
-      <small className="muted">The protection sale starts when your debt represents 80 % of your collateral.</small>
+      <small className="muted">The protection sale starts when your debt represents {Math.round(d.rules.seuil * 100)} % of your collateral{s.stocks.length > 1 ? ` (${s.stock.nom})` : ''}.</small>
     </>
   )
 }
@@ -95,13 +100,13 @@ export function Jar() {
     [d.cushion, 'var(--safe)', 'Safety cushion', 'buffer before liquidation'],
   ]
   // Le bocal représente la limite de 80 % : cash reçu + encore disponible + marge.
-  const total = Math.max(d.value * DEMO.liquidation, s.debt)
+  const total = Math.max(d.value * d.rules.seuil, s.debt)
   return (
     <>
       <small className="muted">What your shares unlock</small>
       <p className="jarmsg">
         {d.liquidable ? (
-          <><em className="s-danger">Your loan is above 80 % of your shares’ value.</em> A liquidator can now pay it back and take shares.</>
+          <><em className="s-danger">Your loan is above {Math.round(d.rules.seuil * 100)} % of your shares’ value.</em> A liquidator can now pay it back and take shares.</>
         ) : d.available > 0 ? (
           <>You have borrowed <em className={d.zone.cls}>{usd(s.debt)}</em> and can still borrow <em>{usd(d.available)}</em>.</>
         ) : (
@@ -117,7 +122,7 @@ export function Jar() {
         {parts.map(([x, c, t, k]) => (
           <div key={t}><span><i style={{ background: c }} />{t}<Term>{k}</Term></span><span>{usd(x)}</span></div>
         ))}
-        <div className="small muted"><span>{s.shares} Apple shares at {usd(s.price)}</span><span>{usd(d.value)}</span></div>
+        <div className="small muted"><span>{s.shares} {s.stock.nom} shares at {usd(s.price)}</span><span>{usd(d.value)}</span></div>
       </div>
     </>
   )
@@ -138,12 +143,12 @@ export function Filters({ list, wallet }: { list: string[]; wallet?: boolean }) 
 
 /* ---------- Fenêtres d'action et toast ---------- */
 
-type Act = { title: string; label: string; def: number; unit: 'USDC' | 'AAPL'; step: number; debt?: (debt: number, a: number) => number; shares?: (sh: number, a: number) => number }
+type Act = { title: string; label: string; def: number; unit: 'USDC' | 'SHARE'; step: number; debt?: (debt: number, a: number) => number; shares?: (sh: number, a: number) => number }
 const ACTS: Record<Kind, Act> = {
   lend: { title: 'Lend USDC', label: 'Amount to lend', def: 1000, unit: 'USDC', step: 50 },
   withdrawLend: { title: 'Withdraw lent USDC', label: 'Amount to withdraw', def: 1000, unit: 'USDC', step: 50 },
-  deposit: { title: 'Use shares as guarantee', label: 'Number of Apple shares', def: 10, unit: 'AAPL', step: 1, shares: (sh, a) => sh + a },
-  withdraw: { title: 'Take shares back', label: 'Number of Apple shares', def: 1, unit: 'AAPL', step: 1, shares: (sh, a) => sh - a },
+  deposit: { title: 'Use shares as guarantee', label: 'Number of shares', def: 10, unit: 'SHARE', step: 1, shares: (sh, a) => sh + a },
+  withdraw: { title: 'Take shares back', label: 'Number of shares', def: 1, unit: 'SHARE', step: 1, shares: (sh, a) => sh - a },
   borrow: { title: 'Receive cash', label: 'Amount to receive', def: 500, unit: 'USDC', step: 50, debt: (d, a) => d + a },
   repay: { title: 'Pay back', label: 'Amount to pay back', def: 500, unit: 'USDC', step: 50, debt: (d, a) => d - a },
 }
@@ -212,17 +217,19 @@ function ActionModal({ kind, onClose, onDone }: { kind: Kind; onClose: () => voi
   const debtAfter = A.debt ? A.debt(s.debt, a) : s.debt
   const sharesAfter = A.shares ? A.shares(s.shares, a) : s.shares
   const showPreview = (A.debt || A.shares) && sharesAfter > 0
-  const fmt = (n: number) => (A.unit === 'USDC' ? usdc(n) : `${n.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} AAPL`)
+  const fmt = (n: number) => (A.unit === 'USDC' ? usdc(n) : `${n.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${s.stock.ticker}`)
+  // Hub : les actions sur une position disent contre quelle action elles portent.
+  const contre = s.stocks.length > 1 && kind !== 'lend' && kind !== 'withdrawLend' ? ` · ${s.stock.nom}` : ''
 
   return (
     <div className="modal-bg" onClick={(e) => e.target === e.currentTarget && !sending && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={A.title.replace('USDC', jetonPret())}>
-        <div className="head"><h2>{A.title.replace('USDC', jetonPret())}</h2><button className="round" onClick={onClose} disabled={sending} aria-label="Close"><X className="i" aria-hidden /></button></div>
+        <div className="head"><h2>{A.title.replace('USDC', jetonPret())}{contre}</h2><button className="round" onClick={onClose} disabled={sending} aria-label="Close"><X className="i" aria-hidden /></button></div>
         <div>
-          <small className="muted">{A.label}</small>
+          <small className="muted">{A.unit === 'SHARE' ? `Number of ${s.stock.nom} shares` : A.label}</small>
           <div className="amount">
             <input type="number" min={0} max={max} step={A.step} value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus aria-label={A.label} />
-            <span className="muted">{A.unit}</span>
+            <span className="muted">{A.unit === 'SHARE' ? s.stock.ticker : jetonPret()}</span>
           </div>
           <small className="muted">Maximum: {fmt(max)} <button className="link" style={{ textDecoration: 'underline' }} onClick={() => setAmount(String(max))}>max</button></small>
         </div>

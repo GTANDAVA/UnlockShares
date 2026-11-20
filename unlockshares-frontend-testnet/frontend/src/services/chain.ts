@@ -5,7 +5,7 @@ import {
   Account, Address, Asset, BASE_FEE, Contract, Horizon, Networks, Operation, TransactionBuilder, nativeToScVal, rpc, scValToNative,
   type Transaction, type xdr,
 } from '@stellar/stellar-sdk'
-import { chain, chainReady } from '../chainConfig'
+import { chain, chainReady, hubMode } from '../chainConfig'
 import * as passkey from './passkey'
 
 const PASS = Networks.TESTNET
@@ -21,7 +21,7 @@ export const toUnits = (n: number) => BigInt(Math.round(n * UNITE))
 const addr = (a: string) => new Address(a).toScVal()
 const i128 = (n: number) => nativeToScVal(toUnits(n), { type: 'i128' })
 const i128u = (u: bigint) => nativeToScVal(u, { type: 'i128' })
-const V2 = chain.pretVersion >= 2 // v3 garde l'interface v2 (+ oracle)
+const V2 = chain.pretVersion >= 2 || hubMode // v3 et le hub gardent l'interface v2 (+ oracle)
 /** V2 : le contrat débite exactement le montant signé, puis rend l'excédent. La dette grandit de quelques unités
  *  entre la lecture et l'exécution : on ajoute une petite marge (0,01 % + 1000 unités) pour couvrir cet écart. */
 const avecMarge = (u: bigint) => u + u / 10_000n + 1_000n
@@ -30,15 +30,21 @@ const avecMarge = (u: bigint) => u + u / 10_000n + 1_000n
 
 const ERREURS_PRET: Record<number, string> = {
   1: 'The amount must be above zero.',
-  2: 'Not enough shares as guarantee: the loan would go above 50 % of their value.',
+  2: hubMode ? 'Not enough shares as guarantee: the loan would go above the maximum for this share.' : 'Not enough shares as guarantee: the loan would go above 50 % of their value.',
   3: 'The pool does not have enough cash right now.',
-  4: 'This position cannot be liquidated: the loan is below 80 % of the shares’ value.',
+  4: hubMode ? 'This position cannot be liquidated: the loan is below the protection-sale threshold.' : 'This position cannot be liquidated: the loan is below 80 % of the shares’ value.',
   5: 'There is no loan to pay back.',
   6: V2 ? 'Only the admin can do this (or the demo tools are switched off).' : 'Only the admin can change the price (demo mode is off).',
   7: 'Insufficient balance.',
   8: V2 ? 'The demo price must be above zero and not above the reference price.' : 'The price must be above zero.',
   9: 'Borrow limit reached (per-address cap or share of the pool cash).',
   10: 'Price update in progress. Borrowing is paused; paying back still works.',
+  // Hub & spokes
+  11: 'This share is not accepted as a guarantee.',
+  12: 'This share is paused: no new deposits or loans for now. Paying back still works.',
+  13: 'The pool has reached its limit for loans against this share. Try another share or a smaller amount.',
+  14: 'Invalid rules for this share.',
+  15: 'This share is already in the hub.',
 }
 
 export function messageErreur(e: unknown, contrat: 'pret' | 'robinet' = 'pret'): string {
@@ -142,13 +148,14 @@ export type Position = { garantie: number; dette: number; valeur: number; ltv: n
 export async function lireMarche(): Promise<Marche> {
   const m = await lire<Record<string, bigint | boolean>>(chain.pret, 'marche')
   return {
-    prix: fromUnits(m.prix as bigint),
+    // Hub : chaque action a son prix (voir lireSpokes) ; le taux affiché ici est le taux de BASE.
+    prix: hubMode ? 0 : fromUnits(m.prix as bigint),
     totalFourni: fromUnits(m.total_fourni as bigint),
     totalEmprunte: fromUnits(m.total_emprunte as bigint),
     caisse: fromUnits(m.caisse as bigint),
     modeDemo: Boolean(V2 ? m.demo_perso : m.mode_demo),
     utilisation: Number(m.utilisation_bps ?? 0) / 10_000,
-    tauxEmprunt: Number(m.taux_emprunt_bps ?? 0) / 10_000,
+    tauxEmprunt: Number((hubMode ? m.taux_base_bps : m.taux_emprunt_bps) ?? 0) / 10_000,
     tauxDepot: Number(m.taux_depot_bps ?? 0) / 10_000,
     reserve: fromUnits(m.reserve as bigint | undefined),
     plafondFixe: m.plafond_fixe === undefined ? undefined : fromUnits(m.plafond_fixe as bigint),
@@ -174,11 +181,15 @@ export async function lireFourni(qui: string): Promise<number> {
   return fromUnits(await lire<bigint>(chain.pret, 'fourni', [addr(qui)]))
 }
 
-export type Compte = { existe: boolean; xlm: number; aapl: number; usdc: number; trustAapl: boolean; trustUsdc: boolean; trustTusdc: boolean; aaplAutorise: boolean }
+export type SoldeAction = { solde: number; trust: boolean; autorise: boolean }
+export type Compte = { existe: boolean; xlm: number; aapl: number; usdc: number; trustAapl: boolean; trustUsdc: boolean; trustTusdc: boolean; aaplAutorise: boolean
+  /** Hub : solde de chaque action de garantie, par adresse de jeton */
+  actions?: Record<string, SoldeAction> }
 
 /** Soldes du portefeuille (via Horizon, qui connaît les trustlines) */
 export async function lireCompte(qui: string): Promise<Compte> {
   // Compte passkey (contrat) : pas de trustline, on lit directement les soldes des jetons.
+  if (hubMode) return lireCompteHub(qui)
   if (estPasskey(qui)) {
     await chargerJetons()
     const [garantie, prete] = await lire<[string, string]>(chain.pret, 'jetons')
@@ -327,6 +338,7 @@ let jetonsCharges: Promise<void> | null = null
 /** Lit les 2 jetons du contrat de prêt (`jetons()`), puis leur code et émetteur (`name()` du SAC = « CODE:ÉMETTEUR »).
  *  La blockchain fait foi : l'appli n'a plus besoin d'écrire le nom du jeton en dur. En cas d'échec, on garde la config. */
 export function chargerJetons(): Promise<void> {
+  if (hubMode) return chargerJetonsHub()
   jetonsCharges ??= (async () => {
     const [garantie, pret] = await lire<[string, string]>(chain.pret, 'jetons')
     const lireSac = async (id: string) => {
@@ -346,6 +358,7 @@ export function chargerJetons(): Promise<void> {
 }
 
 export async function obtenirJetons(qui: string, etape: (t: string) => void): Promise<{ hash?: string; text: string }> {
+  if (hubMode) return obtenirJetonsHub(qui, etape)
   const signe = estPasskey(qui) ? 'confirm with your passkey' : 'sign in Varial'
   let c = await lireCompte(qui)
   if (!c.existe) {
@@ -396,9 +409,228 @@ export async function obtenirJetons(qui: string, etape: (t: string) => void): Pr
   return { hash, text: [faits.length ? `${faits.join(' and ')} received` : '', ...notes].filter(Boolean).join(' · ') }
 }
 
+/* ---------- Hub & spokes : une caisse USDC, un spoke (une position) par action ---------- */
+
+/** Nom affiché de chaque ticker connu (les jetons de test s'appellent TAAPL, TNVDA…) */
+const NOMS_ACTIONS: Record<string, string> = { AAPL: 'Apple', NVDA: 'Nvidia', TSLA: 'Tesla', SPY: 'S&P 500', NOK: 'Nokia', EWY: 'South Korea' }
+const FONDS = new Set(['SPY', 'EWY'])
+
+export type InfoAction = { jeton: string; code: string; emetteur: string; ticker: string; nom: string; fonds: boolean }
+const infos = new Map<string, InfoAction>()
+
+/** Ticker affiché d'un code d'actif : TAAPL → AAPL, TTSLA → TSLA (sans toucher à un vrai TSLA). */
+export function tickerDuCode(code: string): string {
+  const c = code.toUpperCase()
+  if (NOMS_ACTIONS[c] && !NOMS_ACTIONS[c.slice(1)]) return c
+  if (c.startsWith('T') && NOMS_ACTIONS[c.slice(1)]) return c.slice(1)
+  return c
+}
+export const tickerDe = (jeton: string) => infos.get(jeton)?.ticker ?? court(jeton)
+export const infoAction = (jeton: string) => infos.get(jeton)
+export const actionsConnues = () => [...infos.values()]
+
+let hubCharge: Promise<void> | null = null
+function chargerJetonsHub(): Promise<void> {
+  hubCharge ??= (async () => {
+    const [pret, spokes] = await Promise.all([lire<string>(chain.pret, 'jeton_pret'), lire<Record<string, unknown>[]>(chain.pret, 'spokes')])
+    const lireSac = async (id: string) => {
+      const [code, emetteur] = String(await lire<string>(id, 'name')).split(':')
+      return { code, emetteur: emetteur ?? '' }
+    }
+    const p = await lireSac(pret)
+    if (p.code) codePret = chain.usdcCode = p.code
+    if (p.emetteur) chain.emetteurUsdc = p.emetteur
+    const lus = await Promise.all(spokes.map(async (sp) => ({ jeton: String(sp.jeton), ...(await lireSac(String(sp.jeton))) })))
+    for (const l of lus) {
+      const ticker = tickerDuCode(l.code)
+      infos.set(l.jeton, { ...l, ticker, nom: NOMS_ACTIONS[ticker] ?? ticker, fonds: FONDS.has(ticker) })
+    }
+  })().catch((e) => {
+    console.warn('Lecture des jetons du hub impossible', e)
+    hubCharge = null
+  })
+  return hubCharge
+}
+
+export type Spoke = InfoAction & {
+  /** Fractions : 0.5 = 50 % */
+  ltvMax: number; seuil: number; bonus: number; cible: number; prime: number; plafond: number
+  actif: boolean; prix: number; oracle: boolean; prixMaj: Date | null
+  emprunte: number; restePlafond: number; tauxEmprunt: number; garantieTotale: number
+}
+
+const bps = (v: unknown) => Number(v ?? 0) / 10_000
+
+/** Les actions acceptées par le hub, avec leurs règles, leur prix et leur taux (base + prime). */
+export async function lireSpokes(): Promise<Spoke[]> {
+  await chargerJetonsHub()
+  const v = await lire<Record<string, unknown>[]>(chain.pret, 'spokes')
+  return v.map((sp) => {
+    const jeton = String(sp.jeton)
+    const r = sp.regles as Record<string, bigint>
+    const maj = Number(sp.prix_maj ?? 0)
+    const info = infos.get(jeton) ?? { jeton, code: '?', emetteur: '', ticker: court(jeton), nom: court(jeton), fonds: false }
+    return {
+      ...info,
+      ltvMax: bps(r.ltv_max_bps), seuil: bps(r.seuil_bps), bonus: bps(r.bonus_bps), cible: bps(r.cible_bps), prime: bps(r.prime_bps), plafond: bps(r.plafond_bps),
+      actif: Boolean(sp.actif), prix: fromUnits(sp.prix as bigint), oracle: Boolean(sp.oracle_actif), prixMaj: maj ? new Date(maj * 1000) : null,
+      emprunte: fromUnits(sp.emprunte as bigint), restePlafond: fromUnits(sp.reste_plafond as bigint),
+      tauxEmprunt: bps(sp.taux_emprunt_bps), garantieTotale: fromUnits(sp.garantie_totale as bigint),
+    }
+  })
+}
+
+export type PositionHub = Position & { jeton: string; detteDemo: number; prixDemo: boolean; prix: number }
+
+const versPosition = (p: Record<string, unknown>): PositionHub => ({
+  jeton: String(p.jeton),
+  garantie: fromUnits(p.garantie as bigint),
+  dette: fromUnits(p.dette as bigint),
+  detteDemo: fromUnits(p.dette_demo as bigint),
+  valeur: fromUnits(p.valeur as bigint),
+  ltv: bps(p.ltv_bps),
+  disponible: fromUnits(p.disponible as bigint),
+  prixLiquidation: fromUnits(p.prix_liquidation as bigint),
+  liquidable: Boolean(p.liquidable),
+  prix: fromUnits(p.prix as bigint),
+  prixDemo: Boolean(p.prix_demo_actif),
+})
+
+/** Toutes les positions non vides d'une adresse (une par action). */
+export async function lirePositions(qui: string): Promise<PositionHub[]> {
+  return (await lire<Record<string, unknown>[]>(chain.pret, 'positions', [addr(qui)])).map(versPosition)
+}
+
+async function lireCompteHub(qui: string): Promise<Compte> {
+  await chargerJetonsHub()
+  const liste = actionsConnues()
+  const vide = (): Compte => ({ existe: false, xlm: 0, aapl: 0, usdc: 0, trustAapl: false, trustUsdc: false, trustTusdc: true, aaplAutorise: false, actions: {} })
+  if (estPasskey(qui)) {
+    // Compte passkey : pas de trustline, on lit les soldes directement dans les contrats des jetons.
+    const pret = await lire<string>(chain.pret, 'jeton_pret')
+    const [usdc, ...lus] = await Promise.all([
+      lire<bigint>(pret, 'balance', [addr(qui)]),
+      ...liste.map((a) => Promise.all([lire<bigint>(a.jeton, 'balance', [addr(qui)]), lire<boolean>(a.jeton, 'authorized', [addr(qui)])])),
+    ]) as [bigint, ...[bigint, boolean][]]
+    const actions: Record<string, SoldeAction> = {}
+    liste.forEach((a, i) => (actions[a.jeton] = { solde: fromUnits(lus[i][0]), trust: true, autorise: Boolean(lus[i][1]) }))
+    return { ...vide(), existe: true, usdc: fromUnits(usdc), trustUsdc: true, trustAapl: true, aaplAutorise: liste.every((a) => actions[a.jeton].autorise), actions }
+  }
+  try {
+    const compte = await horizon.loadAccount(qui)
+    const c: Compte = { ...vide(), existe: true }
+    const actions: Record<string, SoldeAction> = {}
+    for (const a of liste) actions[a.jeton] = { solde: 0, trust: false, autorise: false }
+    for (const b of compte.balances) {
+      if (b.asset_type === 'native') c.xlm = Number(b.balance)
+      else if ('asset_code' in b && b.asset_code === chain.usdcCode && b.asset_issuer === chain.emetteurUsdc) {
+        c.trustUsdc = true
+        c.usdc = Number(b.balance)
+      } else if ('asset_code' in b) {
+        const a = liste.find((x) => x.code === b.asset_code && x.emetteur === b.asset_issuer)
+        if (a) actions[a.jeton] = { solde: Number(b.balance), trust: true, autorise: Boolean(b.is_authorized) }
+      }
+    }
+    c.actions = actions
+    c.trustAapl = liste.every((a) => actions[a.jeton].trust)
+    c.aaplAutorise = liste.every((a) => actions[a.jeton].autorise)
+    return c
+  } catch (e) {
+    if (e instanceof Error && /not found|404/i.test(e.message + String((e as { response?: { status?: number } }).response?.status))) return vide()
+    throw e
+  }
+}
+
+/** Robinet multi-actions : une signature donne quelques actions de test de CHAQUE spoke (et le distributeur, des USDC). */
+async function obtenirJetonsHub(qui: string, etape: (t: string) => void): Promise<{ hash?: string; text: string }> {
+  await chargerJetonsHub()
+  const signe = estPasskey(qui) ? 'confirm with your passkey' : 'sign in Varial'
+  let c = await lireCompteHub(qui)
+  if (!c.existe) {
+    etape('1/3 · Creating the testnet account (Friendbot)…')
+    const r = await fetch(`${chain.friendbotUrl}?addr=${encodeURIComponent(qui)}`)
+    if (!r.ok) throw new Error('Friendbot could not create the account. Try again in a minute.')
+    c = await lireCompteHub(qui)
+  }
+  if (!estPasskey(qui)) {
+    const manque = [
+      ...actionsConnues().filter((a) => !c.actions?.[a.jeton]?.trust).map((a) => new Asset(a.code, a.emetteur)),
+      ...(!c.trustUsdc ? [new Asset(chain.usdcCode, chain.emetteurUsdc)] : []),
+    ]
+    if (manque.length) {
+      etape(`2/3 · Adding the test shares and ${jetonPret()} to your account: sign in Varial…`)
+      let b = new TransactionBuilder(await server.getAccount(qui), { fee: BASE_FEE, networkPassphrase: PASS })
+      for (const a of manque) b = b.addOperation(Operation.changeTrust({ asset: a }))
+      await envoyer(await signer(b.setTimeout(120).build(), qui))
+    }
+  }
+  const total = chain.distributeur ? 4 : 3
+  const faits: string[] = []
+  const notes: string[] = []
+  let hash: string | undefined
+  etape(`3/${total} · The faucet sends you test shares of every stock (your collateral): ${signe}…`)
+  try {
+    hash = await appeler(qui, chain.robinet, 'recevoir', [addr(qui)])
+    faits.push(`test shares (${actionsConnues().map((a) => a.ticker).join(', ')})`)
+  } catch (e) {
+    if (!/Error\(Contract, #1\)/.test(String(e instanceof Error ? e.message : e))) throw new Error(messageErreur(e, 'robinet'))
+    notes.push('test shares already received this hour')
+  }
+  if (chain.distributeur) {
+    etape(`4/4 · The dispenser sends you test ${jetonPret()}: ${signe}…`)
+    try {
+      hash = await appeler(qui, chain.distributeur, 'recevoir', [addr(qui)])
+      faits.push(jetonPret())
+    } catch (e) {
+      const t = String(e instanceof Error ? e.message : e)
+      if (/Error\(Contract, #1\)/.test(t)) notes.push(`${jetonPret()} already received today`)
+      else if (/Error\(Contract, #2\)/.test(t)) notes.push(`${jetonPret()} reserve empty: get some on faucet.circle.com`)
+      else if (/declined|rejected/i.test(t)) notes.push(`${jetonPret()}: signature declined`)
+      else notes.push(`${jetonPret()}: ${messageErreur(e)}`)
+    }
+  }
+  if (!faits.length && !notes.length) throw new Error('Nothing received.')
+  return { hash, text: [faits.length ? `${faits.join(' and ')} received` : '', ...notes].filter(Boolean).join(' · ') }
+}
+
+const u64 = (n: number) => nativeToScVal(BigInt(n), { type: 'u64' })
+
+/** Transactions du hub : les mêmes que le pool, avec l'action (`jeton`) en plus. */
+export const hub = {
+  deposer: (qui: string, jeton: string, n: number) => appeler(qui, chain.pret, 'deposer', [addr(qui), addr(jeton), i128(n)]),
+  retirer: (qui: string, jeton: string, n: number) => appeler(qui, chain.pret, 'retirer', [addr(qui), addr(jeton), i128(n)]),
+  emprunter: (qui: string, jeton: string, n: number) => appeler(qui, chain.pret, 'emprunter', [addr(qui), addr(jeton), i128(n)]),
+  rembourser: async (qui: string, jeton: string, n: number) => {
+    // « Tout rembourser » : on couvre les intérêts courus d'ici l'exécution (l'excédent est rendu).
+    const p = await lire<Record<string, bigint>>(chain.pret, 'position', [addr(qui), addr(jeton)])
+    const u = toUnits(n) >= p.dette ? avecMarge(p.dette) : toUnits(n)
+    return appeler(qui, chain.pret, 'rembourser', [addr(qui), addr(jeton), i128u(u)])
+  },
+  /** Prix de démo de MA position sur cette action seulement (≤ prix de référence). */
+  fixerPrixDemo: (qui: string, jeton: string, prix: number) => appeler(qui, chain.pret, 'fixer_prix_demo', [addr(qui), addr(jeton), i128(prix)]),
+  avancerTemps: (qui: string, jeton: string, secondes: number) => appeler(qui, chain.pret, 'avancer_temps_perso', [addr(qui), addr(jeton), u64(secondes)]),
+  liquider: async (qui: string, cible: string, jeton: string) => {
+    const max = await lire<bigint>(chain.pret, 'montant_liquidable', [addr(cible), addr(jeton)])
+    if (max <= 0n) throw new Error('Error(Contract, #4)')
+    const solde = toUnits((await lireCompteHub(qui)).usdc)
+    if (solde < avecMarge(max)) {
+      throw new Error(`To liquidate this loan you need ${(Number(avecMarge(max)) / UNITE).toFixed(4)} ${jetonPret()} (debt + interest), you have ${(Number(solde) / UNITE).toFixed(4)}.`)
+    }
+    return appeler(qui, chain.pret, 'liquider', [addr(qui), addr(cible), addr(jeton), i128u(avecMarge(max))])
+  },
+}
+
+/** Emprunteurs vus dans l'historique du hub, avec l'action concernée */
+export function emprunteursHub(evs: Evenement[]): { qui: string; jeton: string }[] {
+  const vus = new Map<string, { qui: string; jeton: string }>()
+  for (const e of evs) if ((e.type === NOMS.depose || e.type === NOMS.emprunte) && e.jeton) vus.set(`${e.qui}|${e.jeton}`, { qui: e.qui, jeton: e.jeton })
+  return [...vus.values()]
+}
+
 /* ---------- Historique : les événements publiés par le contrat ---------- */
 
-export type Evenement = { id: string; date: Date; type: string; qui: string; montant: string; hash: string; cible?: string; /** Montant brut (jeton prêté) quand il y en a un */ n?: number }
+export type Evenement = { id: string; date: Date; type: string; qui: string; montant: string; hash: string; cible?: string; /** Montant brut (jeton prêté) quand il y en a un */ n?: number
+  /** Hub : action concernée */ jeton?: string }
 
 const NOMS: Record<string, string> = {
   fourni: 'Lend',
@@ -415,6 +647,11 @@ const NOMS: Record<string, string> = {
   // v2
   prix_demo_fixe: 'My demo price',
   temps_perso: 'My time jump (demo)',
+  temps_perso_avance: 'My time jump (demo)',
+  spoke_ajoute: 'New share accepted',
+  spoke_modifie: 'New rules for a share',
+  spoke_ouvert: 'Share opened or paused',
+  oracle_fixe: 'Price source changed',
   plafonds_fixes: 'New borrow limits',
   demo_perso_fixee: 'Demo tools switched',
 }
@@ -462,13 +699,19 @@ export async function lireEvenements(): Promise<Evenement[]> {
     let qui = String(topics[1] ?? '')
     let cible: string | undefined
     let n: number | undefined
-    if (nom === 'depose' || nom === 'garantie_retiree') montant = nombre(fromUnits(data.montant as bigint), 'AAPL')
+    // Hub : le jeton de garantie est dans les topics (après l'emprunteur), sauf pour prix_fixe / spoke_* (1er topic).
+    const jetonEv = hubMode ? String((['prix_fixe', 'spoke_ajoute', 'spoke_modifie', 'spoke_ouvert', 'oracle_fixe'].includes(nom) ? topics[1] : topics[2]) ?? '') : ''
+    const unite = hubMode ? (jetonEv ? tickerDe(jetonEv) : '') : 'AAPL'
+    if (hubMode && ['spoke_ajoute', 'spoke_modifie', 'spoke_ouvert', 'oracle_fixe'].includes(nom)) {
+      montant = nom === 'spoke_ouvert' ? `${unite} ${(data.actif as unknown as boolean) ? 'open' : 'paused'}` : unite
+      qui = ''
+    } else if (nom === 'depose' || nom === 'garantie_retiree') montant = nombre(fromUnits(data.montant as bigint), unite)
     else if (nom === 'prix_demo_fixe') {
       // v2 : prix de démo d'UNE position (0 = retour au prix de référence)
       const px = fromUnits(data.prix as bigint)
-      montant = px ? dollars(px) : 'back to reference price'
-    } else if (nom === 'temps_perso') {
-      montant = `+${Math.round(Number(data.secondes) / 86_400)} days · ${dollars(fromUnits(data.interets as bigint))} demo interest`
+      montant = (px ? dollars(px) : 'back to reference price') + (hubMode ? ` · ${unite}` : '')
+    } else if (nom === 'temps_perso' || nom === 'temps_perso_avance') {
+      montant = `+${Math.round(Number(data.secondes) / 86_400)} days · ${dollars(fromUnits(data.interets as bigint))} demo interest${hubMode ? ` · ${unite}` : ''}`
     } else if (nom === 'plafonds_fixes') {
       const pl = (data.plafonds ?? {}) as unknown as Record<string, bigint>
       montant = `max ${dollars(fromUnits(pl.fixe))} per address, ${Number(pl.caisse_bps) / 100} % of cash per loan`
@@ -477,12 +720,13 @@ export async function lireEvenements(): Promise<Evenement[]> {
       montant = (data.actif as unknown as boolean) ? 'on' : 'off'
       qui = ''
     } else if (nom === 'prix_fixe') {
-      montant = dollars(fromUnits(data.prix as bigint))
-      qui = String(data.par)
+      montant = dollars(fromUnits(data.prix as bigint)) + (hubMode ? ` · ${unite}` : '')
+      qui = hubMode ? '' : String(data.par)
     } else if (nom === 'liquide') {
       cible = qui
-      qui = String(topics[2] ?? '')
-      montant = `${nombre(fromUnits(data.garantie_saisie as bigint), 'AAPL')} for ${dollars(fromUnits(data.dette as bigint))}`
+      // Pool : le liquidateur est le 3e topic. Hub : le 3e topic est l'action, le liquidateur est dans les données.
+      qui = hubMode ? String(data.liquidateur ?? '') : String(topics[2] ?? '')
+      montant = `${nombre(fromUnits(data.garantie_saisie as bigint), unite)} for ${dollars(fromUnits(data.dette as bigint))}`
     } else if (nom === 'temps_avance') {
       montant = `+${Math.round(Number(data.secondes) / 86_400)} days`
       qui = String(data.par)
@@ -496,9 +740,9 @@ export async function lireEvenements(): Promise<Evenement[]> {
       qui = ''
     } else {
       n = fromUnits(data.montant as bigint)
-      montant = dollars(n)
+      montant = dollars(n) + (hubMode && unite && (nom === 'emprunte' || nom === 'rembourse') ? ` · against ${unite}` : '')
     }
-    return { id: ev.id, date: new Date(ev.ledgerClosedAt), type: NOMS[nom] ?? nom, qui, montant, hash: ev.txHash, cible, n }
+    return { id: ev.id, date: new Date(ev.ledgerClosedAt), type: NOMS[nom] ?? nom, qui, montant, hash: ev.txHash, cible, n, jeton: jetonEv || undefined }
   })
 }
 

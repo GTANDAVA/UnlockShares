@@ -1,8 +1,14 @@
 // Logos des tokens (marques Apple, BlackBerry, Stellar : tracés du paquet simple-icons, licence CC0).
 // USDC est dessiné ici (cercle bleu, $ entre deux arcs) car simple-icons ne l'inclut pas.
-import { siApple, siBlackberry, siStellar } from 'simple-icons'
+import { siApple, siBlackberry, siNokia, siNvidia, siStellar, siTesla } from 'simple-icons'
 
-export type TokenKind = 'usdc' | 'aapl' | 'spy' | 'bb' | 'ewy' | 'xlm'
+export type TokenKind = 'usdc' | 'aapl' | 'spy' | 'bb' | 'ewy' | 'xlm' | 'nvda' | 'tsla' | 'nok' | 'other'
+
+/** Logo d'une action à partir de son ticker (AAPL → aapl) ; null si on n'en a pas */
+export function kindOf(ticker: string): TokenKind | null {
+  const k = ticker.toLowerCase()
+  return (['aapl', 'spy', 'bb', 'ewy', 'nvda', 'tsla', 'nok'] as const).find((x) => x === k) ?? null
+}
 
 const Brand = ({ path, title }: { path: string; title: string }) => (
   <svg viewBox="0 0 24 24" className="tok-logo" role="img" aria-label={title} fill="currentColor"><path d={path} /></svg>
@@ -22,6 +28,9 @@ export function TokenLogo({ kind }: { kind: TokenKind }) {
   if (kind === 'aapl') return <Brand path={siApple.path} title="Apple" />
   if (kind === 'xlm') return <Brand path={siStellar.path} title="Stellar Lumens" />
   if (kind === 'bb') return <Brand path={siBlackberry.path} title="BlackBerry" />
+  if (kind === 'nvda') return <Brand path={siNvidia.path} title="Nvidia" />
+  if (kind === 'tsla') return <Brand path={siTesla.path} title="Tesla" />
+  if (kind === 'nok') return <Brand path={siNokia.path} title="Nokia" />
   return null
 }
 
