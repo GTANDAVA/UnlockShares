@@ -431,6 +431,9 @@ export function tickerDuCode(code: string): string {
 export const tickerDe = (jeton: string) => infos.get(jeton)?.ticker ?? court(jeton)
 export const infoAction = (jeton: string) => infos.get(jeton)
 export const actionsConnues = () => [...infos.values()]
+/** Titres du pack de bienvenue du robinet (vide = tous les titres). */
+let pack = new Set<string>()
+export const actionsDuPack = () => actionsConnues().filter((a) => !pack.size || pack.has(a.jeton))
 
 let hubCharge: Promise<void> | null = null
 function chargerJetonsHub(): Promise<void> {
@@ -448,6 +451,8 @@ function chargerJetonsHub(): Promise<void> {
       const ticker = tickerDuCode(l.code)
       infos.set(l.jeton, { ...l, ticker, nom: NOMS_ACTIONS[ticker] ?? ticker, fonds: FONDS.has(ticker) })
     }
+    // Ancien robinet sans pack : tous les titres.
+    pack = new Set((await lire<string[]>(chain.robinet, 'pack').catch(() => [] as string[])).map(String))
   })().catch((e) => {
     console.warn('Lecture des jetons du hub impossible', e)
     hubCharge = null
@@ -517,7 +522,7 @@ async function lireCompteHub(qui: string): Promise<Compte> {
     ]) as [bigint, ...[bigint, boolean][]]
     const actions: Record<string, SoldeAction> = {}
     liste.forEach((a, i) => (actions[a.jeton] = { solde: fromUnits(lus[i][0]), trust: true, autorise: Boolean(lus[i][1]) }))
-    return { ...vide(), existe: true, usdc: fromUnits(usdc), trustUsdc: true, trustAapl: true, aaplAutorise: liste.every((a) => actions[a.jeton].autorise), actions }
+    return { ...vide(), existe: true, usdc: fromUnits(usdc), trustUsdc: true, trustAapl: true, aaplAutorise: actionsDuPack().every((a) => actions[a.jeton].autorise), actions }
   }
   try {
     const compte = await horizon.loadAccount(qui)
@@ -535,8 +540,9 @@ async function lireCompteHub(qui: string): Promise<Compte> {
       }
     }
     c.actions = actions
-    c.trustAapl = liste.every((a) => actions[a.jeton].trust)
-    c.aaplAutorise = liste.every((a) => actions[a.jeton].autorise)
+    // « Prêt » = les titres du pack de bienvenue ; les autres titres s'ajoutent à la demande.
+    c.trustAapl = actionsDuPack().every((a) => actions[a.jeton].trust)
+    c.aaplAutorise = actionsDuPack().every((a) => actions[a.jeton].autorise)
     return c
   } catch (e) {
     if (e instanceof Error && /not found|404/i.test(e.message + String((e as { response?: { status?: number } }).response?.status))) return vide()
@@ -544,7 +550,7 @@ async function lireCompteHub(qui: string): Promise<Compte> {
   }
 }
 
-/** Robinet multi-actions : une signature donne quelques actions de test de CHAQUE spoke (et le distributeur, des USDC). */
+/** Robinet multi-actions : une signature donne le pack de bienvenue (et le distributeur, des USDC). */
 async function obtenirJetonsHub(qui: string, etape: (t: string) => void): Promise<{ hash?: string; text: string }> {
   await chargerJetonsHub()
   const signe = estPasskey(qui) ? 'confirm with your passkey' : 'sign in Varial'
@@ -557,7 +563,7 @@ async function obtenirJetonsHub(qui: string, etape: (t: string) => void): Promis
   }
   if (!estPasskey(qui)) {
     const manque = [
-      ...actionsConnues().filter((a) => !c.actions?.[a.jeton]?.trust).map((a) => new Asset(a.code, a.emetteur)),
+      ...actionsDuPack().filter((a) => !c.actions?.[a.jeton]?.trust).map((a) => new Asset(a.code, a.emetteur)),
       ...(!c.trustUsdc ? [new Asset(chain.usdcCode, chain.emetteurUsdc)] : []),
     ]
     if (manque.length) {
@@ -571,10 +577,10 @@ async function obtenirJetonsHub(qui: string, etape: (t: string) => void): Promis
   const faits: string[] = []
   const notes: string[] = []
   let hash: string | undefined
-  etape(`3/${total} · The faucet sends you test shares of every stock (your collateral): ${signe}…`)
+  etape(`3/${total} · The faucet sends you your welcome pack of test shares (your collateral): ${signe}…`)
   try {
     hash = await appeler(qui, chain.robinet, 'recevoir', [addr(qui)])
-    faits.push(`test shares (${actionsConnues().map((a) => a.ticker).join(', ')})`)
+    faits.push(`test shares (${actionsDuPack().map((a) => a.ticker).join(', ')})`)
   } catch (e) {
     if (!/Error\(Contract, #1\)/.test(String(e instanceof Error ? e.message : e))) throw new Error(messageErreur(e, 'robinet'))
     notes.push('test shares already received this hour')
@@ -594,6 +600,33 @@ async function obtenirJetonsHub(qui: string, etape: (t: string) => void): Promis
   }
   if (!faits.length && !notes.length) throw new Error('Nothing received.')
   return { hash, text: [faits.length ? `${faits.join(' and ')} received` : '', ...notes].filter(Boolean).join(' · ') }
+}
+
+/** Un titre à la demande : ajoute sa ligne de confiance si besoin (compte Varial), puis le robinet en envoie. */
+export async function recevoirTitre(qui: string, jeton: string, etape: (t: string) => void): Promise<{ hash: string; text: string }> {
+  await chargerJetonsHub()
+  const a = infos.get(jeton)
+  if (!a) throw new Error('Unknown share.')
+  if (!estPasskey(qui)) {
+    const c = await lireCompteHub(qui)
+    if (!c.existe) throw new Error('Get your welcome pack first (Get test tokens).')
+    if (!c.actions?.[jeton]?.trust) {
+      etape(`1/2 · Adding ${a.nom} to your account: sign in Varial…`)
+      const b = new TransactionBuilder(await server.getAccount(qui), { fee: BASE_FEE, networkPassphrase: PASS })
+        .addOperation(Operation.changeTrust({ asset: new Asset(a.code, a.emetteur) }))
+      await envoyer(await signer(b.setTimeout(120).build(), qui))
+    }
+  }
+  etape(`The faucet sends you test ${a.nom} shares: ${estPasskey(qui) ? 'confirm with your passkey' : 'sign in Varial'}…`)
+  try {
+    const hash = await appeler(qui, chain.robinet, 'recevoir_titre', [addr(qui), addr(jeton)])
+    return { hash, text: `Test ${a.ticker} shares received` }
+  } catch (e) {
+    const t = String(e instanceof Error ? e.message : e)
+    if (/Error\(Contract, #1\)/.test(t)) throw new Error(`${a.ticker} already received this hour. Try again later.`)
+    if (/Error\(Contract, #4\)/.test(t)) throw new Error(`The faucet does not give ${a.ticker} yet.`)
+    throw new Error(messageErreur(e, 'robinet'))
+  }
 }
 
 const u64 = (n: number) => nativeToScVal(BigInt(n), { type: 'u64' })
