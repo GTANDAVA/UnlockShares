@@ -14,10 +14,11 @@ export function LiquidationsPage() {
   const list = [...s.borrowers].sort((a, b) => Number(b.liquidable) - Number(a.liquidable) || b.ltv - a.ltv)
   const ready = list.filter((b) => b.liquidable).length
 
-  async function liquidate(address: string) {
+  const hub = s.stocks.length > 1
+  async function liquidate(address: string, jeton?: string) {
     setSending(true)
     try {
-      const r = await actions.liquidate(demo ? undefined : address)
+      const r = await actions.liquidate(demo ? undefined : address, jeton)
       toast(r)
       if (demo) window.location.hash = 'accueil'
     } catch (e) {
@@ -33,8 +34,8 @@ export function LiquidationsPage() {
         <div>
           <h1>Liquidations</h1>
           <p className="muted">
-            {demo ? 'Simulation: Léa’s loan.' : 'Real transactions on Stellar testnet.'} When a loan goes above 80 % of the shares’ value, anyone can step in as liquidator:
-            they pay back debt in {jetonPret()} and receive the shares as a guarantee, worth that amount + 5 %.
+            {demo ? 'Simulation: Léa’s loan.' : 'Real transactions on Stellar testnet.'} When a loan goes above {hub ? 'the protection-sale threshold of its share' : '80 % of the shares’ value'}, anyone can step in as liquidator:
+            they pay back debt in {jetonPret()} and receive the shares as a guarantee, worth that amount + 5 %.{hub && ' Each share is a separate loan: only the loan against the share that fell can be sold.'}
           </p>
         </div>
       </div>
@@ -54,16 +55,17 @@ export function LiquidationsPage() {
           <thead><tr><th>Borrower</th><th>Guarantee</th><th>Loan</th><th>Share of value<Term>LTV</Term></th><th /></tr></thead>
           <tbody>
             {list.map((b) => {
-              const z = zoneOf(b.ltv)
+              const st = s.stocks.find((x) => x.jeton === b.jeton)
+              const z = zoneOf(b.ltv, st)
               const me = b.address === s.address
               return (
-                <tr key={b.address}>
+                <tr key={`${b.address}|${b.jeton ?? ''}`}>
                   <td>{demo ? b.address : <a href={lienCompte(b.address)} target="_blank" rel="noreferrer">{court(b.address)}{me ? ' (you)' : ''}</a>}</td>
-                  <td>{b.shares.toLocaleString('en-US', { maximumFractionDigits: 2 })} AAPL<small>{usd(b.shares * (b.price ?? s.price))}</small></td>
+                  <td>{b.shares.toLocaleString('en-US', { maximumFractionDigits: 2 })} {b.ticker ?? 'AAPL'}<small>{usd(b.shares * (b.price ?? s.price))}</small></td>
                   <td>{usdc(b.debt)}</td>
                   <td><Pill cls={z.cls}>{Math.round(b.ltv * 100)} % · {z.label}</Pill></td>
                   <td>
-                    <button className="btn primary" disabled={!b.liquidable || sending || (!demo && !s.address)} onClick={() => void liquidate(b.address)}>
+                    <button className="btn primary" disabled={!b.liquidable || sending || (!demo && !s.address)} onClick={() => void liquidate(b.address, b.jeton)}>
                       Liquidator steps in<Term>liquider()</Term>
                     </button>
                   </td>
@@ -76,7 +78,7 @@ export function LiquidationsPage() {
         <div className="empty"><b>No open loan</b><span className="muted">Use shares as a guarantee and borrow to see positions here.</span></div>
       )}
       {!demo && !s.address && <p className="small muted">Connect Varial to liquidate.</p>}
-      {!demo && <p className="small muted">To liquidate you need {jetonPret()} on testnet and an account allowed to hold tAAPL (“Get test tokens”).</p>}
+      {!demo && <p className="small muted">To liquidate you need {jetonPret()} on testnet and an account allowed to hold {hub ? 'the test shares' : 'tAAPL'} (“Get test tokens”).</p>}
     </>
   )
 }

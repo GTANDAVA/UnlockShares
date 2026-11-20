@@ -7,7 +7,7 @@ import { ConnectButtons } from '../components/Onboarding'
 import { useDemo } from '../lib/useDemo'
 import { actions, type AppState } from '../services/app'
 import { estPasskey, jetonPret, lienTx } from '../services/chain'
-import { DEMO } from '../services/mockDemo'
+import { StockPicker } from '../components/StockPicker'
 import '../styles/cashout.css'
 
 /** Marge de sécurité : la dette grandit de quelques unités entre la lecture et la signature. */
@@ -17,11 +17,14 @@ const MARGE = 1.01
 export function planGetCash(s: AppState, montant: number) {
   const prix = s.price
   const actionsTotal = s.shares + s.walletShares
-  const plafondAdresse = s.market.capPerAddress === undefined ? Infinity : s.market.capPerAddress - s.debt
+  const { ltvMax, seuil, capLeft } = s.stock
+  // Hub : le plafond par adresse compte la dette sur TOUTES les actions.
+  const detteTotale = s.stocks.reduce((n, x) => n + x.debt, 0) || s.debt
+  const plafondAdresse = s.market.capPerAddress === undefined ? Infinity : s.market.capPerAddress - detteTotale
   const plafondCaisse = s.market.capCashShare === undefined ? s.market.cash : s.market.cash * s.market.capCashShare
-  const parGarantie = (actionsTotal * prix * DEMO.ltvMax) / MARGE - s.debt
-  const max = Math.max(0, Math.floor(Math.min(plafondAdresse, plafondCaisse, parGarantie, s.market.cash) * 100) / 100)
-  const besoin = prix > 0 ? ((s.debt + montant) * MARGE) / (prix * DEMO.ltvMax) - s.shares : Infinity
+  const parGarantie = (actionsTotal * prix * ltvMax) / MARGE - s.debt
+  const max = Math.max(0, Math.floor(Math.min(plafondAdresse, plafondCaisse, parGarantie, s.market.cash, capLeft) * 100) / 100)
+  const besoin = prix > 0 ? ((s.debt + montant) * MARGE) / (prix * ltvMax) - s.shares : Infinity
   const aDeposer = Math.max(0, Math.ceil(besoin * 100) / 100)
   const garantie = s.shares + aDeposer
   const dette = s.debt + montant
@@ -29,8 +32,8 @@ export function planGetCash(s: AppState, montant: number) {
     max,
     aDeposer,
     ltvApres: garantie * prix > 0 ? dette / (garantie * prix) : 0,
-    prixLiquidation: garantie > 0 ? dette / (DEMO.liquidation * garantie) : 0,
-    limite: max === plafondAdresse ? 'per-address limit' : max === plafondCaisse ? 'share of the pool cash' : 'value of your shares',
+    prixLiquidation: garantie > 0 ? dette / (seuil * garantie) : 0,
+    limite: max === plafondAdresse ? 'per-address limit' : max === plafondCaisse ? 'share of the pool cash' : max === Math.floor(capLeft * 100) / 100 ? `pool limit for ${s.stock.nom}` : 'value of your shares',
   }
 }
 
@@ -90,6 +93,12 @@ export function GetCashPage() {
       ) : etape !== 'fait' ? (
         <section className="home home-hero" aria-label="Get cash">
           <div className="balance">
+            {s.stocks.length > 1 && (
+              <div>
+                <small className="muted">Which shares do you borrow against?</small>
+                <StockPicker label="Shares used as a guarantee" filter={(x) => x.active && x.shares + x.walletShares > 0} />
+              </div>
+            )}
             <div>
               <small className="muted">How much do you need?</small>
               <div className="big" style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -107,8 +116,8 @@ export function GetCashPage() {
             </div>
             <div className="divider" />
             <div className="line"><span className="muted">You receive</span><span><b>{usdc(montant)}</b></span></div>
-            <div className="line"><span className="muted">Shares locked as a guarantee</span><span>{plan.aDeposer > 0 ? `+${plan.aDeposer} AAPL` : 'none, already enough'}</span></div>
-            <div className="line"><span className="muted">Protection sale if Apple falls below</span><span>{usd(plan.prixLiquidation)}</span></div>
+            <div className="line"><span className="muted">Shares locked as a guarantee</span><span>{plan.aDeposer > 0 ? `+${plan.aDeposer} ${s.stock.ticker}` : 'none, already enough'}</span></div>
+            <div className="line"><span className="muted">Protection sale if {s.stock.nom} falls below</span><span>{usd(plan.prixLiquidation)}</span></div>
             <div className="divider" />
             {montant > plan.max && <p className="co-err">Above your maximum ({usd(plan.max)}), set by the {plan.limite}.</p>}
             {plan.aDeposer > s.walletShares + 1e-9 && <p className="co-err">You need {plan.aDeposer} shares in your wallet, you have {s.walletShares}. Use “Get test tokens” first.</p>}
@@ -121,7 +130,7 @@ export function GetCashPage() {
           <div className="chart jarbox">
             <small className="muted">Your loan after</small>
             <Gauge ltv={plan.ltvApres} />
-            <small className="muted">{Math.round(plan.ltvApres * 100)} % of your shares’ value (max 50 %). You keep your shares: pay back whenever you want to unlock them.</small>
+            <small className="muted">{Math.round(plan.ltvApres * 100)} % of your shares’ value (max {Math.round(s.stock.ltvMax * 100)} %). You keep your shares: pay back whenever you want to unlock them.</small>
           </div>
         </section>
       ) : (

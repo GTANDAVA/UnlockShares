@@ -3,7 +3,7 @@
 import { Droplets, Fingerprint, Wallet } from 'lucide-react'
 import { useDemo } from '../lib/useDemo'
 import { chain } from '../chainConfig'
-import { estPasskey, jetonPret } from '../services/chain'
+import { actionsDuPack, estPasskey, jetonPret } from '../services/chain'
 import { passkeyPossible } from '../services/passkey'
 import { actions } from '../services/app'
 import { useDemoUi } from './demo'
@@ -82,7 +82,7 @@ export function Onboarding() {
     return (
       <div className="pos onboard">
         <b>Step 2 of 3 · Get your test tokens</b>
-        <span className="muted">One click gives you test Apple shares (tAAPL) to use as collateral{chain.distributeur ? <> and test {jetonPret()} to lend, pay back or cash out</> : <>; borrow to receive {jetonPret()}</>}.{estPasskey(s.address) ? ' Confirm with your passkey for each token.' : ' Varial asks you to sign twice: once to add the tokens to your account, once to receive them.'}</span>
+        <span className="muted">One click gives you {s.stocks.length > 1 ? `a welcome pack of test shares (${actionsDuPack().map((x) => x.ticker).join(', ')}; other stocks on demand from the Borrow page)` : 'test Apple shares (tAAPL)'} to use as collateral{chain.distributeur ? <> and test {jetonPret()} to lend, pay back or cash out</> : <>; borrow to receive {jetonPret()}</>}.{estPasskey(s.address) ? ' Confirm with your passkey for each token.' : ' Varial asks you to sign twice: once to add the tokens to your account, once to receive them.'}</span>
         <button className="btn primary" onClick={faucet}><Droplets className="i" aria-hidden />Get test tokens</button>
       </div>
     )
@@ -91,7 +91,7 @@ export function Onboarding() {
     return (
       <div className="pos onboard">
         <b>Step 3 of 3 · Try it</b>
-        <span className="muted">Use shares as a guarantee and receive cash, or lend your {jetonPret()} to the pool. Then open “Demo controls” to crash the Apple price and watch the protection sale.</span>
+        <span className="muted">Use shares as a guarantee and receive cash, or lend your {jetonPret()} to the pool. Then open “Demo controls” to crash {s.stocks.length > 1 ? 'a share' : 'the Apple'} price and watch the protection sale.</span>
       </div>
     )
 

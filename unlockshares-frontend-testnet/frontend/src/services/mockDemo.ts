@@ -73,12 +73,16 @@ export const demoStore = {
 }
 
 /** Valeurs dérivées affichées par les pages (calculées ici, pas dans l'interface). */
-export function derive(s: DemoState) {
+/** Règles de l'action affichée (hub : chaque action a les siennes ; sinon celles d'Apple). */
+export type Regles = { ltvMax: number; seuil: number }
+
+export function derive(s: DemoState & { stock?: Regles; market?: { borrowRate: number } }) {
+  const r = s.stock ?? { ltvMax: DEMO.ltvMax, seuil: DEMO.liquidation }
   const value = s.shares * s.price
   const ltv = value ? s.debt / value : 0
-  const available = Math.max(0, value * DEMO.ltvMax - s.debt)
-  // Marge jusqu'à la vente de protection (80 %), au-delà de ce qui reste empruntable.
-  const cushion = Math.max(0, value * DEMO.liquidation - s.debt - available)
+  const available = Math.max(0, value * r.ltvMax - s.debt)
+  // Marge jusqu'à la vente de protection, au-delà de ce qui reste empruntable.
+  const cushion = Math.max(0, value * r.seuil - s.debt - available)
   return {
     value,
     ltv,
@@ -87,18 +91,20 @@ export function derive(s: DemoState) {
     net: value - s.debt,
     balance: value - s.debt + s.lent + s.usdc,
     /** Part de la limite utilisée (LTV / 80 %) */
-    usedPct: Math.round((ltv / DEMO.liquidation) * 100),
-    maxBorrowPct: (DEMO.ltvMax / DEMO.liquidation) * 100,
-    safetyPrice: s.shares ? s.debt / (s.shares * DEMO.liquidation) : 0,
+    usedPct: Math.round((ltv / r.seuil) * 100),
+    maxBorrowPct: (r.ltvMax / r.seuil) * 100,
+    safetyPrice: s.shares ? s.debt / (s.shares * r.seuil) : 0,
     monthlyCost: (s.debt * DEMO.borrowRate) / 12,
-    liquidable: s.debt > 0 && ltv > DEMO.liquidation,
-    zone: zoneOf(ltv),
+    liquidable: s.debt > 0 && ltv > r.seuil,
+    zone: zoneOf(ltv, r),
+    rules: r,
   }
 }
 
-export function zoneOf(ltv: number): Zone {
-  if (ltv >= 0.7) return { label: 'Danger', cls: 's-danger', color: 'var(--danger)' }
-  if (ltv >= 0.5) return { label: 'Watch', cls: 's-watch', color: 'var(--watch)' }
+export function zoneOf(ltv: number, r: Regles = { ltvMax: DEMO.ltvMax, seuil: DEMO.liquidation }): Zone {
+  // Orange dès l'emprunt maximum, rouge à 10 points de la vente de protection (50 % et 70 % pour Apple).
+  if (ltv >= r.seuil - 0.1) return { label: 'Danger', cls: 's-danger', color: 'var(--danger)' }
+  if (ltv >= r.ltvMax) return { label: 'Watch', cls: 's-watch', color: 'var(--watch)' }
   return { label: 'Safe', cls: 's-safe', color: 'var(--safe)' }
 }
 

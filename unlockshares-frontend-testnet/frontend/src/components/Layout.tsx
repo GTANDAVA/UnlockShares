@@ -108,7 +108,7 @@ export function Layout({ page, children }: { page: PageId; children: ReactNode }
             <button className="round" aria-label="Lend" title="Lend" onClick={() => open('lend')}><Plus className="i" aria-hidden /></button>
             <ThemeToggle />
             {live && s.address && s.ready && (
-              <button className="round" aria-label="Get test tokens" title={`Get test tokens: test Apple shares (hourly)${chain.distributeur ? ` + test ${jetonPret()} (daily)` : ''}`} onClick={faucet} disabled={!!s.busy}><Droplets className="i" aria-hidden /></button>
+              <button className="round" aria-label="Get test tokens" title={`Get test tokens: test ${s.stocks.length > 1 ? 'shares (welcome pack)' : 'Apple shares'} (hourly)${chain.distributeur ? ` + test ${jetonPret()} (daily)` : ''}`} onClick={faucet} disabled={!!s.busy}><Droplets className="i" aria-hidden /></button>
             )}
             {!live ? (
               <span className="wallet" title="No wallet is connected in this demo"><Wallet className="i" aria-hidden />Not connected</span>

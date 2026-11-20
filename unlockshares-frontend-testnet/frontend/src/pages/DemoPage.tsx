@@ -5,6 +5,7 @@ import { useDemo } from '../lib/useDemo'
 import { actions } from '../services/app'
 import { chain } from '../chainConfig'
 import { derive } from '../services/mockDemo'
+import { StockPicker } from '../components/StockPicker'
 
 const pctRate = (x: number) => `${(x * 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`
 
@@ -14,7 +15,8 @@ export function DemoPage() {
   const { toast } = useDemoUi()
   const demo = s.mode === 'demo'
   // V2 : le prix de démo ne touche que MA position et ne peut pas dépasser le prix de référence.
-  const perso = !demo && chain.pretVersion >= 2
+  const perso = !demo && (chain.pretVersion >= 2 || !!chain.hub)
+  const nom = s.stock.nom
   const maxPrice = perso ? Math.max(5, Math.floor(s.market.refPrice ?? 260)) : 260
   const [price, setPrice] = useState(s.price || 100)
   const [sending, setSending] = useState(false)
@@ -38,15 +40,16 @@ export function DemoPage() {
   return (
     <>
       <div className="head">
-        <div><h1>Demo controls</h1><p className="muted">For the jury: set the Apple price (fake oracle), skip time to see interest, then a liquidator can step in.</p></div>
+        <div><h1>Demo controls</h1><p className="muted">For the jury: set the {s.stocks.length > 1 ? 'share' : 'Apple'} price (fake oracle), skip time to see interest, then a liquidator can step in.</p></div>
         {demo && <button className="btn" onClick={() => { actions.reset(); toast('Demo reset') }}><RotateCcw className="i" aria-hidden />Reset</button>}
       </div>
       <div className="pos">
-        <div className="line"><span className="muted">{perso ? 'My demo Apple price' : 'Apple share price'}<Term>{perso ? 'fixer_prix_demo()' : 'fixer_prix()'}</Term></span><span style={{ fontSize: 26 }}>{usd(demo ? s.price : price)}</span></div>
+        <StockPicker label="Share to test" />
+        <div className="line"><span className="muted">{perso ? `My demo ${nom} price` : `${nom} share price`}<Term>{perso ? 'fixer_prix_demo()' : 'fixer_prix()'}</Term></span><span style={{ fontSize: 26 }}>{usd(demo ? s.price : price)}</span></div>
         <input
           type="range" min={5} max={maxPrice} step={5} value={demo ? s.price : price}
           onChange={(e) => (demo ? actions.setPrice(Number(e.target.value)) : setPrice(Number(e.target.value)))}
-          aria-label="Apple price" style={{ width: '100%', accentColor: 'var(--accent)' }}
+          aria-label={`${nom} price`} style={{ width: '100%', accentColor: 'var(--accent)' }}
         />
         <div className="chips">
           {(demo ? [200, 130, 95, 70] : [150, 100, 70, 40]).filter((p) => p <= maxPrice).map((p) => <button key={p} className="btn" disabled={sending} onClick={() => apply(p)}>{usd(p)}</button>)}
