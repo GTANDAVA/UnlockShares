@@ -48,8 +48,8 @@ jobs:
       - name: Une action après l'autre
         run: |
           code=0
-          # Hyperliquid ne cote pas les ETF (SPY, EWY) : ils n'ont que Yahoo.
-          if [ "${{ matrix.source }}" = yahoo ]; then titres="AAPL NVDA TSLA NOK SPY EWY"; else titres="AAPL NVDA TSLA NOK"; fi
+          # Hyperliquid ne cote pas les ETF (SPY, QQQ, GLD, EWY) : ils n'ont que Yahoo.
+          if [ "${{ matrix.source }}" = yahoo ]; then titres="AAPL MSFT NVDA GOOGL AMZN META TSLA NOK SPY QQQ GLD EWY"; else titres="AAPL MSFT NVDA GOOGL AMZN META TSLA NOK"; fi
           for titre in $titres; do
             if [ "$titre" = AAPL ]; then oracle="$ORACLE_AAPL"; else var="ORACLE_$titre"; oracle="${!var}"; fi
             envoyer=non
@@ -65,5 +65,11 @@ jobs:
           ORACLE_NOK: ${{ vars.ORACLE_ID_NOK }}
           ORACLE_SPY: ${{ vars.ORACLE_ID_SPY }}
           ORACLE_EWY: ${{ vars.ORACLE_ID_EWY }}
+          ORACLE_MSFT: ${{ vars.ORACLE_ID_MSFT }}
+          ORACLE_GOOGL: ${{ vars.ORACLE_ID_GOOGL }}
+          ORACLE_AMZN: ${{ vars.ORACLE_ID_AMZN }}
+          ORACLE_META: ${{ vars.ORACLE_ID_META }}
+          ORACLE_QQQ: ${{ vars.ORACLE_ID_QQQ }}
+          ORACLE_GLD: ${{ vars.ORACLE_ID_GLD }}
           RAPPORTEUR_CLE: ${{ secrets[matrix.cle] }}
           FORCER_LECTURE: ${{ github.event_name == 'push' && 'oui' || 'non' }}

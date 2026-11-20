@@ -14,7 +14,7 @@ ADMIN="${ADMIN:-greg}"
 EMETTEUR="${EMETTEUR:-emetteur-actions}"
 USDC=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA     # jeton prêté (le même que le prêt v3)
 ORACLE_AAPL=CCA3MJ2G6JOYE3BY5QRHSXZ4B5WQ232OF7WV3JLNVRJ5CB6QEP7P4OMI # oracle Apple déjà en service, réutilisé
-TITRES="AAPL NVDA TSLA SPY NOK EWY"
+TITRES="AAPL MSFT NVDA GOOGL AMZN META TSLA NOK SPY QQQ GLD EWY"
 IDS=deploiement-hub.ids
 touch "$IDS"; source "$IDS"
 garder() { grep -v "^$1=" "$IDS" > "$IDS.tmp"; echo "$1=$2" >> "$IDS.tmp"; mv "$IDS.tmp" "$IDS"; }
@@ -31,19 +31,25 @@ regles() {
     SPY)  echo "6000 8000 500 6000 0 4000";;
     NOK)  echo "4500 8000 500 6000 100 1500";;
     EWY)  echo "5500 8000 500 6000 50 2000";;
+    MSFT) echo "5000 8000 500 6000 50 2500";;
+    GOOGL) echo "5000 8000 500 6000 50 2500";;
+    AMZN) echo "5000 8000 500 6000 50 2500";;
+    META) echo "4500 8000 500 6000 100 2000";;
+    QQQ)  echo "6000 8000 500 6000 0 3000";;
+    GLD)  echo "6000 8000 500 6000 0 2000";;
   esac
 }
 regles_json() {
   read -r l s b c p pl <<< "$(regles "$1")"
   echo "{\"ltv_max_bps\":\"$l\",\"seuil_bps\":\"$s\",\"bonus_bps\":\"$b\",\"cible_bps\":\"$c\",\"prime_bps\":\"$p\",\"plafond_bps\":\"$pl\"}"
 }
-# Prix du moment (unités à 7 décimales) : Hyperliquid pour les actions, Yahoo pour les ETF (SPY, EWY).
+# Prix du moment (unités à 7 décimales) : Hyperliquid pour les actions, Yahoo pour les ETF (SPY, QQQ, GLD, EWY).
 prix() {
   node -e "
 const t='$1'
 const hl=()=>fetch('https://api.hyperliquid.xyz/info',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'metaAndAssetCtxs',dex:'xyz'})}).then(r=>r.json()).then(([m,c])=>{const i=m.universe.findIndex(a=>a.name==='xyz:'+t);if(i<0)throw 0;return Number(c[i].oraclePx)})
 const yh=()=>fetch('https://query1.finance.yahoo.com/v8/finance/chart/'+t,{headers:{'user-agent':'Mozilla/5.0'}}).then(r=>r.json()).then(j=>j.chart.result[0].meta.regularMarketPrice)
-;(['SPY','EWY'].includes(t)?yh():hl().catch(yh)).then(p=>console.log(Math.round(p*1e7))).catch(()=>console.log(''))"
+;(['SPY','QQQ','GLD','EWY'].includes(t)?yh():hl().catch(yh)).then(p=>console.log(Math.round(p*1e7))).catch(()=>console.log(''))"
 }
 
 ETAPE="${1:-}"; T="${2:-}"
@@ -65,14 +71,14 @@ if [ -z "$ETAPE" ]; then
 == Étapes : UNE transaction chacune, signée par la clé indiquée, après « oui »
  H1          Créer le compte émetteur des jetons de test ($EMETTEUR, Friendbot)
  H2          Émetteur : jetons « autorisation requise » (comme de vraies actions)          [$EMETTEUR]
- H3 <TITRE>  Créer le jeton de test T<TITRE> et son contrat SAC   (6 fois)                  [$ADMIN]
+ H3 <TITRE>  Créer le jeton de test T<TITRE> et son contrat SAC   (12 fois)                  [$ADMIN]
  H4          Déployer le robinet multi-actions (1 passage par heure et par adresse)       [$ADMIN]
- H5 <TITRE>  Donner l'admin du jeton au robinet (il crée et autorise les jetons) (6 fois)   [$EMETTEUR]
- H6 <TITRE>  Déployer l'oracle de prix de l'action, mêmes 2 robots (5 fois, Apple réutilisé) [$ADMIN]
+ H5 <TITRE>  Donner l'admin du jeton au robinet (il crée et autorise les jetons) (12 fois)   [$EMETTEUR]
+ H6 <TITRE>  Déployer l'oracle de prix de l'action, mêmes 2 robots (11 fois, Apple réutilisé) [$ADMIN]
  H7          Déployer le hub (USDC, 50 USDC max par adresse, 20 % de la caisse, démo perso) [$ADMIN]
- H8 <TITRE>  Ajouter l'action au hub avec ses règles et son prix (6 fois)                  [$ADMIN]
- H9 <TITRE>  Brancher l'oracle de l'action sur le hub (6 fois)                             [$ADMIN]
- H10 <TITRE> Le robinet distribue 2 actions de ce jeton (6 fois)                           [$ADMIN]
+ H8 <TITRE>  Ajouter l'action au hub avec ses règles et son prix (12 fois)                  [$ADMIN]
+ H9 <TITRE>  Brancher l'oracle de l'action sur le hub (12 fois)                             [$ADMIN]
+ H10 <TITRE> Le robinet distribue 2 actions de ce jeton (12 fois)                           [$ADMIN]
  H11         Le robinet autorise le hub à détenir toutes les actions                       [$ADMIN]
 Titres : $TITRES
 Ensuite, hors script et avec ton accord : variables GitHub ORACLE_ID_<TITRE>, remplir la caisse (étape 6), site (étape 7).
