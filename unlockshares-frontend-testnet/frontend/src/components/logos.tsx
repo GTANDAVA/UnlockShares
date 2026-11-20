@@ -1,13 +1,13 @@
 // Logos des tokens (marques Apple, BlackBerry, Stellar : tracés du paquet simple-icons, licence CC0).
 // USDC est dessiné ici (cercle bleu, $ entre deux arcs) car simple-icons ne l'inclut pas.
-import { siAmd, siAnthropic, siApple, siBlackberry, siCoinbase, siGoogle, siIntel, siMeta, siNokia, siNvidia, siSpacex, siStellar, siTesla } from 'simple-icons'
+import { siAmd, siAnthropic, siApple, siBlackberry, siCircle, siCoinbase, siGoogle, siIntel, siMeta, siNokia, siNvidia, siSpacex, siStellar, siTesla } from 'simple-icons'
 
-export type TokenKind = 'usdc' | 'aapl' | 'spy' | 'bb' | 'ewy' | 'xlm' | 'nvda' | 'tsla' | 'nok' | 'googl' | 'meta' | 'intc' | 'amd' | 'coin' | 'ant' | 'spcx' | 'other'
+export type TokenKind = 'usdc' | 'aapl' | 'spy' | 'bb' | 'ewy' | 'xlm' | 'nvda' | 'tsla' | 'nok' | 'googl' | 'meta' | 'intc' | 'amd' | 'coin' | 'ant' | 'spcx' | 'amzn' | 'crcl' | 'other'
 
 /** Logo d'une action à partir de son ticker (AAPL → aapl) ; null si on n'en a pas */
 export function kindOf(ticker: string): TokenKind | null {
   const k = ticker.toLowerCase()
-  return (['aapl', 'spy', 'bb', 'ewy', 'nvda', 'tsla', 'nok', 'googl', 'meta', 'intc', 'amd', 'coin', 'ant', 'spcx'] as const).find((x) => x === k) ?? null
+  return (['aapl', 'spy', 'bb', 'ewy', 'nvda', 'tsla', 'nok', 'googl', 'meta', 'intc', 'amd', 'coin', 'ant', 'spcx', 'amzn', 'crcl'] as const).find((x) => x === k) ?? null
 }
 
 const Brand = ({ path, title }: { path: string; title: string }) => (
@@ -19,6 +19,15 @@ const Usdc = () => (
     <circle cx="16" cy="16" r="16" fill="#2775ca" />
     <path d="M12.5 7.2a9.6 9.6 0 0 0 0 17.6M19.5 7.2a9.6 9.6 0 0 1 0 17.6" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
     <text x="16" y="20.6" textAnchor="middle" fontSize="13" fontWeight="700" fill="#fff" fontFamily="Arial, sans-serif">$</text>
+  </svg>
+)
+
+// Amazon n'est plus dans simple-icons : « a » blanc + sourire orange dessinés ici.
+const Amazon = () => (
+  <svg viewBox="0 0 24 24" className="tok-logo" role="img" aria-label="Amazon">
+    <text x="12" y="14.5" textAnchor="middle" fontSize="15" fontWeight="700" fill="currentColor" fontFamily="Arial, sans-serif">a</text>
+    <path d="M5 16.2c4.2 2.6 9.6 2.6 13.6 0" fill="none" stroke="#ff9900" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M16.4 14.9l2.4 1.2-1 2.4" fill="none" stroke="#ff9900" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
 
@@ -38,6 +47,8 @@ export function TokenLogo({ kind }: { kind: TokenKind }) {
   if (kind === 'coin') return <Brand path={siCoinbase.path} title="Coinbase" />
   if (kind === 'ant') return <Brand path={siAnthropic.path} title="Anthropic" />
   if (kind === 'spcx') return <Brand path={siSpacex.path} title="SpaceX" />
+  if (kind === 'amzn') return <Amazon />
+  if (kind === 'crcl') return <Brand path={siCircle.path} title="Circle" />
   return null
 }
 
