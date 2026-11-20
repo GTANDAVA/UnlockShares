@@ -366,6 +366,18 @@ export const actions = {
       patch({ busy: null })
     }
   },
+  /** Hub : 1 titre de test à la demande (en plus du pack de bienvenue). */
+  async getShare(jeton: string): Promise<Done> {
+    const me = need()
+    patch({ busy: 'Preparing…' })
+    try {
+      const r = await ch.recevoirTitre(me, jeton, (t) => patch({ busy: t }))
+      await refresh()
+      return r
+    } finally {
+      patch({ busy: null })
+    }
+  },
   /** Démo : fait passer `days` jours d'un coup (365 = 1 an, 30 = 1 mois), pour voir les intérêts tomber */
   async skipDays(days: number): Promise<Done> {
     if (!chainReady) return { text: `${demoActions.skipDays(days)} (simulation)` }

@@ -26,7 +26,11 @@ export function BorrowPage() {
   // Hub : les actions déjà acceptées ne sont plus « Roadmap ».
   const roadmap = ROADMAP.filter((r) => !s.stocks.some((x) => x.ticker === r.code))
   const roadmapPrices = useStockPrices(roadmap.map((r) => r.code))
-  const { open, lastBorrow } = useDemoUi()
+  const { open, lastBorrow, toast } = useDemoUi()
+  /** Hub : reçoit 1 titre de test à la demande, hors pack de bienvenue */
+  const getShare = async (jeton: string) => {
+    try { toast(await actions.getShare(jeton)) } catch (e) { toast(e instanceof Error ? e.message : String(e)) }
+  }
   /** Choisit l'action puis ouvre la fenêtre (garantie, emprunt, remboursement) */
   const pick = (jeton: string, k: Kind) => {
     actions.selectStock(jeton)
@@ -87,7 +91,9 @@ export function BorrowPage() {
                 <td><div className="chips" style={{ flexWrap: 'nowrap' }}>
                   {x.shares > 0
                     ? <button className="btn primary" onClick={() => pick(x.jeton, 'borrow')} disabled={!x.active}>Borrow</button>
-                    : <button className="btn" onClick={() => pick(x.jeton, 'deposit')} disabled={!x.walletShares || !x.active}>Use as guarantee</button>}
+                    : !x.walletShares && !demo && s.address
+                      ? <button className="btn" onClick={() => getShare(x.jeton)} disabled={!!s.busy}>Get test shares</button>
+                      : <button className="btn" onClick={() => pick(x.jeton, 'deposit')} disabled={!x.walletShares || !x.active}>Use as guarantee</button>}
                   {x.debt > 0 && <button className="btn" onClick={() => pick(x.jeton, 'repay')}>Pay back</button>}
                 </div></td>
               </tr>
