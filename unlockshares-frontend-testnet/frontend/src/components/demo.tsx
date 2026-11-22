@@ -31,21 +31,22 @@ export function Gauge({ ltv, rules }: { ltv: number; rules?: Regles }) {
   const s = useDemo()
   const r = rules ?? s.stock
   const z = zoneOf(ltv, r)
-  const pct = Math.round((ltv / r.seuil) * 100)
-  // Les 3 couleurs suivent les règles de l'action : vert jusqu'à l'emprunt max, orange, puis rouge à 10 points du seuil.
-  const vert = (r.ltvMax / r.seuil) * 100
-  const rouge = ((r.seuil - 0.1) / r.seuil) * 100
+  // Une seule lecture partout : la dette en % du collatéral, sur une barre de 0 à 100 % (choix de Greg).
+  const pct = Math.round(ltv * 100)
+  const vert = r.ltvMax * 100
+  const rouge = (r.seuil - 0.1) * 100
+  const vente = r.seuil * 100
   return (
     <>
       <div className="line">
-        <span>You are using <b>{pct} %</b> of your limit<Term>LTV {Math.round(ltv * 100)} % / CF {Math.round(r.seuil * 100)} %</Term></span>
+        <span>Your debt is <b>{pct} %</b> of your collateral<Term>LTV</Term></span>
         <Pill cls={z.cls}>{z.label}</Pill>
       </div>
       <div className="gwrap">
         <div className="gtrack">
           <b style={{ width: `${vert}%`, background: 'var(--safe)' }} />
           <b style={{ width: `${Math.max(0, rouge - vert)}%`, background: 'var(--watch)' }} />
-          <b style={{ width: `${100 - Math.max(vert, rouge)}%`, background: 'var(--danger)' }} />
+          <b style={{ width: `${Math.max(0, vente - Math.max(vert, rouge))}%`, background: 'var(--danger)' }} />
         </div>
         <div className="gmark" style={{ left: `${Math.min(99.5, pct)}%` }} />
       </div>
@@ -71,19 +72,24 @@ export function LimitBlock() {
   const s = useDemo()
   const d = derive(s)
   const gardien = useGardienActif()
-  // Une seule règle à l'écran : « % de ta limite » (100 % = vente de protection), choix de Greg.
-  // Les seuils du gardien (en % de la valeur des actions dans le robot) sont convertis sur cette même règle.
-  const surLimite = (x: number) => Math.min(100, (x / d.rules.seuil) * 100)
+  // Une seule lecture : la dette en % du collatéral, barre de 0 à 100 %, comme la phrase sur la vente de protection,
+  // le contrat et le robot (choix de Greg, 22/11).
+  const p = (x: number) => Math.min(100, x * 100)
   return (
     <>
-      <div className="line"><span className="muted">Your limit<Term>LTV / collateral factor</Term></span><Pill cls={d.zone.cls}>{d.zone.label}</Pill></div>
-      <p className="limitbig num"><b className={d.zone.cls}>{d.usedPct} %</b> of your limit used</p>
+      <div className="line"><span className="muted">Your limit<Term>LTV</Term></span><Pill cls={d.zone.cls}>{d.zone.label}</Pill></div>
+      <p className="limitbig num"><b className={d.zone.cls}>{d.ltvPct} %</b> of your collateral borrowed</p>
       <div className="limit">
-        <div className="fill" style={{ width: `${Math.min(100, d.usedPct)}%`, background: d.zone.color }} />
-        <span className="tick" style={{ left: `${d.maxBorrowPct}%` }} title="Max borrow" />
-        {gardien && <span className="tick gardien" style={{ left: `${surLimite(ALERTE_GARDIEN)}%` }} title="Guardian"><ShieldCheck aria-label="Guardian" /></span>}
+        <div className="fill" style={{ width: `${p(d.ltv)}%`, background: d.zone.color }} />
+        <span className="tick" style={{ left: `${p(d.rules.ltvMax)}%` }} title="Max borrow" />
+        {gardien && <span className="tick gardien" style={{ left: `${p(ALERTE_GARDIEN)}%` }} title="Guardian"><ShieldCheck aria-label="Guardian" /></span>}
+        <span className="tick vente" style={{ left: `${p(d.rules.seuil)}%` }} title="Protection sale" />
       </div>
-      <div className="limitlbl"><span>0 %</span><span style={{ left: `${d.maxBorrowPct}%` }}>Max borrow</span><span>Protection sale</span></div>
+      <div className="limitlbl">
+        <span>0 %</span>
+        <span style={{ left: `${p(d.rules.ltvMax)}%` }}>Max borrow</span>
+        <span style={{ left: `${p(d.rules.seuil)}%` }}>Protection sale</span>
+      </div>
       <small className="muted">
         The protection sale starts when your debt represents {Math.round(d.rules.seuil * 100)} % of your collateral{s.stocks.length > 1 ? ` (${s.stock.nom})` : ''}.
       </small>

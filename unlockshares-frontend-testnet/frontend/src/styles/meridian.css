@@ -143,12 +143,13 @@ td small { display: block; color: var(--muted); font-size: 12.5px; }
 .limit .fill { height: 100%; border-radius: 99px; transition: width .3s; }
 .limit .tick { position: absolute; top: -5px; width: 2px; height: 20px; background: var(--ink); transform: translateX(-1px); }
 .limitlbl { position: relative; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); height: 16px; }
-.limitlbl span:nth-child(2) { position: absolute; transform: translateX(-50%); }
+.limitlbl span:nth-child(2), .limitlbl span:nth-child(3) { position: absolute; transform: translateX(-50%); }
 /* Libellés sur 2 lignes (« Max / borrow », « Protection / sale ») : ils ne se chevauchent plus quand la colonne est étroite */
 .limitlbl { height: auto; min-height: 16px; line-height: 1.25; }
 .limitlbl span:nth-child(2), .limitlbl span:nth-child(3) { width: min-content; }
 .limitlbl span:nth-child(2) { text-align: center; }
-.limitlbl span:nth-child(3) { text-align: right; }
+.limitlbl span:nth-child(3) { text-align: center; }
+.limit .tick.vente { background: var(--danger); }
 .hf { font-weight: 700; font-variant-numeric: tabular-nums; }
 .hfbar { position: relative; height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--danger), var(--watch) 40%, var(--safe) 75%); margin: 6px 0 2px; }
 .hfbar i { position: absolute; top: 50%; width: 18px; height: 18px; border-radius: 50%; background: var(--bg); border: 4px solid var(--watch); transform: translate(-50%, -50%); }
