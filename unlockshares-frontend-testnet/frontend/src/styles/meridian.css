@@ -200,7 +200,7 @@ th, .tag, .chip, .kpi small, .strip small { font-family: var(--mono); letter-spa
 .mcard:hover { border-color: var(--yellow); }
 .limit .tick { background: var(--yellow); }
 .limit .tick.gardien { background: var(--free); }
-.limit .tick.gardien .tick-ic { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 14px; height: 14px; color: var(--free); }
+.limit .tick.gardien svg { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 15px; height: 15px; color: var(--free); }
 .chart, .tbl, .mcard { border-radius: 16px; }
 .divider { border-top-color: var(--line); }
 .round.on { background: var(--yellow); color: var(--on-yellow); border-color: var(--yellow); }

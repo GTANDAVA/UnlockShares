@@ -81,8 +81,7 @@ export function LimitBlock() {
       <div className="limit">
         <div className="fill" style={{ width: `${Math.min(100, d.usedPct)}%`, background: d.zone.color }} />
         <span className="tick" style={{ left: `${d.maxBorrowPct}%` }} title="Max borrow" />
-        {/* Gardien : un trait bleu surmonté d'un bouclier, à l'endroit où il intervient (même règle que la jauge, pas de texte à part). */}
-        {gardien && <span className="tick gardien" style={{ left: `${surLimite(ALERTE_GARDIEN)}%` }} title="Guardian" aria-label="Guardian"><ShieldCheck className="tick-ic" aria-hidden /></span>}
+        {gardien && <span className="tick gardien" style={{ left: `${surLimite(ALERTE_GARDIEN)}%` }} title="Guardian"><ShieldCheck aria-label="Guardian" /></span>}
       </div>
       <div className="limitlbl"><span>0 %</span><span style={{ left: `${d.maxBorrowPct}%` }}>Max borrow</span><span>Protection sale</span></div>
       <small className="muted">
