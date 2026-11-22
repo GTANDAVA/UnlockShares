@@ -471,8 +471,12 @@ fn un_autre_robot_ou_un_mandat_retire_est_refuse() {
     let intrus = Address::generate(&d.env);
     assert_eq!(d.hub.try_rembourser_par_mandat(&intrus, &d.lea, &d.aapl, &U), Err(Ok(Erreur::PasDeMandat)));
     assert_eq!(d.hub.try_deposer_par_mandat(&intrus, &d.lea, &d.aapl, &U), Err(Ok(Erreur::PasDeMandat)));
+    assert_eq!(d.hub.mandants(), soroban_sdk::vec![&d.env, d.lea.clone()]);
+    d.hub.fixer_mandat(&d.lea, &robot, &(20 * U), &true);
+    assert_eq!(d.hub.mandants().len(), 1);
     d.hub.retirer_mandat(&d.lea);
     assert_eq!(d.hub.mandat(&d.lea), None);
+    assert_eq!(d.hub.mandants().len(), 0);
     assert_eq!(d.hub.try_rembourser_par_mandat(&robot, &d.lea, &d.aapl, &U), Err(Ok(Erreur::PasDeMandat)));
 }
 

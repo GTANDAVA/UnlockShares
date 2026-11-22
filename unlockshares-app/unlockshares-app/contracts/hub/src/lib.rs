@@ -31,6 +31,8 @@ pub const RESERVE_MAX_BPS: i128 = 5_000;
 pub const PRIME_MAX_BPS: i128 = 2_000;
 /// Nombre maximum de spokes (chaque opération parcourt les spokes pour faire tourner les compteurs).
 pub const SPOKES_MAX: u32 = 12;
+/// Hub v2 : nombre maximum de mandats de gardien (testnet).
+pub const MANDATS_MAX: u32 = 200;
 
 const JOUR: u32 = 17_280;
 const TTL_SEUIL: u32 = 30 * JOUR;
@@ -148,6 +150,8 @@ pub enum Cle {
     Oracle(Address),
     /// Hub v2 : mandat du gardien, par emprunteur.
     Mandat(Address),
+    /// Hub v2 : liste des emprunteurs qui ont un mandat (lue par le robot gardien).
+    Mandants,
 }
 
 /// Hub v2 : mandat donné par un emprunteur à un robot gardien.
@@ -246,6 +250,8 @@ pub enum Erreur {
     SpokeExistant = 15,
     /// Hub v2 : pas de mandat pour ce robot, ou dépôt d'actions non permis.
     PasDeMandat = 16,
+    /// Hub v2 : trop de mandats (le robot doit pouvoir tous les lire).
+    TropDeMandats = 17,
 }
 
 #[contractevent]
@@ -371,6 +377,10 @@ fn lire_mandat(env: &Env, emprunteur: &Address, robot: &Address) -> Result<Manda
         return Err(Erreur::PasDeMandat);
     }
     Ok(m)
+}
+
+fn mandants(env: &Env) -> Vec<Address> {
+    env.storage().instance().get(&Cle::Mandants).unwrap_or(Vec::new(env))
 }
 
 fn ecrire_mandat(env: &Env, emprunteur: &Address, m: &Mandat) {
@@ -1065,6 +1075,14 @@ impl Hub {
         if robot == emprunteur {
             return Err(Erreur::MontantInvalide);
         }
+        let mut liste = mandants(&env);
+        if !liste.contains(&emprunteur) {
+            if liste.len() >= MANDATS_MAX {
+                return Err(Erreur::TropDeMandats);
+            }
+            liste.push_back(emprunteur.clone());
+            env.storage().instance().set(&Cle::Mandants, &liste);
+        }
         ecrire_mandat(&env, &emprunteur, &Mandat { robot: robot.clone(), plafond_jour, depot_actions, jour: 0, verse: 0 });
         garder_en_vie(&env);
         MandatFixe { emprunteur, robot: Some(robot), plafond_jour, depot_actions }.publish(&env);
@@ -1075,7 +1093,17 @@ impl Hub {
     pub fn retirer_mandat(env: Env, emprunteur: Address) {
         emprunteur.require_auth();
         env.storage().persistent().remove(&Cle::Mandat(emprunteur.clone()));
+        let mut liste = mandants(&env);
+        if let Some(i) = liste.first_index_of(&emprunteur) {
+            liste.remove(i);
+            env.storage().instance().set(&Cle::Mandants, &liste);
+        }
         MandatFixe { emprunteur, robot: None, plafond_jour: 0, depot_actions: false }.publish(&env);
+    }
+
+    /// Lecture : les emprunteurs qui ont un mandat de gardien (pour le robot).
+    pub fn mandants(env: Env) -> Vec<Address> {
+        mandants(&env)
     }
 
     /// Lecture : le mandat de l'emprunteur (absent = pas de gardien).
