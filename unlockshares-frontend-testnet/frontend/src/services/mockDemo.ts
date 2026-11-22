@@ -90,7 +90,9 @@ export function derive(s: DemoState & { stock?: Regles; market?: { borrowRate: n
     cushion,
     net: value - s.debt,
     balance: value - s.debt + s.lent + s.usdc,
-    /** Part de la limite utilisée (LTV / 80 %) */
+    /** Dette en % de la valeur des actions (LTV) : LA règle unique affichée partout (choix de Greg, 22/11) */
+    ltvPct: Math.round(ltv * 100),
+    /** Ancienne mesure « part de la limite » (LTV / 80 %), plus affichée */
     usedPct: Math.round((ltv / r.seuil) * 100),
     maxBorrowPct: (r.ltvMax / r.seuil) * 100,
     safetyPrice: s.shares ? s.debt / (s.shares * r.seuil) : 0,

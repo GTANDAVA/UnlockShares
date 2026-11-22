@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { chain } from '../chainConfig'
 import { estPasskey, jetonPret, lienTx, messageErreur } from '../services/chain'
 import { activerGardien, desactiverGardien, lireGardien, type EtatGardien } from '../services/passkey'
+import { ALERTE_GARDIEN, CIBLE_GARDIEN, fixerGardienActif } from './gardienEtat'
 
 // Gardien (option, désactivée par défaut, comptes passkey seulement).
 // Analogie : on confie au voisin une clé qui n'ouvre QUE la boîte aux lettres du prêteur : il peut y déposer un
@@ -27,6 +28,8 @@ export function GuardianCard({ address, debt }: { address: string | null; debt: 
       .catch(() => { if (!fini) setEtat({ actif: false }) })
     return () => { fini = true }
   }, [dispo, address])
+
+  useEffect(() => { fixerGardienActif(!!etat?.actif) }, [etat])
 
   // Proposé après le premier emprunt, ou tant qu'il est actif (pour pouvoir l'arrêter).
   if (!dispo || !etat || (!debt && !etat.actif)) return null
@@ -53,8 +56,8 @@ export function GuardianCard({ address, debt }: { address: string | null; debt: 
         <span className="tag">{etat.actif ? 'On' : 'Off'} · optional</span>
       </div>
       <span className="muted">
-        While you sleep, if your loan gets close to the danger zone, the guardian pays part of it back for you with
-        the {jetonPret()} already in your wallet. It can <b>only pay back</b>: it cannot borrow, take your shares
+        While you sleep, if your debt reaches {Math.round(ALERTE_GARDIEN * 100)} % of your shares’ value (the danger zone),
+        the guardian pays part of it back for you with the {jetonPret()} already in your wallet, down to {Math.round(CIBLE_GARDIEN * 100)} %. It can <b>only pay back</b>: it cannot borrow, take your shares
         back or send your money anywhere else. You can turn it off at any time.
       </span>
       {etat.actif ? (
