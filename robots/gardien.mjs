@@ -35,10 +35,13 @@ async function lire(contrat, fn, ...args) {
 }
 
 async function rembourser(moi, signer, compte, regle, hub, jeton, montant) {
-  const source = await serveur.getAccount(moi.publicKey())
+  // Chaque build() avance le numéro de séquence du compte : on repart d'une copie neuve pour chaque transaction
+  // (sinon la vraie transaction part avec un numéro trop grand : « tx_bad_seq »).
+  const compteRobot = await serveur.getAccount(moi.publicKey())
+  const neuf = () => new Account(compteRobot.accountId(), compteRobot.sequenceNumber())
   const op = () => Operation.invokeContractFunction({ contract: hub, function: 'rembourser', args: argsRembourser(compte, jeton, montant) })
   // 1. Simulation : Stellar dit quelles autorisations il faut (le compte, pour rembourser puis le transfert d'USDC).
-  const brouillon = new TransactionBuilder(source, { fee: BASE_FEE, networkPassphrase: RESEAU }).addOperation(op()).setTimeout(60).build()
+  const brouillon = new TransactionBuilder(neuf(), { fee: BASE_FEE, networkPassphrase: RESEAU }).addOperation(op()).setTimeout(60).build()
   const sim = await serveur.simulateTransaction(brouillon)
   if (rpc.Api.isSimulationError(sim)) throw new Error(`simulation : ${sim.error}`)
   const { sequence } = await serveur.getLatestLedger()
@@ -55,7 +58,7 @@ async function rembourser(moi, signer, compte, regle, hub, jeton, montant) {
     signees.push(xdr.SorobanAuthorizationEntry.fromXDR(b64, 'base64'))
   }
   // 3. Nouvelle simulation avec les signatures (le contrôle du compte coûte des ressources), puis envoi.
-  const tx = new TransactionBuilder(source, { fee: BASE_FEE, networkPassphrase: RESEAU })
+  const tx = new TransactionBuilder(neuf(), { fee: BASE_FEE, networkPassphrase: RESEAU })
     .addOperation(Operation.invokeContractFunction({ contract: hub, function: 'rembourser', args: argsRembourser(compte, jeton, montant), auth: signees }))
     .setTimeout(60).build()
   const sim2 = await serveur.simulateTransaction(tx)
