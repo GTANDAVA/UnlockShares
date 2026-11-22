@@ -32,10 +32,11 @@ const ecrireEnCours = (address: string, id: string) => {
   try { if (id) localStorage.setItem(KEY, JSON.stringify({ address, id })); else localStorage.removeItem(KEY) } catch { /* stockage indisponible */ }
 }
 
-export function AnchorWithdrawCard({ address }: { address: string }) {
+/** `montant` : montant proposé au départ (par ex. ce qui vient d'être emprunté dans « Get cash ») ; 5 par défaut. */
+export function AnchorWithdrawCard({ address, montant }: { address: string; montant?: number }) {
   const passkey = estPasskey(address)
   const [usdc, setUsdc] = useState<number | null | undefined>(undefined)
-  const [amount, setAmount] = useState('5')
+  const [amount, setAmount] = useState(montant && montant > 0 ? String(montant) : '5')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [tx, setTx] = useState<Sep24Tx | null>(null)

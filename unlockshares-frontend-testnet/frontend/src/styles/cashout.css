@@ -93,6 +93,12 @@
 .co-choice button > span:first-of-type { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .co-choice small { color: var(--muted, #8a8a8a); }
 .co-choice-ic { width: 26px; height: 26px; flex: none; }
+/* Variante compacte : 3 petites tuiles sur une ligne, sur PC comme sur téléphone */
+.co-choice.co-choice-compact { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+.co-choice-compact button { flex-direction: column; justify-content: center; gap: 6px; padding: 10px 6px; text-align: center; border-radius: 12px; }
+.co-choice-compact button.on { padding: 9px 5px; }
+.co-choice-compact .co-choice-ic { width: 20px; height: 20px; }
+.co-choice-compact b { font-size: 13px; line-height: 1.2; overflow-wrap: anywhere; }
 .co-details summary { cursor: pointer; list-style: none; }
 .co-details summary::-webkit-details-marker { display: none; }
 
