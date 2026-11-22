@@ -114,12 +114,11 @@ export function Jar() {
     <>
       <small className="muted">What your shares unlock</small>
       <p className="jarmsg">
-        {d.liquidable ? (
-          <><em className="s-danger">Your loan is above {Math.round(d.rules.seuil * 100)} % of your shares’ value.</em> A liquidator can now pay it back and take shares.</>
-        ) : d.available > 0 ? (
+        {/* Toujours la même forme (choix de Greg) : « … and can still borrow $Y » ou « …, you can’t borrow more ». */}
+        {d.available > 0 && !d.liquidable ? (
           <>You have borrowed <em className={d.zone.cls}>{usd(s.debt)}</em> and can still borrow <em>{usd(d.available)}</em>.</>
         ) : (
-          <>You have borrowed <em className={d.zone.cls}>{usd(s.debt)}</em>, your maximum: pay back a little to stay safe.</>
+          <>You have borrowed <em className={d.zone.cls}>{usd(s.debt)}</em>, you can’t borrow more.</>
         )}
       </p>
       <div className="jar">
