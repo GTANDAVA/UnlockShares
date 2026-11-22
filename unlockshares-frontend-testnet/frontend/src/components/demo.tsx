@@ -119,7 +119,7 @@ export function Jar() {
         ) : d.available > 0 ? (
           <>You have borrowed <em className={d.zone.cls}>{usd(s.debt)}</em> and can still borrow <em>{usd(d.available)}</em>.</>
         ) : (
-          <>You have borrowed <em className={d.zone.cls}>{usd(s.debt)}</em>, your maximum: pay back a little to stay safe.</>
+          <>You have borrowed <em className={d.zone.cls}>{usd(s.debt)}</em> and can’t borrow more.</>
         )}
       </p>
       <div className="jar">
