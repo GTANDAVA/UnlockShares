@@ -4,6 +4,7 @@ import { chain } from '../chainConfig'
 import { estPasskey, jetonPret, lienTx, messageErreur } from '../services/chain'
 import { activerGardien, desactiverGardien, lireGardien, type EtatGardien } from '../services/passkey'
 import { ALERTE_GARDIEN, CIBLE_GARDIEN, fixerGardienActif } from './gardienEtat'
+import { useDemo } from '../lib/useDemo'
 
 // Gardien (option, désactivée par défaut, comptes passkey seulement).
 // Analogie : on confie au voisin une clé qui n'ouvre QUE la boîte aux lettres du prêteur : il peut y déposer un
@@ -30,6 +31,9 @@ export function GuardianCard({ address, debt }: { address: string | null; debt: 
   }, [dispo, address])
 
   useEffect(() => { fixerGardienActif(!!etat?.actif) }, [etat])
+  // Même règle que la jauge : « % de ta limite » (100 % = vente de protection).
+  const seuil = useDemo().stock.seuil
+  const surLimite = (x: number) => Math.round((x / seuil) * 100)
 
   // Proposé après le premier emprunt, ou tant qu'il est actif (pour pouvoir l'arrêter).
   if (!dispo || !etat || (!debt && !etat.actif)) return null
@@ -56,8 +60,8 @@ export function GuardianCard({ address, debt }: { address: string | null; debt: 
         <span className="tag">{etat.actif ? 'On' : 'Off'} · optional</span>
       </div>
       <span className="muted">
-        While you sleep, if your debt reaches {Math.round(ALERTE_GARDIEN * 100)} % of your shares’ value (the danger zone),
-        the guardian pays part of it back for you with the {jetonPret()} already in your wallet, down to {Math.round(CIBLE_GARDIEN * 100)} %. It can <b>only pay back</b>: it cannot borrow, take your shares
+        While you sleep, if your loan reaches {surLimite(ALERTE_GARDIEN)} % of your limit (the danger zone),
+        the guardian pays part of it back for you with the {jetonPret()} already in your wallet, down to {surLimite(CIBLE_GARDIEN)} % of your limit. It can <b>only pay back</b>: it cannot borrow, take your shares
         back or send your money anywhere else. You can turn it off at any time.
       </span>
       {etat.actif ? (

@@ -38,7 +38,7 @@ export function Gauge({ ltv, rules }: { ltv: number; rules?: Regles }) {
   return (
     <>
       <div className="line">
-        <span>Your debt is <b>{Math.round(ltv * 100)} %</b> of your shares’ value<Term>LTV · protection sale at {Math.round(r.seuil * 100)} %</Term></span>
+        <span>You are using <b>{pct} %</b> of your limit<Term>LTV {Math.round(ltv * 100)} % / CF {Math.round(r.seuil * 100)} %</Term></span>
         <Pill cls={z.cls}>{z.label}</Pill>
       </div>
       <div className="gwrap">
@@ -71,22 +71,22 @@ export function LimitBlock() {
   const s = useDemo()
   const d = derive(s)
   const gardien = useGardienActif()
-  const seuil = Math.round(d.rules.seuil * 100)
-  // Une seule règle partout : la dette en % de la valeur des actions. La barre va de 0 % à la vente de protection.
-  const surBarre = (x: number) => Math.min(100, (x / d.rules.seuil) * 100)
+  // Une seule règle à l'écran : « % de ta limite » (100 % = vente de protection), choix de Greg.
+  // Les seuils du gardien (en % de la valeur des actions dans le robot) sont convertis sur cette même règle.
+  const surLimite = (x: number) => Math.min(100, (x / d.rules.seuil) * 100)
   return (
     <>
-      <div className="line"><span className="muted">Your loan<Term>LTV</Term></span><Pill cls={d.zone.cls}>{d.zone.label}</Pill></div>
-      <p className="limitbig num"><b className={d.zone.cls}>{d.ltvPct} %</b> of your shares’ value borrowed</p>
+      <div className="line"><span className="muted">Your limit<Term>LTV / collateral factor</Term></span><Pill cls={d.zone.cls}>{d.zone.label}</Pill></div>
+      <p className="limitbig num"><b className={d.zone.cls}>{d.usedPct} %</b> of your limit used</p>
       <div className="limit">
-        <div className="fill" style={{ width: `${surBarre(d.ltv)}%`, background: d.zone.color }} />
-        <span className="tick" style={{ left: `${d.maxBorrowPct}%` }} title={`Max borrow ${Math.round(d.rules.ltvMax * 100)} %`} />
-        {gardien && <span className="tick gardien" style={{ left: `${surBarre(ALERTE_GARDIEN)}%` }} title={`Guardian ${Math.round(ALERTE_GARDIEN * 100)} %`} />}
+        <div className="fill" style={{ width: `${Math.min(100, d.usedPct)}%`, background: d.zone.color }} />
+        <span className="tick" style={{ left: `${d.maxBorrowPct}%` }} title="Max borrow" />
+        {gardien && <span className="tick gardien" style={{ left: `${surLimite(ALERTE_GARDIEN)}%` }} title="Guardian" />}
       </div>
-      <div className="limitlbl"><span>0 %</span><span style={{ left: `${d.maxBorrowPct}%` }}>Max borrow {Math.round(d.rules.ltvMax * 100)} %</span><span>Protection sale {seuil} %</span></div>
+      <div className="limitlbl"><span>0 %</span><span style={{ left: `${d.maxBorrowPct}%` }}>Max borrow</span><span>Protection sale</span></div>
       <small className="muted">
-        The protection sale starts when your debt reaches {seuil} % of your shares’ value{s.stocks.length > 1 ? ` (${s.stock.nom})` : ''}.
-        {gardien && <> Your guardian steps in at {Math.round(ALERTE_GARDIEN * 100)} % and brings it back to {Math.round(CIBLE_GARDIEN * 100)} %.</>}
+        The protection sale starts when your debt represents {Math.round(d.rules.seuil * 100)} % of your collateral{s.stocks.length > 1 ? ` (${s.stock.nom})` : ''}.
+        {gardien && <> Your guardian steps in at {Math.round(surLimite(ALERTE_GARDIEN))} % of your limit and brings it back to {Math.round(surLimite(CIBLE_GARDIEN))} %.</>}
       </small>
     </>
   )

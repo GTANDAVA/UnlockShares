@@ -99,7 +99,7 @@ export function HomePage() {
             const dx = derive({ ...s, shares: x.shares, debt: x.debt, price: x.price, walletShares: x.walletShares, stock: x })
             return (
               <button key={x.jeton} className="mcard" onClick={() => voir(x.jeton)}>
-                <div className="line"><span><StockCoin ticker={x.ticker} /> {x.nom}</span><Pill cls={dx.zone.cls}>{Math.round(dx.ltv * 100)} % of value</Pill></div>
+                <div className="line"><span><StockCoin ticker={x.ticker} /> {x.nom}</span><Pill cls={dx.zone.cls}>{dx.usedPct} % used</Pill></div>
                 <small className="muted">Net value<Term>collateral − debt</Term></small>
                 <b className="num" style={{ marginTop: 0 }}>{usd(dx.net)}</b>
                 <small className="muted">{x.shares} {x.ticker} · {usd(x.debt)} borrowed at <b>{pct(x.rate)}</b> a year<Term>borrow APY</Term></small>
@@ -113,7 +113,7 @@ export function HomePage() {
       ) : view === 'grid' ? (
         <div className="cards">
           <button className="mcard" onClick={() => setView('list')}>
-            <div className="line"><span><StellarLogo /> Stellar Stocks Market</span><Pill cls={d.zone.cls}>{d.ltvPct} % of value</Pill></div>
+            <div className="line"><span><StellarLogo /> Stellar Stocks Market</span><Pill cls={d.zone.cls}>{d.usedPct} % used</Pill></div>
             <small className="muted">Net value<Term>collateral − debt</Term></small>
             <b className="num" style={{ marginTop: 0 }}>{usd(d.net)}</b>
             <small className="muted">Borrow rate <b>{borrowRate}</b> a year<Term>borrow APY</Term> · ≈ {usd(monthly)} / month</small>
