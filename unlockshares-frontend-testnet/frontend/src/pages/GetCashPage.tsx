@@ -1,4 +1,6 @@
-import { Check, LoaderCircle } from 'lucide-react'
+import { Banknote, Check, Landmark, LoaderCircle, Wallet } from 'lucide-react'
+import { AnchorWithdrawCard } from '../components/AnchorWithdrawCard'
+import { Choice } from '../components/Choice'
 import { useState } from 'react'
 import { Gauge, usd, usdc, useDemoUi } from '../components/demo'
 import { MarketHoursNote } from '../components/MarketHoursNote'
@@ -39,7 +41,7 @@ export function planGetCash(s: AppState, montant: number) {
 
 type Etape = 'saisie' | 'envoi' | 'fait'
 
-/** Parcours unique « Get cash » : un montant → dépôt des actions nécessaires + emprunt → espèces avec MoneyGram. */
+/** Parcours unique « Get cash » : un montant → dépôt des actions nécessaires + emprunt → au choix : garder dans le wallet, espèces MoneyGram ou virement bancaire (anchor SEP-24). */
 export function GetCashPage() {
   const s = useDemo()
   const { toast } = useDemoUi()
@@ -49,6 +51,8 @@ export function GetCashPage() {
   const [etape, setEtape] = useState<Etape>('saisie')
   const [progres, setProgres] = useState('')
   const [preuves, setPreuves] = useState<{ label: string; hash?: string }[]>([])
+  // Où va l'argent emprunté. Par défaut il reste dans le wallet (aucun frais de plus) ; espèces et virement sont des options.
+  const [sortie, setSortie] = useState<'wallet' | 'cash' | 'bank'>('wallet')
   const montant = Math.max(0, Number(saisie.replace(',', '.')) || 0)
   const plan = planGetCash(s, montant)
   const ok = montant > 0 && montant <= plan.max && plan.aDeposer <= s.walletShares + 1e-9
@@ -84,7 +88,7 @@ export function GetCashPage() {
       <div className="head">
         <div>
           <h1>Get cash</h1>
-          <p className="muted">Choose an amount. UnlockShares locks just the shares needed as a guarantee, sends you the {J}, and MoneyGram turns it into cash.</p>
+          <p className="muted">Choose an amount. UnlockShares locks just the shares needed as a guarantee, sends you the {J}. Keep it in your wallet, or turn it into cash or a bank transfer.</p>
         </div>
       </div>
 
@@ -144,23 +148,34 @@ export function GetCashPage() {
             ))}
             <div className="chips">
               <a className="btn" href="#accueil">See my loan</a>
-              <button className="btn" onClick={() => { setEtape('saisie'); setPreuves([]) }}>Get more</button>
+              <button className="btn" onClick={() => { setEtape('saisie'); setPreuves([]); setSortie('wallet') }}>Get more</button>
             </div>
           </div>
-          {/* MoneyGram sous les boutons, sur toute la largeur : le widget a besoin de place (choix de Greg). */}
+          {/* Sortie sous les boutons, sur toute la largeur : les widgets MoneyGram et anchor ont besoin de place (choix de Greg). */}
           <div className="divider" />
           <div className="cash-mg">
             {!demo && s.address && J === 'USDC' ? (
               <>
-                <b>Turn it into cash</b>
-                {pk ? (
-                  <small className="muted">MoneyGram cash pickup needs the Varial wallet for now: your USDC stay in your passkey account.</small>
+                <b>Where do you want your money?</b>
+                <Choice label="Where the money goes" value={sortie} onChange={setSortie} options={[
+                  { id: 'wallet', icon: Wallet, title: 'Keep in my wallet', sub: 'Nothing more to do' },
+                  { id: 'cash', icon: Banknote, title: 'Cash', sub: 'Pick up at a MoneyGram location', tag: 'Sandbox' },
+                  { id: 'bank', icon: Landmark, title: 'Bank transfer', sub: 'Through a Stellar anchor', tag: 'Testnet' },
+                ]} />
+                {sortie === 'wallet' ? (
+                  <small className="muted">Your {J} stay in your wallet. You can cash out later from the Cash out page.</small>
+                ) : sortie === 'cash' ? (
+                  pk ? (
+                    <small className="muted">MoneyGram cash pickup needs the Varial wallet for now: your USDC stay in your passkey account.</small>
+                  ) : (
+                    <MoneyGramCard address={s.address} />
+                  )
                 ) : (
-                  <MoneyGramCard address={s.address} />
+                  <AnchorWithdrawCard address={s.address} initialAmount={montant} />
                 )}
               </>
             ) : (
-              <small className="muted">{demo ? 'In the live app, MoneyGram turns the USDC into cash at a shop near you.' : `MoneyGram only accepts Circle USDC: on this test pool the ${J} stay in your wallet.`}</small>
+              <small className="muted">{demo ? 'In the live app, you keep the USDC in your wallet, or turn it into cash with MoneyGram or a bank transfer.' : `Cash and bank transfers only accept Circle USDC: on this test pool the ${J} stay in your wallet.`}</small>
             )}
           </div>
         </section>

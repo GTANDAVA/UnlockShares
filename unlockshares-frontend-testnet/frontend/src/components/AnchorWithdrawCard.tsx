@@ -32,10 +32,10 @@ const ecrireEnCours = (address: string, id: string) => {
   try { if (id) localStorage.setItem(KEY, JSON.stringify({ address, id })); else localStorage.removeItem(KEY) } catch { /* stockage indisponible */ }
 }
 
-export function AnchorWithdrawCard({ address }: { address: string }) {
+export function AnchorWithdrawCard({ address, initialAmount }: { address: string; initialAmount?: number }) {
   const passkey = estPasskey(address)
   const [usdc, setUsdc] = useState<number | null | undefined>(undefined)
-  const [amount, setAmount] = useState('5')
+  const [amount, setAmount] = useState(initialAmount && initialAmount >= 1 ? String(Math.floor(initialAmount * 100) / 100) : '5')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [tx, setTx] = useState<Sep24Tx | null>(null)
