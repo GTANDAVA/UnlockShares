@@ -15,7 +15,7 @@
 //!   ≤ X % du coffre libre, prix de l'oracle trop vieux = nouveaux emprunts bloqués, démo PERSONNELLE seulement
 //!   (prix plus bas et temps avancé sur sa propre position).
 
-use soroban_sdk::{contract, contractclient, contracterror, contractevent, contractimpl, contracttype, token, Address, Env, Map, Symbol, Vec};
+use soroban_sdk::{contract, contractclient, contracterror, contractevent, contractimpl, contracttype, token, Address, BytesN, Env, Map, Symbol, Vec};
 
 pub const UNITE: i128 = 10_000_000;
 pub const RAY: i128 = 1_000_000_000_000_000_000;
@@ -261,6 +261,12 @@ pub struct GarantieRetiree { #[topic] pub emprunteur: Address, #[topic] pub jeto
 pub struct Emprunte { #[topic] pub emprunteur: Address, #[topic] pub jeton: Address, pub montant: i128 }
 #[contractevent]
 pub struct Rembourse { #[topic] pub emprunteur: Address, #[topic] pub jeton: Address, pub montant: i128 }
+/// Hub v2 : un tiers (un proche, le robot gardien…) a remboursé la dette de quelqu'un d'autre.
+#[contractevent]
+pub struct RemboursePour { #[topic] pub emprunteur: Address, #[topic] pub jeton: Address, pub payeur: Address, pub montant: i128 }
+/// Hub v2 : le code du hub a été remplacé par l'admin (même adresse, même caisse, mêmes prêts).
+#[contractevent]
+pub struct CodeMisAJour { pub code: BytesN<32> }
 #[contractevent]
 pub struct Liquide {
     #[topic] pub emprunteur: Address,
@@ -291,6 +297,35 @@ fn garder_en_vie(env: &Env) {
 
 fn positif(montant: i128) -> Result<(), Erreur> {
     if montant <= 0 { Err(Erreur::MontantInvalide) } else { Ok(()) }
+}
+
+/// Rembourse la dette d'`emprunteur` avec l'USDC de `payeur` (l'excédent est rendu au payeur).
+/// La signature est vérifiée par l'appelant.
+fn payer_dette(env: &Env, payeur: &Address, emprunteur: &Address, jeton: &Address, montant: i128) -> Result<i128, Erreur> {
+    positif(montant)?;
+    let mut e = actualiser(env);
+    let mut s = e.spoke(jeton)?;
+    let mut p = position(env, emprunteur, jeton);
+    let dette = dette_totale(&p, s.index);
+    if dette == 0 {
+        return Err(Erreur::PasDeDette);
+    }
+    let paye = if montant > dette { dette } else { montant };
+    let pret = jeton_pret(env);
+    pret.transfer(payeur, &env.current_contract_address(), &montant);
+    if montant > paye {
+        pret.transfer(&env.current_contract_address(), payeur, &(montant - paye));
+    }
+    let (vers_demo, brulees) = repartir_paiement(paye, &p, s.index);
+    p.dette_demo -= vers_demo;
+    e.reserve += vers_demo;
+    p.parts_dette -= brulees;
+    s.parts -= brulees;
+    e.spokes.set(jeton.clone(), s);
+    ecrire_position(env, emprunteur, jeton, &p);
+    ecrire_etat(env, &e);
+    garder_en_vie(env);
+    Ok(paye)
 }
 
 fn jeton_pret(env: &Env) -> token::Client<'_> {
@@ -723,6 +758,15 @@ impl Hub {
         Ok(())
     }
 
+    /// Hub v2 : l'admin remplace le code du hub (code déjà envoyé sur le réseau, repéré par son empreinte).
+    /// Même adresse, même caisse, mêmes prêts et mêmes spokes. Sans délai pour l'instant (choix de Greg, 22/11/2026).
+    pub fn mettre_a_jour(env: Env, code: BytesN<32>) {
+        admin(&env);
+        garder_en_vie(&env);
+        env.deployer().update_current_contract_wasm(code.clone());
+        CodeMisAJour { code }.publish(&env);
+    }
+
     pub fn retirer_reserve(env: Env, montant: i128) -> Result<(), Erreur> {
         let a = admin(&env);
         positif(montant)?;
@@ -928,30 +972,17 @@ impl Hub {
     /// Rembourse exactement `montant` (l'excédent éventuel est rendu). Toujours permis, même spoke en pause.
     pub fn rembourser(env: Env, emprunteur: Address, jeton: Address, montant: i128) -> Result<i128, Erreur> {
         emprunteur.require_auth();
-        positif(montant)?;
-        let mut e = actualiser(&env);
-        let mut s = e.spoke(&jeton)?;
-        let mut p = position(&env, &emprunteur, &jeton);
-        let dette = dette_totale(&p, s.index);
-        if dette == 0 {
-            return Err(Erreur::PasDeDette);
-        }
-        let paye = if montant > dette { dette } else { montant };
-        let pret = jeton_pret(&env);
-        pret.transfer(&emprunteur, &env.current_contract_address(), &montant);
-        if montant > paye {
-            pret.transfer(&env.current_contract_address(), &emprunteur, &(montant - paye));
-        }
-        let (vers_demo, brulees) = repartir_paiement(paye, &p, s.index);
-        p.dette_demo -= vers_demo;
-        e.reserve += vers_demo;
-        p.parts_dette -= brulees;
-        s.parts -= brulees;
-        e.spokes.set(jeton.clone(), s);
-        ecrire_position(&env, &emprunteur, &jeton, &p);
-        ecrire_etat(&env, &e);
-        garder_en_vie(&env);
+        let paye = payer_dette(&env, &emprunteur, &emprunteur, &jeton, montant)?;
         Rembourse { emprunteur, jeton, montant: paye }.publish(&env);
+        Ok(paye)
+    }
+
+    /// Hub v2 : `payeur` rembourse la dette d'`emprunteur` avec son propre USDC (l'excédent lui est rendu).
+    /// Seul le payeur signe. L'emprunteur ne signe rien : on ne peut que réduire sa dette, jamais l'augmenter.
+    pub fn rembourser_pour(env: Env, payeur: Address, emprunteur: Address, jeton: Address, montant: i128) -> Result<i128, Erreur> {
+        payeur.require_auth();
+        let paye = payer_dette(&env, &payeur, &emprunteur, &jeton, montant)?;
+        RemboursePour { emprunteur, jeton, payeur, montant: paye }.publish(&env);
         Ok(paye)
     }
 

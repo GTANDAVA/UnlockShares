@@ -353,3 +353,72 @@ fn les_reglages_admin_demandent_la_signature_de_l_admin() {
     // Sans signature de l'admin : refusé.
     assert!(hub.try_ajouter_spoke(&aapl, &regles_aapl(), &(100 * U)).is_err());
 }
+
+// ---------- hub v2 : rembourser pour quelqu'un d'autre ----------
+
+#[test]
+fn un_proche_rembourse_la_dette_de_lea_avec_son_usdc() {
+    let d = decor();
+    d.hub.deposer(&d.lea, &d.aapl, &(10 * U));
+    d.hub.emprunter(&d.lea, &d.aapl, &(100 * U));
+    let proche = d.liquidateur.clone();
+    let avant_lea = d.usdc.balance(&d.lea);
+    let paye = d.hub.rembourser_pour(&proche, &d.lea, &d.aapl, &(40 * U));
+    assert_eq!(paye, 40 * U);
+    // L'argent vient du proche, Léa garde son USDC, sa dette baisse.
+    assert_eq!(d.usdc.balance(&proche), 960 * U);
+    assert_eq!(d.usdc.balance(&d.lea), avant_lea);
+    assert_eq!(d.hub.position(&d.lea, &d.aapl).dette, 60 * U);
+    // Seul le payeur a signé (l'emprunteur n'a rien autorisé).
+    let auths = d.env.auths();
+    assert!(auths.iter().all(|(qui, _)| *qui == proche));
+}
+
+#[test]
+fn rembourser_pour_rend_l_excedent_au_payeur_et_refuse_sans_dette() {
+    let d = decor();
+    let proche = d.liquidateur.clone();
+    assert_eq!(d.hub.try_rembourser_pour(&proche, &d.lea, &d.aapl, &(10 * U)), Err(Ok(Erreur::PasDeDette)));
+    assert_eq!(d.hub.try_rembourser_pour(&proche, &d.lea, &d.aapl, &0), Err(Ok(Erreur::MontantInvalide)));
+    d.hub.deposer(&d.lea, &d.aapl, &(10 * U));
+    d.hub.emprunter(&d.lea, &d.aapl, &(30 * U));
+    let paye = d.hub.rembourser_pour(&proche, &d.lea, &d.aapl, &(50 * U));
+    assert_eq!(paye, 30 * U);
+    assert_eq!(d.usdc.balance(&proche), 970 * U);
+    assert_eq!(d.hub.position(&d.lea, &d.aapl).dette, 0);
+    // Léa récupère ses actions elle-même : le payeur n'a aucun droit sur elles.
+    d.hub.retirer(&d.lea, &d.aapl, &(10 * U));
+}
+
+#[test]
+fn rembourser_pour_demande_la_signature_du_payeur() {
+    let d = decor();
+    d.hub.deposer(&d.lea, &d.aapl, &(10 * U));
+    d.hub.emprunter(&d.lea, &d.aapl, &(30 * U));
+    d.env.set_auths(&[]);
+    assert!(d.hub.try_rembourser_pour(&d.liquidateur, &d.lea, &d.aapl, &(10 * U)).is_err());
+}
+
+// ---------- hub v2 : mise à jour du code ----------
+
+#[test]
+fn seul_l_admin_peut_mettre_a_jour_le_code() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let usdc = env.register_stellar_asset_contract_v2(Address::generate(&env)).address();
+    let id = env.register(Hub, (admin, usdc, 50 * U, 2_000i128, true));
+    let hub = HubClient::new(&env, &id);
+    // Sans la signature de l'admin : refusé.
+    assert!(hub.try_mettre_a_jour(&BytesN::from_array(&env, &[7u8; 32])).is_err());
+}
+
+#[test]
+fn mise_a_jour_avec_un_code_inconnu_refusee_et_rien_ne_change() {
+    let d = decor();
+    d.hub.deposer(&d.lea, &d.aapl, &(10 * U));
+    d.hub.emprunter(&d.lea, &d.aapl, &(30 * U));
+    // L'admin signe, mais aucun code n'a cette empreinte sur le réseau : refusé.
+    assert!(d.hub.try_mettre_a_jour(&BytesN::from_array(&d.env, &[7u8; 32])).is_err());
+    assert_eq!(d.hub.position(&d.lea, &d.aapl).dette, 30 * U);
+    assert_eq!(d.hub.fourni(&d.preteur), 1_000 * U);
+}
