@@ -83,7 +83,7 @@ export function LimitBlock() {
         <span className="tick" style={{ left: `${d.maxBorrowPct}%` }} title={`Max borrow ${Math.round(d.rules.ltvMax * 100)} %`} />
         {gardien && <span className="tick gardien" style={{ left: `${surBarre(ALERTE_GARDIEN)}%` }} title={`Guardian ${Math.round(ALERTE_GARDIEN * 100)} %`} />}
       </div>
-      <div className="limitlbl"><span>0 %</span><span style={{ left: `${d.maxBorrowPct}%` }}>Max borrow {Math.round(d.rules.ltvMax * 100)} %</span><span>Protection sale {seuil} %</span></div>
+      <div className="limitlbl"><span>0 %</span><span style={{ left: `${d.maxBorrowPct}%` }}>Max {Math.round(d.rules.ltvMax * 100)} %</span><span>Protection sale {seuil} %</span></div>
       <small className="muted">
         The protection sale starts when your debt reaches {seuil} % of your shares’ value{s.stocks.length > 1 ? ` (${s.stock.nom})` : ''}.
         {gardien && <> Your guardian steps in at {Math.round(ALERTE_GARDIEN * 100)} % and brings it back to {Math.round(CIBLE_GARDIEN * 100)} %.</>}
