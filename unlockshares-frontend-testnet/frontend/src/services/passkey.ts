@@ -2,6 +2,7 @@
 // La clé reste dans l'appareil. Les frais réseau sont payés par notre relais (/api/relais) : l'utilisateur n'a pas besoin de XLM.
 // Le kit est chargé seulement quand on en a besoin (il embarque sa propre copie du SDK Stellar).
 import type { SmartAccountKit } from 'smart-account-kit'
+import { StrKey } from '@stellar/stellar-sdk'
 import { chain } from '../chainConfig'
 
 /** Contrats officiels déjà déployés sur testnet (smart-account-kit 0.10, demo/.env.example) */
@@ -97,4 +98,63 @@ export async function envoyerParRelais(funcB64: string, authB64: string[]): Prom
   const r = await k.relayer.send(funcB64, authB64)
   if (!r.success || !r.hash) throw new Error(r.error ?? 'The fee relay refused the transaction.')
   return r.hash
+}
+
+// ---------------------------------------------------------------------------
+// Gardien (option, désactivée par défaut) : une 2e clé, celle du robot UnlockShares, reçoit une règle qui lui permet
+// SEULEMENT de rembourser le prêt de ce compte avec l'USDC déjà dans le portefeuille, sous un plafond par jour.
+// Les limites sont vérifiées par notre contrat « gardien » (contracts/gardien), pas par le site.
+// ---------------------------------------------------------------------------
+
+/** Vérificateur ed25519 officiel déjà déployé sur testnet (smart-account-kit, demo/.env.example) */
+const VERIFIER_ED25519 = 'CAAVTMCBXEIBPR64EAASKFXERVPYFZA2JYP5A3BG6PESWEFUJX5IHKN4'
+const NOM_REGLE_GARDIEN = 'UnlockShares guardian'
+
+export type EtatGardien = { actif: boolean; regle?: number }
+
+async function kitConnecte(): Promise<SmartAccountKit> {
+  const k = await kit()
+  if (!k.contractId) await k.connectWallet()
+  return k
+}
+
+/** Cherche la règle gardien sur le compte passkey connecté (lecture seule, aucune signature). */
+export async function lireGardien(gardienId: string): Promise<EtatGardien> {
+  const k = await kitConnecte()
+  const regles = await k.rules.list()
+  const r = regles.find((x) => x.policies.includes(gardienId))
+  return r ? { actif: true, regle: r.id } : { actif: false }
+}
+
+/**
+ * Active le gardien : ajoute la règle « robot = rembourser seulement, plafond `plafondUsdc` par jour ».
+ * La passkey signe (Face ID / empreinte), le relais paie les frais.
+ */
+export async function activerGardien(gardienId: string, robotG: string, plafondUsdc: number): Promise<string> {
+  if (!(plafondUsdc > 0)) throw new Error('Choose a daily limit above 0.')
+  const k = await kitConnecte()
+  const m = await import('smart-account-kit')
+  const signer = m.createEd25519Signer(VERIFIER_ED25519, StrKey.decodeEd25519PublicKey(robotG))
+  const plafond = BigInt(Math.round(plafondUsdc * 10_000_000))
+  try {
+    const tx = await k.rules.add(m.createDefaultContext(), NOM_REGLE_GARDIEN, [signer], new Map([[gardienId, plafond]]))
+    const r = await k.signAndSubmitAdmin(tx)
+    if (!r.success) throw new Error(r.error?.message ?? 'The guardian could not be turned on.')
+    return r.hash ?? ''
+  } catch (e) {
+    throw new Error(messageKit(e))
+  }
+}
+
+/** Arrête le gardien : retire sa règle. Le robot perd aussitôt tout droit sur le compte. */
+export async function desactiverGardien(regle: number): Promise<string> {
+  if (regle === REGLE_PAR_DEFAUT) throw new Error('This rule belongs to your passkey and cannot be removed.')
+  const k = await kitConnecte()
+  try {
+    const r = await k.signAndSubmitAdmin(await k.rules.remove(regle))
+    if (!r.success) throw new Error(r.error?.message ?? 'The guardian could not be turned off.')
+    return r.hash ?? ''
+  } catch (e) {
+    throw new Error(messageKit(e))
+  }
 }

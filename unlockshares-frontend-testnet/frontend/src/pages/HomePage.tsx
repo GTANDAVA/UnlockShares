@@ -6,6 +6,7 @@ import { useDemo } from '../lib/useDemo'
 import { jetonPret, nomJetonPret } from '../services/chain'
 import { DEMO, derive } from '../services/mockDemo'
 import { Onboarding } from '../components/Onboarding'
+import { GuardianCard } from '../components/GuardianCard'
 import { StockCoin, StockPicker } from '../components/StockPicker'
 import { actions } from '../services/app'
 
@@ -63,6 +64,8 @@ export function HomePage() {
         </div>
         <div className="chart jarbox"><Jar /></div>
       </section>
+
+      {!demo && <GuardianCard address={s.address} debt={hub ? s.stocks.reduce((n, x) => n + x.debt, 0) : s.debt} />}
 
       <div className="divider" />
       <h2>Earn</h2>

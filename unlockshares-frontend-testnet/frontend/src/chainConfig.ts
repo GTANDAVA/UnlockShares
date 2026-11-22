@@ -17,6 +17,9 @@ export const chain = {
   robinet: (hub && v('VITE_ROBINET_ACTIONS_ID')) || v('VITE_ROBINET_ID'),
   /** Distributeur d'USDC de Circle (réserve remplie par l'admin) : facultatif */
   distributeur: v('VITE_DISTRIBUTEUR_ID'),
+  /** Gardien (option) : contrat de règles et clé publique du robot qui rembourse seul */
+  gardien: v('VITE_GARDIEN_ID'),
+  gardienRobot: v('VITE_GARDIEN_ROBOT'),
   taapl: v('VITE_TAAPL_ID'),
   tusdc: v('VITE_TUSDC_ID'),
   emetteurAapl: v('VITE_EMETTEUR_AAPL'),
