@@ -207,3 +207,38 @@ test('any other rule change is refused: other key, other policy, other type, rul
   // le compte A ne peut pas modifier le compte B
   assert.equal((await essai(ajoutRegle({ cible: AUTRE_CONTRAT }))).status, 403)
 })
+
+// ---------- hub v2 (adresse fournie par HUB_V2_ID) ----------
+
+const HUB_V2 = 'CAEQSCIJBEEQSCIJBEEQSCIJBEEQSCIJBEEQSCIJBEEQSCIJBEEQTD2L'
+const USDC = 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA'
+const approve = (de, vers, montant) =>
+  new TransactionBuilder(new Account(DEPLOYEUR, '0'), { fee: BASE_FEE, networkPassphrase: Networks.TESTNET })
+    .addOperation(new Contract(USDC).call('approve', new Address(de).toScVal(), new Address(vers).toScVal(), nativeToScVal(montant, { type: 'i128' }), nativeToScVal(1000, { type: 'u32' })))
+    .setTimeout(30).build().operations[0].func
+
+test('hub v2: new user functions are accepted only when HUB_V2_ID is set, admin ones never', async () => {
+  for (const fn of ['emprunter_vers', 'rembourser_pour', 'fixer_mandat', 'retirer_mandat', 'emprunter']) {
+    const v = await verifier({ func: b64(appel(HUB_V2, fn)), auth: [b64(autorisation(COMPTE, HUB_V2, fn))] }, bonWasm, HUB_V2)
+    assert.deepEqual(v, { creation: false, compte: COMPTE }, fn)
+  }
+  let v = await verifier({ func: b64(appel(HUB_V2, 'emprunter_vers')), auth: [b64(autorisation(COMPTE, HUB_V2))] }, bonWasm, '')
+  assert.equal(v.status, 403)
+  for (const fn of ['mettre_a_jour', 'retirer_reserve', 'rembourser_par_mandat', 'deposer_par_mandat']) {
+    v = await verifier({ func: b64(appel(HUB_V2, fn)), auth: [b64(autorisation(COMPTE, HUB_V2, fn))] }, bonWasm, HUB_V2)
+    assert.equal(v.status, 403, fn)
+  }
+})
+
+test('hub v2: USDC approve to the hub v2 within the cap is accepted, anything else is refused', async () => {
+  let v = await verifier({ func: b64(approve(COMPTE, HUB_V2, 600_000_000n)), auth: [b64(autorisation(COMPTE, USDC, 'approve'))] }, bonWasm, HUB_V2)
+  assert.deepEqual(v, { creation: false, compte: COMPTE })
+  v = await verifier({ func: b64(approve(COMPTE, HUB_V2, 0n)), auth: [b64(autorisation(COMPTE, USDC, 'approve'))] }, bonWasm, HUB_V2)
+  assert.deepEqual(v, { creation: false, compte: COMPTE })
+  v = await verifier({ func: b64(approve(COMPTE, AUTRE_CONTRAT, 10n)), auth: [b64(autorisation(COMPTE, USDC, 'approve'))] }, bonWasm, HUB_V2)
+  assert.equal(v.status, 403)
+  v = await verifier({ func: b64(approve(COMPTE, HUB_V2, 1_500n * 10_000_000n + 1n)), auth: [b64(autorisation(COMPTE, USDC, 'approve'))] }, bonWasm, HUB_V2)
+  assert.equal(v.status, 403)
+  v = await verifier({ func: b64(approve(AUTRE_CONTRAT, HUB_V2, 10n)), auth: [b64(autorisation(COMPTE, USDC, 'approve'))] }, bonWasm, HUB_V2)
+  assert.equal(v.status, 403)
+})

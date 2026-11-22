@@ -29,6 +29,12 @@ export const CIBLES = {
   CDVXQTFEDN2OJBZU2AB2O4DI76RFBRWJRRMRZMNLEVNSO2BMZNAJQAUO: ['recevoir', 'recevoir_titre'], // robinet des 12 actions
 }
 
+/** Hub v2 (pas encore déployé) : son adresse vient de la variable serveur HUB_V2_ID. Mêmes gestes que le hub,
+ *  plus payer un commerçant, rembourser pour un proche et le mandat du gardien. Jamais les fonctions admin. */
+export const FONCTIONS_HUB_V2 = [...CIBLES.CAPHBREM2DX36MACGMUJWMQ7ASCBR2LFJRCJQIEEUMQ7SI5IV4TFMIKF, 'emprunter_vers', 'rembourser_pour', 'fixer_mandat', 'retirer_mandat']
+/** Autorisation USDC maximum donnée au hub v2 pour le gardien : 50 USDC par jour × 30 jours. */
+export const MAX_APPROBATION_HUB = 1_500n * 10_000_000n
+
 /** Gardien (option « rembourser seulement ») : contrat de règles, vérificateur ed25519 officiel, clé publique du robot */
 export const GARDIEN_ID = 'CBBKHSDHUPFSKACFWMZUNWV66SQJYE7D2GHMPVBASSEMRCMUOJWMCOUF'
 export const VERIFIER_ED25519 = 'CAAVTMCBXEIBPR64EAASKFXERVPYFZA2JYP5A3BG6PESWEFUJX5IHKN4'
@@ -81,6 +87,18 @@ function retraitAnchor(appel, signataires) {
   }
 }
 
+/** approve(de, hub v2, montant, fin) sur l'USDC : de soi-même, vers le hub v2 seulement, montant plafonné (0 = arrêt). */
+export function approbationHub(appel, signataires, hubV2) {
+  const a = appel.args
+  if (!hubV2 || a.length !== 4 || new Set(signataires).size !== 1) return false
+  try {
+    const montant = scValToNative(a[2])
+    return adr(a[0]) === signataires[0] && adr(a[1]) === hubV2 && a[3].type === 'scvU32' && typeof montant === 'bigint' && montant >= 0n && montant <= MAX_APPROBATION_HUB
+  } catch {
+    return false
+  }
+}
+
 const MAX_AUTH = 3
 const MAX_PAR_IP = 40 // appels par IP et par heure
 const MAX_COMPTES_PAR_IP = 3 // créations de compte par IP et par heure
@@ -110,7 +128,7 @@ export async function lireWasm(contractId, rpcUrl = RPC_URL) {
  * Vérifie la demande. Renvoie null si elle est acceptée, sinon le refus.
  * `wasmDe` est injectable pour les tests (aucun appel réseau).
  */
-export async function verifier(body, wasmDe = lireWasm) {
+export async function verifier(body, wasmDe = lireWasm, hubV2 = String(process.env.HUB_V2_ID ?? '').trim()) {
   if (!body || typeof body.func !== 'string' || !Array.isArray(body.auth)) return refus(400, 'Expected { func, auth }.')
   if (body.auth.length < 1 || body.auth.length > MAX_AUTH || body.auth.some((a) => typeof a !== 'string')) return refus(400, 'Invalid auth list.')
   let f, auth
@@ -144,7 +162,9 @@ export async function verifier(body, wasmDe = lireWasm) {
   const fn = String(f.invokeContract.functionName)
   const versAnchor = cible === USDC_SAC && fn === 'transfer' && retraitAnchor(f.invokeContract, signataires)
   const gardien = regleGardien(f.invokeContract, signataires, cible)
-  if (!versAnchor && !gardien && !CIBLES[cible]?.includes(fn)) return refus(403, 'Only UnlockShares contracts can be called through this relay.')
+  const versHubV2 = !!hubV2 && cible === hubV2 && FONCTIONS_HUB_V2.includes(fn)
+  const approbation = cible === USDC_SAC && fn === 'approve' && approbationHub(f.invokeContract, signataires, hubV2)
+  if (!versAnchor && !gardien && !versHubV2 && !approbation && !CIBLES[cible]?.includes(fn)) return refus(403, 'Only UnlockShares contracts can be called through this relay.')
   // Chaque signataire doit être un compte passkey officiel (adresse C… avec le bon code).
   for (const s of new Set(signataires)) {
     if (!s.startsWith('C')) return refus(403, 'Only passkey accounts are sponsored.')

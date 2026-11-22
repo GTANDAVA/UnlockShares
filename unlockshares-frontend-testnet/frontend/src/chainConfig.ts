@@ -12,6 +12,8 @@ export const chain = {
   pret: hub || v('VITE_PRET_ID'),
   hub,
   /** Version du contrat de prêt : 1 (pools actuels, par défaut) ou 2 (plafonds, démo perso, liquidation au montant) */
+  /** Hub v2 (payer un commerçant, rembourser pour un proche, mandat du gardien) : VITE_HUB_VERSION=2 */
+  hubVersion: hub && Number(v('VITE_HUB_VERSION')) >= 2 ? 2 : 1,
   pretVersion: Number(v('VITE_PRET_VERSION')) >= 2 ? Number(v('VITE_PRET_VERSION')) : 1,
   /** Robinet : en mode hub, le robinet multi-actions (une action de test de chaque spoke, une signature) */
   robinet: (hub && v('VITE_ROBINET_ACTIONS_ID')) || v('VITE_ROBINET_ID'),
@@ -43,3 +45,6 @@ export const chainReady = hub
 
 /** Mode hub & spokes (plusieurs actions en garantie, une position par action) */
 export const hubMode = !!hub
+
+/** Hub v2 : nouvelles fonctions disponibles (pages Pay et mandat du gardien) */
+export const hubV2 = hubMode && chain.hubVersion >= 2

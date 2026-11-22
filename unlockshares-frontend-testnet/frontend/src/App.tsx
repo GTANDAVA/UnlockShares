@@ -11,6 +11,7 @@ import { EarnPage } from './pages/EarnPage'
 import { GetCashPage } from './pages/GetCashPage'
 import { HomePage } from './pages/HomePage'
 import { LiquidationsPage } from './pages/LiquidationsPage'
+import { PayPage } from './pages/PayPage'
 
 const fromHash = (): PageId => {
   const h = window.location.hash.slice(1) as PageId
@@ -30,6 +31,7 @@ const VIEWS: Record<PageId, () => React.JSX.Element> = {
   cash: GetCashPage,
   retrait: CashOutPage,
   ajouter: AddMoneyPage,
+  payer: PayPage,
 }
 
 export default function App() {

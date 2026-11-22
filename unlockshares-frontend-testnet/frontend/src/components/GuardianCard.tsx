@@ -1,19 +1,26 @@
 import { LoaderCircle, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { chain } from '../chainConfig'
-import { estPasskey, jetonPret, lienTx, messageErreur } from '../services/chain'
+import { chain, hubV2 } from '../chainConfig'
+import { estPasskey, hubV2 as h2, jetonPret, lienTx, messageErreur } from '../services/chain'
 import { activerGardien, desactiverGardien, lireGardien, type EtatGardien } from '../services/passkey'
 import { ALERTE_GARDIEN, CIBLE_GARDIEN, fixerGardienActif } from './gardienEtat'
 
-// Gardien (option, désactivée par défaut, comptes passkey seulement).
+// Gardien (option, désactivée par défaut). Hub v1 : comptes passkey seulement (règle du compte + contrat gardien).
+// Hub v2 : tous les comptes (passkey et Varial), par un mandat stocké dans le hub.
 // Analogie : on confie au voisin une clé qui n'ouvre QUE la boîte aux lettres du prêteur : il peut y déposer un
 // remboursement pendant qu'on dort, mais il ne peut rien sortir de la maison.
 // Les limites sont vérifiées sur Stellar par le contrat gardien (contracts/gardien), pas par ce site.
 
 const PLAFOND_PAR_DEFAUT = 20
 
+/** État du gardien : mandat dans le hub (v2) ou règle du compte passkey (v1). */
+async function lireEtat(address: string | null): Promise<EtatGardien> {
+  if (hubV2) return { actif: !!(address && (await h2.lireMandat(address))?.robot === chain.gardienRobot) }
+  return lireGardien(chain.gardien)
+}
+
 export function GuardianCard({ address, debt }: { address: string | null; debt: number }) {
-  const dispo = !!chain.gardien && !!chain.gardienRobot && estPasskey(address)
+  const dispo = hubV2 ? !!chain.gardienRobot && !!address : !!chain.gardien && !!chain.gardienRobot && estPasskey(address)
   const [etat, setEtat] = useState<EtatGardien | null>(null)
   const [plafond, setPlafond] = useState(String(PLAFOND_PAR_DEFAUT))
   const [busy, setBusy] = useState(false)
@@ -23,7 +30,7 @@ export function GuardianCard({ address, debt }: { address: string | null; debt: 
   useEffect(() => {
     if (!dispo) return
     let fini = false
-    lireGardien(chain.gardien)
+    lireEtat(address)
       .then((e) => { if (!fini) setEtat(e) })
       .catch(() => { if (!fini) setEtat({ actif: false }) })
     return () => { fini = true }
@@ -39,11 +46,12 @@ export function GuardianCard({ address, debt }: { address: string | null; debt: 
   const agir = async (activer: boolean) => {
     setBusy(true); setErr(''); setHash('')
     try {
-      const h = activer
-        ? await activerGardien(chain.gardien, chain.gardienRobot, Number(plafond.replace(',', '.')))
-        : await desactiverGardien(etat.regle!)
+      const cap = Number(plafond.replace(',', '.'))
+      const h = hubV2
+        ? activer ? await h2.fixerMandat(address!, chain.gardienRobot, cap, () => undefined) : await h2.retirerMandat(address!)
+        : activer ? await activerGardien(chain.gardien, chain.gardienRobot, cap) : await desactiverGardien(etat.regle!)
       setHash(h)
-      setEtat(await lireGardien(chain.gardien))
+      setEtat(await lireEtat(address))
     } catch (e) {
       setErr(messageErreur(e))
     } finally {
@@ -76,11 +84,11 @@ export function GuardianCard({ address, debt }: { address: string | null; debt: 
             {jetonPret()}
           </label>
           <button className="btn primary" onClick={() => agir(true)} disabled={busy}>
-            {busy ? <LoaderCircle className="i spin" aria-hidden /> : <ShieldCheck className="i" aria-hidden />}Turn on with passkey
+            {busy ? <LoaderCircle className="i spin" aria-hidden /> : <ShieldCheck className="i" aria-hidden />}Turn on {estPasskey(address) ? 'with passkey' : 'in Varial'}
           </button>
         </div>
       )}
-      <small className="muted">Testnet preview. Network fees are paid by UnlockShares.</small>
+      <small className="muted">Testnet preview. {estPasskey(address) ? 'Network fees are paid by UnlockShares.' : hubV2 ? 'Two signatures in Varial: allow the pool to take up to your limit, then give the mandate.' : ''}</small>
       {hash && <small><a href={lienTx(hash)} target="_blank" rel="noreferrer">See the transaction</a></small>}
       {err && <small className="co-err">{err}</small>}
     </div>

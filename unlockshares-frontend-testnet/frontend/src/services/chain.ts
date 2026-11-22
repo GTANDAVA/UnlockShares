@@ -661,6 +661,51 @@ export const hub = {
   },
 }
 
+/** Hub v2 : le mandat du gardien tel que le hub le stocke. */
+export type MandatHub = { robot: string; plafondJour: number; depotActions: boolean; verseAujourdhui: number }
+
+/** Durée des autorisations `approve` données au hub pour le gardien : ~30 jours de ledgers (5 s chacun). */
+const DUREE_AUTORISATION = 30 * 17_280
+
+/** Transactions du hub v2 (VITE_HUB_VERSION=2). Le hub en ligne aujourd'hui (v1) ne les a pas. */
+export const hubV2 = {
+  /** Emprunter et payer directement un commerçant (G…, C… ou M…). */
+  emprunterVers: (qui: string, jeton: string, n: number, destinataire: string) =>
+    appeler(qui, chain.pret, 'emprunter_vers', [addr(qui), addr(jeton), i128(n), new Address(destinataire).toScVal()]),
+  /** Rembourser la dette de quelqu'un d'autre avec son propre USDC (« tout » = dette + marge, l'excédent est rendu). */
+  rembourserPour: async (qui: string, emprunteur: string, jeton: string, n: number) => {
+    const p = await lire<Record<string, bigint>>(chain.pret, 'position', [addr(emprunteur), addr(jeton)])
+    if (!p.dette) throw new Error('This person has no loan on these shares.')
+    const u = toUnits(n) >= p.dette ? avecMarge(p.dette) : toUnits(n)
+    return appeler(qui, chain.pret, 'rembourser_pour', [addr(qui), addr(emprunteur), addr(jeton), i128u(u)])
+  },
+  lireMandat: async (qui: string): Promise<MandatHub | null> => {
+    const m = await lire<Record<string, unknown> | null>(chain.pret, 'mandat', [addr(qui)])
+    if (!m) return null
+    return { robot: String(m.robot), plafondJour: Number(m.plafond_jour) / UNITE, depotActions: !!m.depot_actions, verseAujourdhui: Number(m.verse) / UNITE }
+  },
+  /**
+   * Donner le mandat au robot : 1) le hub peut prendre au plus `plafondJour` × 30 USDC pendant ~30 jours (`approve`),
+   * 2) le mandat lui-même (robot, plafond par jour). Deux signatures.
+   */
+  fixerMandat: async (qui: string, robot: string, plafondJour: number, etape: (t: string) => void) => {
+    const usdc = await lire<string>(chain.pret, 'jeton_pret')
+    const fin = (await server.getLatestLedger()).sequence + DUREE_AUTORISATION
+    etape('1/2 · Allowing the pool to take up to your limit from your wallet…')
+    await appeler(qui, usdc, 'approve', [addr(qui), addr(chain.pret), i128(plafondJour * 30), nativeToScVal(fin, { type: 'u32' })])
+    etape('2/2 · Giving the guardian its mandate…')
+    return appeler(qui, chain.pret, 'fixer_mandat', [addr(qui), new Address(robot).toScVal(), i128(plafondJour), nativeToScVal(false)])
+  },
+  /** Retirer le mandat, puis remettre l'autorisation USDC à zéro. */
+  retirerMandat: async (qui: string) => {
+    const h = await appeler(qui, chain.pret, 'retirer_mandat', [addr(qui)])
+    const usdc = await lire<string>(chain.pret, 'jeton_pret')
+    const fin = (await server.getLatestLedger()).sequence + 1
+    await appeler(qui, usdc, 'approve', [addr(qui), addr(chain.pret), i128(0), nativeToScVal(fin, { type: 'u32' })]).catch(() => undefined)
+    return h
+  },
+}
+
 /** Emprunteurs vus dans l'historique du hub, avec l'action concernée */
 export function emprunteursHub(evs: Evenement[]): { qui: string; jeton: string }[] {
   const vus = new Map<string, { qui: string; jeton: string }>()
@@ -695,6 +740,12 @@ const NOMS: Record<string, string> = {
   oracle_fixe: 'Price source changed',
   plafonds_fixes: 'New borrow limits',
   demo_perso_fixee: 'Demo tools switched',
+  // hub v2
+  emprunte_vers: 'Pay a merchant',
+  rembourse_pour: 'Paid back for someone',
+  mandat_fixe: 'Guardian mandate changed',
+  gardien_agi: 'Guardian paid back for you',
+  code_mis_a_jour: 'Pool code updated',
 }
 
 /** Devise unique : montants d'argent en dollars (1 USDC = 1 $) */

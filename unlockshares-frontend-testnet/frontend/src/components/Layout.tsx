@@ -1,25 +1,25 @@
 import {
-  ArrowDownToLine, Banknote, HandCoins, CircleDollarSign, Gavel, CirclePlay, Clock, Droplets, House, Percent, Plus, Search, Wallet, LogOut, Sparkles, Menu, X,
+  ArrowDownToLine, Banknote, HandCoins, CircleDollarSign, Gavel, CirclePlay, Clock, Droplets, House, Percent, Plus, Search, Wallet, LogOut, Sparkles, Menu, Store, X,
 } from 'lucide-react'
 import { Moon, Sun } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useDemo } from '../lib/useDemo'
-import { chain } from '../chainConfig'
+import { chain, hubV2 } from '../chainConfig'
 import { court, jetonPret, lienCompte } from '../services/chain'
 import { actions } from '../services/app'
 import { useDemoUi } from './demo'
 import { useConnect, useFaucet, usePasskey } from './Onboarding'
 import { passkeyPossible } from '../services/passkey'
 
-export type PageId = 'decouvrir' | 'accueil' | 'presentation' | 'activite' | 'preter' | 'emprunter' | 'demo' | 'liquidations' | 'retrait' | 'ajouter' | 'cash'
-export const PAGES: PageId[] = ['decouvrir', 'accueil', 'presentation', 'activite', 'preter', 'emprunter', 'demo', 'liquidations', 'retrait', 'ajouter', 'cash']
+export type PageId = 'decouvrir' | 'accueil' | 'presentation' | 'activite' | 'preter' | 'emprunter' | 'demo' | 'liquidations' | 'retrait' | 'ajouter' | 'cash' | 'payer'
+export const PAGES: PageId[] = ['decouvrir', 'accueil', 'presentation', 'activite', 'preter', 'emprunter', 'demo', 'liquidations', 'retrait', 'ajouter', 'cash', 'payer']
 
 type Item = { id?: PageId; label: string; icon: typeof House; ext?: boolean }
 
 /* Menu : uniquement des pages réelles (on-chain) ou clairement étiquetées démo / simulation. */
 const MENU: { section?: string; items: Item[] }[] = [
   { items: [{ id: 'decouvrir', label: 'Discover', icon: Sparkles }, { id: 'accueil', label: 'Home', icon: House }, { id: 'activite', label: 'Activity', icon: Clock }] },
-  { section: 'Explore', items: [{ id: 'cash', label: 'Get cash', icon: HandCoins }, { id: 'preter', label: 'Earn', icon: Percent }, { id: 'emprunter', label: 'Borrow', icon: CircleDollarSign }, { id: 'ajouter', label: 'Add money', icon: ArrowDownToLine }, { id: 'retrait', label: 'Cash out', icon: Banknote }] },
+  { section: 'Explore', items: [{ id: 'cash', label: 'Get cash', icon: HandCoins }, ...(hubV2 ? [{ id: 'payer' as PageId, label: 'Pay', icon: Store }] : []), { id: 'preter', label: 'Earn', icon: Percent }, { id: 'emprunter', label: 'Borrow', icon: CircleDollarSign }, { id: 'ajouter', label: 'Add money', icon: ArrowDownToLine }, { id: 'retrait', label: 'Cash out', icon: Banknote }] },
   { section: 'Demo', items: [{ id: 'demo', label: 'Demo controls', icon: CirclePlay }, { id: 'liquidations', label: 'Liquidations', icon: Gavel }] },
 ]
 
