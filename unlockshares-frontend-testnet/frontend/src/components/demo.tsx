@@ -1,12 +1,12 @@
 // Petits blocs visuels de la maquette V3 (jauge, bocal d'actions, fenêtre d'action, toast).
-import { ListFilter, Search, X } from 'lucide-react'
+import { ListFilter, Search, ShieldCheck, X } from 'lucide-react'
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { StellarLogo, TokenLogo, type TokenKind } from './logos'
 import { useDemo } from '../lib/useDemo'
 import { actions, chainReady, type Done, type Kind } from '../services/app'
 import { estPasskey, jetonPret, lienTx } from '../services/chain'
 import { derive, zoneOf, type Regles } from '../services/mockDemo'
-import { ALERTE_GARDIEN, CIBLE_GARDIEN, useGardienActif } from './gardienEtat'
+import { ALERTE_GARDIEN, useGardienActif } from './gardienEtat'
 
 /** Montants en dollars : 1 jeton prêté (USDC) = 1 $ (hypothèse affichée dans le bandeau du haut) */
 export const usd = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: Math.abs(n) < 1000 ? 2 : 0 })}`
@@ -81,12 +81,12 @@ export function LimitBlock() {
       <div className="limit">
         <div className="fill" style={{ width: `${Math.min(100, d.usedPct)}%`, background: d.zone.color }} />
         <span className="tick" style={{ left: `${d.maxBorrowPct}%` }} title="Max borrow" />
-        {gardien && <span className="tick gardien" style={{ left: `${surLimite(ALERTE_GARDIEN)}%` }} title="Guardian" />}
+        {/* Gardien : un trait bleu surmonté d'un bouclier, à l'endroit où il intervient (même règle que la jauge, pas de texte à part). */}
+        {gardien && <span className="tick gardien" style={{ left: `${surLimite(ALERTE_GARDIEN)}%` }} title="Guardian" aria-label="Guardian"><ShieldCheck className="tick-ic" aria-hidden /></span>}
       </div>
       <div className="limitlbl"><span>0 %</span><span style={{ left: `${d.maxBorrowPct}%` }}>Max borrow</span><span>Protection sale</span></div>
       <small className="muted">
         The protection sale starts when your debt represents {Math.round(d.rules.seuil * 100)} % of your collateral{s.stocks.length > 1 ? ` (${s.stock.nom})` : ''}.
-        {gardien && <> Your guardian steps in at {Math.round(surLimite(ALERTE_GARDIEN))} % of your limit and brings it back to {Math.round(surLimite(CIBLE_GARDIEN))} %.</>}
       </small>
     </>
   )
