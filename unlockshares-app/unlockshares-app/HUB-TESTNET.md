@@ -37,3 +37,10 @@ Rien n'a été modifié sur le site en ligne, le prêt v3, l'ancien robinet, Ver
 
    Ensuite, on teste ensemble.
 4. **Étape 7 : mise en ligne**, sur ton « en ligne ».
+
+## Hub v2 (22/11/2026)
+
+- Hub v2 : `CDKTMUC7TG6FW4HUUZ4RVM76EPHLTYD6TV77NWUNOB2ADNKR7PDGNUNU` (code `cf9b233d…f072`, mise à jour du code testée le 22/11)
+- Mêmes 12 jetons, mêmes 12 oracles, même robinet multi-actions (autorisé pour le hub v2).
+- Caisse de départ : 50 USDC (greg), le reste est encore dans l'ancien hub.
+- Déménagement : `scripts/migration-hub-v2.sh` (M1, M2, M3, M4, M8 faits ; M6 partiel ; M5 et M7 à faire).
