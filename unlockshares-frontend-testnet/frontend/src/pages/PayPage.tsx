@@ -1,12 +1,12 @@
 import { Check, LoaderCircle, Store } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { StrKey } from '@stellar/stellar-sdk'
 import { Gauge, usd, usdc, useDemoUi } from '../components/demo'
 import { ConnectButtons } from '../components/Onboarding'
 import { StockPicker } from '../components/StockPicker'
 import { useDemo } from '../lib/useDemo'
 import { actions, refresh } from '../services/app'
-import { actionsConnues, estPasskey, hubV2 as h2, jetonPret, lienTx, messageErreur } from '../services/chain'
+import { actionsConnues, estPasskey, hubV2 as h2, jetonPret, lienTx, lirePositions, messageErreur, type PositionHub } from '../services/chain'
 import { planGetCash } from './GetCashPage'
 import { hubV2 } from '../chainConfig'
 import '../styles/cashout.css'
@@ -154,21 +154,44 @@ export function PayPage() {
  *  Seul le payeur signe ; il n'obtient aucun droit sur les actions de l'emprunteur. */
 function RepayForCard({ address }: { address: string }) {
   const J = jetonPret()
-  const titres = actionsConnues()
   const [qui, setQui] = useState('')
-  const [jeton, setJeton] = useState(titres[0]?.jeton ?? '')
+  const [prets, setPrets] = useState<PositionHub[] | null>(null)
+  const [jeton, setJeton] = useState('')
   const [saisie, setSaisie] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [hash, setHash] = useState('')
+  const cible = qui.trim()
+  const cibleOk = adresseValide(cible) && cible !== address
   const montant = Math.max(0, Number(saisie.replace(',', '.')) || 0)
-  const ok = adresseValide(qui.trim()) && qui.trim() !== address && !!jeton && montant > 0
+  const pret = prets?.find((p) => p.jeton === jeton)
+  const ok = cibleOk && !!pret && montant > 0
+  const nom = (j: string) => actionsConnues().find((t) => t.jeton === j)?.ticker ?? j.slice(0, 4)
+
+  // Dès qu'une adresse valide est collée : on lit ses prêts en cours sur ce pool, et on choisit le plus gros.
+  useEffect(() => {
+    if (!cibleOk) return
+    let fini = false
+    lirePositions(cible)
+      .then((ps) => {
+        if (fini) return
+        const avecDette = ps.filter((p) => p.dette > 0).sort((x, y) => y.dette - x.dette)
+        setPrets(avecDette)
+        setJeton(avecDette[0]?.jeton ?? '')
+      })
+      .catch(() => { if (!fini) setPrets([]) })
+    return () => { fini = true; setPrets(null) }
+  }, [cible, cibleOk])
 
   async function payer() {
     setBusy(true); setErr(''); setHash('')
     try {
-      setHash(await h2.rembourserPour(address, qui.trim(), jeton, montant))
+      setHash(await h2.rembourserPour(address, cible, jeton, montant))
       await refresh()
+      const ps = (await lirePositions(cible)).filter((p) => p.dette > 0)
+      setPrets(ps)
+      if (!ps.some((p) => p.jeton === jeton)) setJeton(ps[0]?.jeton ?? '')
+      setSaisie('')
     } catch (e) {
       setErr(messageErreur(e))
     } finally {
@@ -180,16 +203,28 @@ function RepayForCard({ address }: { address: string }) {
     <div className="pos onboard">
       <div className="head"><h3>Pay back for someone</h3></div>
       <span className="muted">Help a relative: pay part of their loan with your own {J}. Only you sign. Their shares stay theirs.</span>
-      <div className="chips">
-        <input value={qui} onChange={(e) => setQui(e.target.value)} placeholder="Their address (G… or C…)" aria-label="Borrower address" style={{ minWidth: '16em' }} />
-        <select value={jeton} onChange={(e) => setJeton(e.target.value)} aria-label="Shares of the loan">
-          {titres.map((t) => <option key={t.jeton} value={t.jeton}>{t.ticker}</option>)}
-        </select>
-        <input inputMode="decimal" value={saisie} onChange={(e) => setSaisie(e.target.value)} placeholder={`Amount (${J})`} aria-label={`Amount in ${J}`} style={{ width: '8em' }} />
-        <button className="btn primary" disabled={!ok || busy} onClick={() => void payer()}>
-          {busy ? <LoaderCircle className="i spin" aria-hidden /> : null}Pay back
-        </button>
-      </div>
+      <input value={qui} onChange={(e) => setQui(e.target.value)} placeholder="Their address (G… or C…)" aria-label="Borrower address" />
+      {qui && !cibleOk && <small className="co-err">{cible === address ? 'This is your own address: use Pay back on Home.' : 'This is not a valid Stellar address.'}</small>}
+      {cibleOk && prets === null && <small className="muted">Reading their loans…</small>}
+      {cibleOk && prets?.length === 0 && <small className="muted">No loan in progress for this address on this pool.</small>}
+      {!!prets?.length && (
+        <div className="chips" role="radiogroup" aria-label="Their loans">
+          {prets.map((p) => (
+            <button key={p.jeton} role="radio" aria-checked={p.jeton === jeton} className={`btn ${p.jeton === jeton ? 'primary' : ''}`} onClick={() => setJeton(p.jeton)}>
+              {nom(p.jeton)} · owes {usd(p.dette)}
+            </button>
+          ))}
+        </div>
+      )}
+      {!!pret && (
+        <div className="chips">
+          <input inputMode="decimal" value={saisie} onChange={(e) => setSaisie(e.target.value)} placeholder={`Amount (${J})`} aria-label={`Amount in ${J}`} style={{ width: '8em' }} />
+          <button className="linkbtn" onClick={() => setSaisie(String(pret.dette))} style={{ background: 'none', border: 0, padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>All</button>
+          <button className="btn primary" disabled={!ok || busy} onClick={() => void payer()}>
+            {busy ? <LoaderCircle className="i spin" aria-hidden /> : null}Pay back {montant > 0 ? usd(Math.min(montant, pret.dette)) : ''}
+          </button>
+        </div>
+      )}
       {hash && <small><a href={lienTx(hash)} target="_blank" rel="noreferrer">See the transaction</a></small>}
       {err && <small className="co-err">{err}</small>}
     </div>
