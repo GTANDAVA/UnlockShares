@@ -47,11 +47,23 @@ pub struct Etat {
     pub depense: i128,
 }
 
+/// Un compte qui a activé le gardien, et le numéro de sa règle (le robot en a besoin pour signer).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Inscrit {
+    pub compte: Address,
+    pub regle: u32,
+}
+
+/// Nombre maximum de comptes suivis (testnet).
+pub const INSCRITS_MAX: u32 = 500;
+
 #[contracttype]
 #[derive(Clone)]
 enum Cle {
     Reglages,
     Etat(Address, u32),
+    Inscrits,
 }
 
 #[contracterror]
@@ -72,6 +84,8 @@ pub enum Erreur {
     PasSigne = 6,
     /// Montant invalide.
     MontantInvalide = 7,
+    /// Trop de comptes suivis.
+    ListePleine = 8,
 }
 
 #[contractevent]
@@ -90,6 +104,16 @@ fn lire(e: &Env, compte: &Address, regle: u32) -> Etat {
     let etat: Etat = e.storage().persistent().get(&k).unwrap_or_else(|| panic_with_error!(e, Erreur::PasInstalle));
     e.storage().persistent().extend_ttl(&k, TTL_SEUIL, TTL_CIBLE);
     etat
+}
+
+fn inscrits(e: &Env) -> Vec<Inscrit> {
+    let v: Vec<Inscrit> = e.storage().persistent().get(&Cle::Inscrits).unwrap_or_else(|| Vec::new(e));
+    v
+}
+
+fn ecrire_inscrits(e: &Env, v: &Vec<Inscrit>) {
+    e.storage().persistent().set(&Cle::Inscrits, v);
+    e.storage().persistent().extend_ttl(&Cle::Inscrits, TTL_SEUIL, TTL_CIBLE);
 }
 
 fn reglages(e: &Env) -> Reglages {
@@ -145,6 +169,12 @@ impl Gardien {
         e.storage().persistent().set(&k, &etat);
         e.storage().persistent().extend_ttl(&k, TTL_SEUIL, TTL_CIBLE);
         reglages(&e);
+        let mut liste = inscrits(&e);
+        if liste.len() >= INSCRITS_MAX {
+            panic_with_error!(&e, Erreur::ListePleine)
+        }
+        liste.push_back(Inscrit { compte: smart_account.clone(), regle: context_rule.id });
+        ecrire_inscrits(&e, &liste);
         GardienActive { compte: smart_account, regle: context_rule.id, plafond }.publish(&e);
     }
 
@@ -156,6 +186,11 @@ impl Gardien {
             panic_with_error!(&e, Erreur::PasInstalle)
         }
         e.storage().persistent().remove(&k);
+        let mut liste = inscrits(&e);
+        if let Some(i) = liste.first_index_of(Inscrit { compte: smart_account.clone(), regle: context_rule.id }) {
+            liste.remove(i);
+            ecrire_inscrits(&e, &liste);
+        }
         GardienRetire { compte: smart_account, regle: context_rule.id }.publish(&e);
     }
 
@@ -215,6 +250,11 @@ impl Gardien {
         }
         // 3) Tout le reste : refusé.
         panic_with_error!(&e, Erreur::Interdit)
+    }
+
+    /// Lecture : les comptes qui ont activé le gardien (pour le robot).
+    pub fn inscrits(e: Env) -> Vec<Inscrit> {
+        inscrits(&e)
     }
 
     /// Lecture : hub, USDC et période fixés au déploiement.

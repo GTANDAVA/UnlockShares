@@ -67,7 +67,7 @@ fn code(r: Result<Result<(), soroban_sdk::ConversionError>, Result<soroban_sdk::
     match r {
         Err(Ok(err)) => {
             let n = err.get_code();
-            [Erreur::Interdit, Erreur::PlafondDepasse, Erreur::DejaInstalle, Erreur::PasInstalle, Erreur::ReglagesInvalides, Erreur::PasSigne, Erreur::MontantInvalide]
+            [Erreur::Interdit, Erreur::PlafondDepasse, Erreur::DejaInstalle, Erreur::PasInstalle, Erreur::ReglagesInvalides, Erreur::PasSigne, Erreur::MontantInvalide, Erreur::ListePleine]
                 .into_iter()
                 .find(|x| *x as u32 == n)
                 .expect("code inconnu")
@@ -193,6 +193,18 @@ fn installation_controlee() {
 fn deploiement_periode_nulle_refuse() {
     let e = Env::default();
     e.register(Gardien, (Address::generate(&e), Address::generate(&e), 0u32));
+}
+
+#[test]
+fn liste_des_comptes_suivis() {
+    let m = monde();
+    assert_eq!(m.client.inscrits(), Vec::from_array(&m.e, [Inscrit { compte: m.compte.clone(), regle: 3 }]));
+    let autre = Address::generate(&m.e);
+    let r = regle(&m.e, 1, signe(&m), ContextRuleType::Default);
+    m.client.install(&(5 * UNITE).into_val(&m.e), &r, &autre);
+    assert_eq!(m.client.inscrits().len(), 2);
+    m.client.uninstall(&m.regle, &m.compte);
+    assert_eq!(m.client.inscrits(), Vec::from_array(&m.e, [Inscrit { compte: autre, regle: 1 }]));
 }
 
 #[test]
