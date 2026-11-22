@@ -422,3 +422,85 @@ fn mise_a_jour_avec_un_code_inconnu_refusee_et_rien_ne_change() {
     assert_eq!(d.hub.position(&d.lea, &d.aapl).dette, 30 * U);
     assert_eq!(d.hub.fourni(&d.preteur), 1_000 * U);
 }
+
+// ---------- hub v2 : mandat du gardien (comptes Varial et passkey) ----------
+
+/// Léa emprunte 30 USDC contre 5 tAAPL, garde 5 tAAPL et 20 USDC en portefeuille, et donne un mandat au robot.
+fn decor_mandat(plafond_jour: i128, depot: bool) -> (Decor<'static>, Address) {
+    let d = decor();
+    d.hub.deposer(&d.lea, &d.aapl, &(5 * U));
+    d.hub.emprunter(&d.lea, &d.aapl, &(30 * U));
+    StellarAssetClient::new(&d.env, &d.usdc.address).mint(&d.lea, &(20 * U));
+    let robot = Address::generate(&d.env);
+    d.hub.fixer_mandat(&d.lea, &robot, &plafond_jour, &depot);
+    let fin = d.env.ledger().sequence() + 100_000;
+    d.usdc.approve(&d.lea, &d.hub.address, &(1_000 * U), &fin);
+    TokenClient::new(&d.env, &d.aapl).approve(&d.lea, &d.hub.address, &(1_000 * U), &fin);
+    (d, robot)
+}
+
+#[test]
+fn le_robot_rembourse_avec_l_usdc_de_lea_dans_le_plafond_du_jour() {
+    let (d, robot) = decor_mandat(15 * U, false);
+    let avant = d.usdc.balance(&d.lea);
+    assert_eq!(d.hub.rembourser_par_mandat(&robot, &d.lea, &d.aapl, &(10 * U)), 10 * U);
+    assert_eq!(d.usdc.balance(&d.lea), avant - 10 * U);
+    assert_eq!(d.usdc.balance(&robot), 0);
+    assert_eq!(d.hub.position(&d.lea, &d.aapl).dette, 20 * U);
+    // Plafond du jour : 15 USDC, déjà 10 versés.
+    assert_eq!(d.hub.try_rembourser_par_mandat(&robot, &d.lea, &d.aapl, &(6 * U)), Err(Ok(Erreur::PlafondDepasse)));
+    d.hub.rembourser_par_mandat(&robot, &d.lea, &d.aapl, &(5 * U));
+    // Le lendemain, le plafond repart à zéro.
+    d.env.ledger().set_sequence_number(d.env.ledger().sequence() + 17_280);
+    d.hub.rembourser_par_mandat(&robot, &d.lea, &d.aapl, &(10 * U));
+    assert_eq!(d.hub.position(&d.lea, &d.aapl).dette, 5 * U);
+}
+
+#[test]
+fn le_robot_ne_prend_que_ce_qui_est_du() {
+    let (d, robot) = decor_mandat(100 * U, false);
+    let avant = d.usdc.balance(&d.lea);
+    assert_eq!(d.hub.rembourser_par_mandat(&robot, &d.lea, &d.aapl, &(50 * U)), 30 * U);
+    assert_eq!(d.usdc.balance(&d.lea), avant - 30 * U);
+    assert_eq!(d.hub.position(&d.lea, &d.aapl).dette, 0);
+}
+
+#[test]
+fn un_autre_robot_ou_un_mandat_retire_est_refuse() {
+    let (d, robot) = decor_mandat(15 * U, true);
+    let intrus = Address::generate(&d.env);
+    assert_eq!(d.hub.try_rembourser_par_mandat(&intrus, &d.lea, &d.aapl, &U), Err(Ok(Erreur::PasDeMandat)));
+    assert_eq!(d.hub.try_deposer_par_mandat(&intrus, &d.lea, &d.aapl, &U), Err(Ok(Erreur::PasDeMandat)));
+    d.hub.retirer_mandat(&d.lea);
+    assert_eq!(d.hub.mandat(&d.lea), None);
+    assert_eq!(d.hub.try_rembourser_par_mandat(&robot, &d.lea, &d.aapl, &U), Err(Ok(Erreur::PasDeMandat)));
+}
+
+#[test]
+fn le_robot_ajoute_des_actions_seulement_si_le_mandat_le_permet() {
+    let (d, robot) = decor_mandat(15 * U, false);
+    assert_eq!(d.hub.try_deposer_par_mandat(&robot, &d.lea, &d.aapl, &U), Err(Ok(Erreur::PasDeMandat)));
+    d.hub.fixer_mandat(&d.lea, &robot, &(15 * U), &true);
+    d.hub.deposer_par_mandat(&robot, &d.lea, &d.aapl, &(3 * U));
+    assert_eq!(d.hub.position(&d.lea, &d.aapl).garantie, 8 * U);
+    assert_eq!(TokenClient::new(&d.env, &d.aapl).balance(&d.lea), 2 * U);
+    assert_eq!(TokenClient::new(&d.env, &d.aapl).balance(&robot), 0);
+}
+
+#[test]
+fn sans_autorisation_approve_le_robot_ne_peut_rien_prendre() {
+    let (d, robot) = decor_mandat(15 * U, true);
+    let fin = d.env.ledger().sequence() + 100_000;
+    d.usdc.approve(&d.lea, &d.hub.address, &0, &fin);
+    assert!(d.hub.try_rembourser_par_mandat(&robot, &d.lea, &d.aapl, &U).is_err());
+    assert_eq!(d.hub.position(&d.lea, &d.aapl).dette, 30 * U);
+}
+
+#[test]
+fn le_mandat_demande_la_signature_de_lea_et_celle_du_robot() {
+    let (d, robot) = decor_mandat(15 * U, true);
+    d.env.set_auths(&[]);
+    assert!(d.hub.try_fixer_mandat(&d.lea, &robot, &(99 * U), &true).is_err());
+    assert!(d.hub.try_rembourser_par_mandat(&robot, &d.lea, &d.aapl, &U).is_err());
+    assert!(d.hub.try_deposer_par_mandat(&robot, &d.lea, &d.aapl, &U).is_err());
+}

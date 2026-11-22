@@ -146,6 +146,25 @@ pub enum Cle {
     PrixDemo(Address, Address),
     /// Oracle branché sur un spoke (absent = prix administré).
     Oracle(Address),
+    /// Hub v2 : mandat du gardien, par emprunteur.
+    Mandat(Address),
+}
+
+/// Hub v2 : mandat donné par un emprunteur à un robot gardien.
+/// Le robot peut SEULEMENT rembourser la dette de l'emprunteur (avec l'USDC de l'emprunteur, au plus
+/// `plafond_jour` par jour) et, si permis, déposer des actions de l'emprunteur en garantie.
+/// Il ne peut ni emprunter, ni retirer, ni recevoir quoi que ce soit.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Mandat {
+    pub robot: Address,
+    /// USDC maximum que le robot peut verser par jour pour rembourser.
+    pub plafond_jour: i128,
+    /// Le robot peut aussi ajouter des actions de l'emprunteur en garantie.
+    pub depot_actions: bool,
+    /// Jour en cours (numéro de ledger / 17 280) et USDC déjà versé ce jour-là.
+    pub jour: u32,
+    pub verse: i128,
 }
 
 /// La position lue par l'appli (intérêts compris).
@@ -225,6 +244,8 @@ pub enum Erreur {
     ReglesInvalides = 14,
     /// Hub : ce spoke existe déjà, ou trop de spokes.
     SpokeExistant = 15,
+    /// Hub v2 : pas de mandat pour ce robot, ou dépôt d'actions non permis.
+    PasDeMandat = 16,
 }
 
 #[contractevent]
@@ -264,6 +285,12 @@ pub struct Rembourse { #[topic] pub emprunteur: Address, #[topic] pub jeton: Add
 /// Hub v2 : un tiers (un proche, le robot gardien…) a remboursé la dette de quelqu'un d'autre.
 #[contractevent]
 pub struct RemboursePour { #[topic] pub emprunteur: Address, #[topic] pub jeton: Address, pub payeur: Address, pub montant: i128 }
+/// Hub v2 : mandat du gardien donné, changé ou retiré (robot absent = retiré).
+#[contractevent]
+pub struct MandatFixe { #[topic] pub emprunteur: Address, pub robot: Option<Address>, pub plafond_jour: i128, pub depot_actions: bool }
+/// Hub v2 : le robot gardien a agi au nom de l'emprunteur.
+#[contractevent]
+pub struct GardienAgi { #[topic] pub emprunteur: Address, #[topic] pub jeton: Address, pub robot: Address, pub rembourse: i128, pub depose: i128 }
 /// Hub v2 : le code du hub a été remplacé par l'admin (même adresse, même caisse, mêmes prêts).
 #[contractevent]
 pub struct CodeMisAJour { pub code: BytesN<32> }
@@ -301,7 +328,9 @@ fn positif(montant: i128) -> Result<(), Erreur> {
 
 /// Rembourse la dette d'`emprunteur` avec l'USDC de `payeur` (l'excédent est rendu au payeur).
 /// La signature est vérifiée par l'appelant.
-fn payer_dette(env: &Env, payeur: &Address, emprunteur: &Address, jeton: &Address, montant: i128) -> Result<i128, Erreur> {
+/// `par_mandat` : l'USDC est pris sur le compte de l'emprunteur par `transfer_from` (autorisation `approve`
+/// donnée au hub), et seulement ce qui est dû (rien à rendre).
+fn payer_dette(env: &Env, payeur: &Address, emprunteur: &Address, jeton: &Address, montant: i128, par_mandat: bool) -> Result<i128, Erreur> {
     positif(montant)?;
     let mut e = actualiser(env);
     let mut s = e.spoke(jeton)?;
@@ -312,9 +341,14 @@ fn payer_dette(env: &Env, payeur: &Address, emprunteur: &Address, jeton: &Addres
     }
     let paye = if montant > dette { dette } else { montant };
     let pret = jeton_pret(env);
-    pret.transfer(payeur, &env.current_contract_address(), &montant);
-    if montant > paye {
-        pret.transfer(&env.current_contract_address(), payeur, &(montant - paye));
+    let hub = env.current_contract_address();
+    if par_mandat {
+        pret.transfer_from(&hub, emprunteur, &hub, &paye);
+    } else {
+        pret.transfer(payeur, &hub, &montant);
+        if montant > paye {
+            pret.transfer(&hub, payeur, &(montant - paye));
+        }
     }
     let (vers_demo, brulees) = repartir_paiement(paye, &p, s.index);
     p.dette_demo -= vers_demo;
@@ -326,6 +360,20 @@ fn payer_dette(env: &Env, payeur: &Address, emprunteur: &Address, jeton: &Addres
     ecrire_etat(env, &e);
     garder_en_vie(env);
     Ok(paye)
+}
+
+fn lire_mandat(env: &Env, emprunteur: &Address, robot: &Address) -> Result<Mandat, Erreur> {
+    let m: Mandat = env.storage().persistent().get(&Cle::Mandat(emprunteur.clone())).ok_or(Erreur::PasDeMandat)?;
+    if m.robot != *robot {
+        return Err(Erreur::PasDeMandat);
+    }
+    Ok(m)
+}
+
+fn ecrire_mandat(env: &Env, emprunteur: &Address, m: &Mandat) {
+    let cle = Cle::Mandat(emprunteur.clone());
+    env.storage().persistent().set(&cle, m);
+    env.storage().persistent().extend_ttl(&cle, TTL_SEUIL, TTL_CIBLE);
 }
 
 fn jeton_pret(env: &Env) -> token::Client<'_> {
@@ -972,7 +1020,7 @@ impl Hub {
     /// Rembourse exactement `montant` (l'excédent éventuel est rendu). Toujours permis, même spoke en pause.
     pub fn rembourser(env: Env, emprunteur: Address, jeton: Address, montant: i128) -> Result<i128, Erreur> {
         emprunteur.require_auth();
-        let paye = payer_dette(&env, &emprunteur, &emprunteur, &jeton, montant)?;
+        let paye = payer_dette(&env, &emprunteur, &emprunteur, &jeton, montant, false)?;
         Rembourse { emprunteur, jeton, montant: paye }.publish(&env);
         Ok(paye)
     }
@@ -981,9 +1029,81 @@ impl Hub {
     /// Seul le payeur signe. L'emprunteur ne signe rien : on ne peut que réduire sa dette, jamais l'augmenter.
     pub fn rembourser_pour(env: Env, payeur: Address, emprunteur: Address, jeton: Address, montant: i128) -> Result<i128, Erreur> {
         payeur.require_auth();
-        let paye = payer_dette(&env, &payeur, &emprunteur, &jeton, montant)?;
+        let paye = payer_dette(&env, &payeur, &emprunteur, &jeton, montant, false)?;
         RemboursePour { emprunteur, jeton, payeur, montant: paye }.publish(&env);
         Ok(paye)
+    }
+
+    // ---------- hub v2 : mandat du gardien ----------
+
+    /// L'emprunteur donne (ou change) le mandat de son robot gardien. Il doit aussi autoriser le hub à
+    /// prendre son USDC (`approve` du jeton USDC, plafonné et daté), et ses actions s'il permet le dépôt.
+    pub fn fixer_mandat(env: Env, emprunteur: Address, robot: Address, plafond_jour: i128, depot_actions: bool) -> Result<(), Erreur> {
+        emprunteur.require_auth();
+        positif(plafond_jour)?;
+        if robot == emprunteur {
+            return Err(Erreur::MontantInvalide);
+        }
+        ecrire_mandat(&env, &emprunteur, &Mandat { robot: robot.clone(), plafond_jour, depot_actions, jour: 0, verse: 0 });
+        garder_en_vie(&env);
+        MandatFixe { emprunteur, robot: Some(robot), plafond_jour, depot_actions }.publish(&env);
+        Ok(())
+    }
+
+    /// L'emprunteur retire le mandat : le robot ne peut plus rien faire.
+    pub fn retirer_mandat(env: Env, emprunteur: Address) {
+        emprunteur.require_auth();
+        env.storage().persistent().remove(&Cle::Mandat(emprunteur.clone()));
+        MandatFixe { emprunteur, robot: None, plafond_jour: 0, depot_actions: false }.publish(&env);
+    }
+
+    /// Lecture : le mandat de l'emprunteur (absent = pas de gardien).
+    pub fn mandat(env: Env, emprunteur: Address) -> Option<Mandat> {
+        env.storage().persistent().get(&Cle::Mandat(emprunteur))
+    }
+
+    /// Le robot rembourse la dette de l'emprunteur avec l'USDC de l'emprunteur, au plus `plafond_jour` par jour.
+    pub fn rembourser_par_mandat(env: Env, robot: Address, emprunteur: Address, jeton: Address, montant: i128) -> Result<i128, Erreur> {
+        robot.require_auth();
+        let mut m = lire_mandat(&env, &emprunteur, &robot)?;
+        let jour = env.ledger().sequence() / JOUR;
+        if jour != m.jour {
+            m.jour = jour;
+            m.verse = 0;
+        }
+        positif(montant)?;
+        if m.verse + montant > m.plafond_jour {
+            return Err(Erreur::PlafondDepasse);
+        }
+        let paye = payer_dette(&env, &emprunteur, &emprunteur, &jeton, montant, true)?;
+        m.verse += paye;
+        ecrire_mandat(&env, &emprunteur, &m);
+        GardienAgi { emprunteur, jeton, robot, rembourse: paye, depose: 0 }.publish(&env);
+        Ok(paye)
+    }
+
+    /// Le robot ajoute des actions de l'emprunteur en garantie (si le mandat le permet).
+    /// Les actions restent à l'emprunteur : elles passent seulement de son portefeuille à sa position.
+    pub fn deposer_par_mandat(env: Env, robot: Address, emprunteur: Address, jeton: Address, montant: i128) -> Result<(), Erreur> {
+        robot.require_auth();
+        let m = lire_mandat(&env, &emprunteur, &robot)?;
+        if !m.depot_actions {
+            return Err(Erreur::PasDeMandat);
+        }
+        positif(montant)?;
+        let e = calculer(&env);
+        let s = e.spoke(&jeton)?;
+        if !s.actif {
+            return Err(Erreur::SpokeEnPause);
+        }
+        let hub = env.current_contract_address();
+        token::Client::new(&env, &jeton).transfer_from(&hub, &emprunteur, &hub, &montant);
+        let mut p = position(&env, &emprunteur, &jeton);
+        p.garantie += montant;
+        ecrire_position(&env, &emprunteur, &jeton, &p);
+        garder_en_vie(&env);
+        GardienAgi { emprunteur, jeton, robot, rembourse: 0, depose: montant }.publish(&env);
+        Ok(())
     }
 
     /// Liquidation d'UNE position (emprunteur, action), aux règles de son spoke.
