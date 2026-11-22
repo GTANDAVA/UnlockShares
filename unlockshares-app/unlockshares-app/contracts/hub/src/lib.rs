@@ -285,6 +285,9 @@ pub struct Rembourse { #[topic] pub emprunteur: Address, #[topic] pub jeton: Add
 /// Hub v2 : un tiers (un proche, le robot gardien…) a remboursé la dette de quelqu'un d'autre.
 #[contractevent]
 pub struct RemboursePour { #[topic] pub emprunteur: Address, #[topic] pub jeton: Address, pub payeur: Address, pub montant: i128 }
+/// Hub v2 : emprunt versé directement à un commerçant.
+#[contractevent]
+pub struct EmprunteVers { #[topic] pub emprunteur: Address, #[topic] pub jeton: Address, pub destinataire: Address, pub montant: i128 }
 /// Hub v2 : mandat du gardien donné, changé ou retiré (robot absent = retiré).
 #[contractevent]
 pub struct MandatFixe { #[topic] pub emprunteur: Address, pub robot: Option<Address>, pub plafond_jour: i128, pub depot_actions: bool }
@@ -374,6 +377,42 @@ fn ecrire_mandat(env: &Env, emprunteur: &Address, m: &Mandat) {
     let cle = Cle::Mandat(emprunteur.clone());
     env.storage().persistent().set(&cle, m);
     env.storage().persistent().extend_ttl(&cle, TTL_SEUIL, TTL_CIBLE);
+}
+
+/// Contrôles et écriture d'un emprunt (signature vérifiée par l'appelant) ; l'USDC part vers `destinataire`.
+fn emprunter_vers_calc(env: &Env, emprunteur: &Address, jeton: &Address, montant: i128, destinataire: &Address) -> Result<(), Erreur> {
+    positif(montant)?;
+    let mut e = actualiser(env);
+    let mut s = e.spoke(jeton)?;
+    if !s.actif {
+        return Err(Erreur::SpokeEnPause);
+    }
+    verifier_prix_frais(env, jeton)?;
+    let mut p = position(env, emprunteur, jeton);
+    let dette = dette_totale(&p, s.index) + montant;
+    if !sous_la_limite(dette, p.garantie, prix_pour(env, &s, emprunteur, jeton), &s.regles) {
+        return Err(Erreur::GarantieInsuffisante);
+    }
+    let libre = caisse_libre(env, e.reserve);
+    if montant > libre {
+        return Err(Erreur::CaisseVide);
+    }
+    let pl = plafonds(env);
+    if dette_adresse(env, &e, emprunteur) + montant > pl.fixe || montant * BPS > libre * pl.caisse_bps {
+        return Err(Erreur::PlafondDepasse);
+    }
+    if (reel_haut(s.parts, s.index) + montant) * BPS > e.fourni() * s.regles.plafond_bps {
+        return Err(Erreur::PlafondSpoke);
+    }
+    let parts = parts_haut(montant, s.index);
+    p.parts_dette += parts;
+    s.parts += parts;
+    e.spokes.set(jeton.clone(), s);
+    ecrire_position(env, emprunteur, jeton, &p);
+    ecrire_etat(env, &e);
+    garder_en_vie(env);
+    jeton_pret(env).transfer(&env.current_contract_address(), destinataire, &montant);
+    Ok(())
 }
 
 fn jeton_pret(env: &Env) -> token::Client<'_> {
@@ -982,38 +1021,20 @@ impl Hub {
 
     pub fn emprunter(env: Env, emprunteur: Address, jeton: Address, montant: i128) -> Result<(), Erreur> {
         emprunteur.require_auth();
-        positif(montant)?;
-        let mut e = actualiser(&env);
-        let mut s = e.spoke(&jeton)?;
-        if !s.actif {
-            return Err(Erreur::SpokeEnPause);
-        }
-        verifier_prix_frais(&env, &jeton)?;
-        let mut p = position(&env, &emprunteur, &jeton);
-        let dette = dette_totale(&p, s.index) + montant;
-        if !sous_la_limite(dette, p.garantie, prix_pour(&env, &s, &emprunteur, &jeton), &s.regles) {
-            return Err(Erreur::GarantieInsuffisante);
-        }
-        let libre = caisse_libre(&env, e.reserve);
-        if montant > libre {
-            return Err(Erreur::CaisseVide);
-        }
-        let pl = plafonds(&env);
-        if dette_adresse(&env, &e, &emprunteur) + montant > pl.fixe || montant * BPS > libre * pl.caisse_bps {
-            return Err(Erreur::PlafondDepasse);
-        }
-        if (reel_haut(s.parts, s.index) + montant) * BPS > e.fourni() * s.regles.plafond_bps {
-            return Err(Erreur::PlafondSpoke);
-        }
-        let parts = parts_haut(montant, s.index);
-        p.parts_dette += parts;
-        s.parts += parts;
-        e.spokes.set(jeton.clone(), s);
-        ecrire_position(&env, &emprunteur, &jeton, &p);
-        ecrire_etat(&env, &e);
-        garder_en_vie(&env);
-        jeton_pret(&env).transfer(&env.current_contract_address(), &emprunteur, &montant);
+        emprunter_vers_calc(&env, &emprunteur, &jeton, montant, &emprunteur)?;
         Emprunte { emprunteur, jeton, montant }.publish(&env);
+        Ok(())
+    }
+
+    /// Hub v2 : emprunter et payer directement un commerçant. Mêmes contrôles qu'`emprunter` ;
+    /// l'emprunteur porte la dette, l'USDC part chez `destinataire`.
+    pub fn emprunter_vers(env: Env, emprunteur: Address, jeton: Address, montant: i128, destinataire: Address) -> Result<(), Erreur> {
+        emprunteur.require_auth();
+        if destinataire == env.current_contract_address() {
+            return Err(Erreur::MontantInvalide);
+        }
+        emprunter_vers_calc(&env, &emprunteur, &jeton, montant, &destinataire)?;
+        EmprunteVers { emprunteur, jeton, destinataire, montant }.publish(&env);
         Ok(())
     }
 

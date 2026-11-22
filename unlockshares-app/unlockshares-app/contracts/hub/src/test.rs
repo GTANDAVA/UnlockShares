@@ -504,3 +504,45 @@ fn le_mandat_demande_la_signature_de_lea_et_celle_du_robot() {
     assert!(d.hub.try_rembourser_par_mandat(&robot, &d.lea, &d.aapl, &U).is_err());
     assert!(d.hub.try_deposer_par_mandat(&robot, &d.lea, &d.aapl, &U).is_err());
 }
+
+// ---------- hub v2 : payer un commerçant ----------
+
+#[test]
+fn emprunter_vers_paie_le_commercant_et_lea_porte_la_dette() {
+    let d = decor();
+    let commercant = Address::generate(&d.env);
+    d.hub.deposer(&d.lea, &d.aapl, &(10 * U));
+    d.hub.emprunter_vers(&d.lea, &d.aapl, &(45 * U), &commercant);
+    assert_eq!(d.usdc.balance(&commercant), 45 * U);
+    assert_eq!(d.usdc.balance(&d.lea), 0);
+    assert_eq!(d.hub.position(&d.lea, &d.aapl).dette, 45 * U);
+    // Léa rembourse en 3 fois, quand elle veut.
+    StellarAssetClient::new(&d.env, &d.usdc.address).mint(&d.lea, &(45 * U));
+    for _ in 0..3 {
+        d.hub.rembourser(&d.lea, &d.aapl, &(15 * U));
+    }
+    assert_eq!(d.hub.position(&d.lea, &d.aapl).dette, 0);
+}
+
+#[test]
+fn emprunter_vers_garde_tous_les_refus_d_emprunter() {
+    let d = decor();
+    let commercant = Address::generate(&d.env);
+    d.hub.deposer(&d.lea, &d.aapl, &(10 * U));
+    // Garantie : 10 tAAPL à 100 = 1 000, 50 % = 500 maximum.
+    assert!(d.hub.try_emprunter_vers(&d.lea, &d.aapl, &(501 * U), &commercant).is_err());
+    assert_eq!(d.hub.try_emprunter_vers(&d.lea, &d.aapl, &0, &commercant), Err(Ok(Erreur::MontantInvalide)));
+    assert_eq!(d.hub.try_emprunter_vers(&d.lea, &d.aapl, &U, &d.hub.address), Err(Ok(Erreur::MontantInvalide)));
+    d.hub.ouvrir_spoke(&d.aapl, &false);
+    assert_eq!(d.hub.try_emprunter_vers(&d.lea, &d.aapl, &U, &commercant), Err(Ok(Erreur::SpokeEnPause)));
+    assert_eq!(d.usdc.balance(&commercant), 0);
+}
+
+#[test]
+fn emprunter_vers_demande_la_signature_de_l_emprunteur() {
+    let d = decor();
+    let commercant = Address::generate(&d.env);
+    d.hub.deposer(&d.lea, &d.aapl, &(10 * U));
+    d.env.set_auths(&[]);
+    assert!(d.hub.try_emprunter_vers(&d.lea, &d.aapl, &U, &commercant).is_err());
+}
