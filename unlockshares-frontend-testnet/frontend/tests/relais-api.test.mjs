@@ -1,8 +1,8 @@
 // Tests du relais de frais /api/relais (node --test). Aucun appel réseau : RPC et OpenZeppelin sont simulés.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { Account, Address, BASE_FEE, Contract, Keypair, Networks, TransactionBuilder, nativeToScVal, xdr } from '@stellar/stellar-sdk'
-import { CIBLES, DEPLOYEUR, WALLET_WASM, soumettre, traiter, verifier } from '../api/_relais.js'
+import { Account, Address, BASE_FEE, Contract, Keypair, Networks, StrKey, TransactionBuilder, nativeToScVal, xdr } from '@stellar/stellar-sdk'
+import { CIBLES, DEPLOYEUR, GARDIEN_ID, ROBOT_GARDIEN, VERIFIER_ED25519, WALLET_WASM, soumettre, traiter, verifier } from '../api/_relais.js'
 
 const PRET = Object.keys(CIBLES)[0]
 const COMPTE = 'CC7EKIHQP3TN4CARQDND6CEOY2UXLWWC2X5GHTD5NLAT7BG5GPZIOM3F' // une adresse C… quelconque
@@ -168,4 +168,42 @@ test('the hub and the 12-share faucet are accepted, their admin functions are re
     const v = await verifier({ func: b64(appel(contrat, fn)), auth: [b64(autorisation(COMPTE, contrat, fn))] }, bonWasm)
     assert.equal(v.status, 403, `${fn} should be refused`)
   }
+})
+
+// --- Gardien : le compte ajoute ou retire lui-même la règle « rembourser seulement » ---
+const sym = (t) => xdr.ScVal.scvSymbol(t)
+const enumVal = (t, ...v) => xdr.ScVal.scvVec([sym(t), ...v])
+const signerExterne = (verif = VERIFIER_ED25519, cle = StrKey.decodeEd25519PublicKey(ROBOT_GARDIEN)) =>
+  enumVal('External', new Address(verif).toScVal(), xdr.ScVal.scvBytes(Buffer.from(cle)))
+function ajoutRegle({ type = 'Default', signers = [signerExterne()], politique = GARDIEN_ID, cible = COMPTE } = {}) {
+  const args = [
+    enumVal(type), xdr.ScVal.scvString('UnlockShares guardian'), xdr.ScVal.scvVoid(), xdr.ScVal.scvVec(signers),
+    xdr.ScVal.scvMap([new xdr.ScMapEntry({ key: new Address(politique).toScVal(), val: nativeToScVal(200000000n, { type: 'i128' }) })]),
+  ]
+  return xdr.HostFunction.hostFunctionTypeInvokeContract(new xdr.InvokeContractArgs({
+    contractAddress: new Address(cible).toScAddress(), functionName: 'add_context_rule', args,
+  }))
+}
+const retraitRegle = (id, cible = COMPTE) => xdr.HostFunction.hostFunctionTypeInvokeContract(new xdr.InvokeContractArgs({
+  contractAddress: new Address(cible).toScAddress(), functionName: 'remove_context_rule', args: [xdr.ScVal.scvU32(id)],
+}))
+
+test('a passkey account turning its guardian on or off is accepted', async () => {
+  let v = await verifier({ func: b64(ajoutRegle()), auth: [b64(autorisation(COMPTE, COMPTE, 'add_context_rule'))] }, bonWasm)
+  assert.deepEqual(v, { creation: false, compte: COMPTE })
+  v = await verifier({ func: b64(retraitRegle(3)), auth: [b64(autorisation(COMPTE, COMPTE, 'remove_context_rule'))] }, bonWasm)
+  assert.deepEqual(v, { creation: false, compte: COMPTE })
+})
+
+test('any other rule change is refused: other key, other policy, other type, rule 0, someone else\'s account', async () => {
+  const essai = (func) => verifier({ func: b64(func), auth: [b64(autorisation(COMPTE, COMPTE, 'add_context_rule'))] }, bonWasm)
+  assert.equal((await essai(ajoutRegle({ signers: [signerExterne(VERIFIER_ED25519, Keypair.random().rawPublicKey())] }))).status, 403)
+  assert.equal((await essai(ajoutRegle({ signers: [signerExterne(AUTRE_CONTRAT)] }))).status, 403)
+  assert.equal((await essai(ajoutRegle({ signers: [enumVal('Delegated', new Address(Keypair.random().publicKey()).toScVal())] }))).status, 403)
+  assert.equal((await essai(ajoutRegle({ signers: [signerExterne(), signerExterne()] }))).status, 403)
+  assert.equal((await essai(ajoutRegle({ politique: AUTRE_CONTRAT }))).status, 403)
+  assert.equal((await essai(ajoutRegle({ type: 'CreateContract' }))).status, 403)
+  assert.equal((await essai(retraitRegle(0))).status, 403)
+  // le compte A ne peut pas modifier le compte B
+  assert.equal((await essai(ajoutRegle({ cible: AUTRE_CONTRAT }))).status, 403)
 })
