@@ -35,15 +35,14 @@ fn regle(e: &Env, id: u32, signers: Vec<Signer>, t: ContextRuleType) -> ContextR
 fn monde() -> Monde {
     let e = Env::default();
     e.mock_all_auths();
-    let id = e.register(Gardien, ());
+    let hub = Address::generate(&e);
+    let usdc = Address::generate(&e);
+    let id = e.register(Gardien, (hub.clone(), usdc.clone(), 17_280u32));
     let client = GardienClient::new(&e, &id);
     let compte = Address::generate(&e);
     let cle_gardien = Signer::Delegated(Address::generate(&e));
     let regle = regle(&e, 3, Vec::from_array(&e, [cle_gardien.clone()]), ContextRuleType::Default);
-    let hub = Address::generate(&e);
-    let usdc = Address::generate(&e);
-    let reglages = Reglages { hub: hub.clone(), usdc: usdc.clone(), plafond: 20 * UNITE, periode: 17_280 };
-    client.install(&reglages.into_val(&e), &regle, &compte);
+    client.install(&(20 * UNITE).into_val(&e), &regle, &compte);
     Monde { e, client, compte, cle_gardien, regle, hub, usdc }
 }
 
@@ -170,16 +169,30 @@ fn sans_la_signature_du_gardien_refuse() {
 #[test]
 fn installation_controlee() {
     let m = monde();
-    let r = Reglages { hub: m.hub.clone(), usdc: m.usdc.clone(), plafond: 20 * UNITE, periode: 17_280 };
+    let p: Val = (20 * UNITE).into_val(&m.e);
     // Deux fois la même règle : refusé.
-    assert_eq!(code(m.client.try_install(&r.clone().into_val(&m.e), &m.regle, &m.compte)), Erreur::DejaInstalle);
+    assert_eq!(code(m.client.try_install(&p, &m.regle, &m.compte)), Erreur::DejaInstalle);
     // Règle limitée à un seul contrat : refusé (il faut couvrir hub + USDC).
     let r2 = regle(&m.e, 4, signe(&m), ContextRuleType::CallContract(m.hub.clone()));
-    assert_eq!(code(m.client.try_install(&r.clone().into_val(&m.e), &r2, &m.compte)), Erreur::Interdit);
-    // Plafond nul : refusé.
+    assert_eq!(code(m.client.try_install(&p, &r2, &m.compte)), Erreur::Interdit);
+    // Plafond nul ou pas un nombre : refusé.
     let r3 = regle(&m.e, 5, signe(&m), ContextRuleType::Default);
-    let mauvais = Reglages { plafond: 0, ..r.clone() };
-    assert_eq!(code(m.client.try_install(&mauvais.into_val(&m.e), &r3, &m.compte)), Erreur::ReglagesInvalides);
+    assert_eq!(code(m.client.try_install(&0i128.into_val(&m.e), &r3, &m.compte)), Erreur::ReglagesInvalides);
+    assert_eq!(code(m.client.try_install(&m.hub.to_val(), &r3, &m.compte)), Erreur::ReglagesInvalides);
+    // Plafond encodé en u64 ou u32 par le site : accepté.
+    let r4 = regle(&m.e, 6, signe(&m), ContextRuleType::Default);
+    m.client.install(&(20u64 * 10_000_000).into_val(&m.e), &r4, &m.compte);
+    assert_eq!(m.client.etat(&m.compte, &6).unwrap().plafond, 20 * UNITE);
+    let r5 = regle(&m.e, 7, signe(&m), ContextRuleType::Default);
+    m.client.install(&20u32.into_val(&m.e), &r5, &m.compte);
+    assert_eq!(m.client.reglages(), Reglages { hub: m.hub.clone(), usdc: m.usdc.clone(), periode: 17_280 });
+}
+
+#[test]
+#[should_panic]
+fn deploiement_periode_nulle_refuse() {
+    let e = Env::default();
+    e.register(Gardien, (Address::generate(&e), Address::generate(&e), 0u32));
 }
 
 #[test]
