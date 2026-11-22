@@ -1,0 +1,40 @@
+# Robot gardien (voir robots/gardien.mjs et contracts/gardien) : rembourse une partie du prêt des comptes passkey
+# qui ont ACTIVÉ l'option, quand leur prêt approche de la liquidation, avec l'USDC déjà dans leur portefeuille.
+# SÉCURITÉ : tant que la variable du dépôt GARDIEN_ACTIF ne vaut pas "oui", il est en LECTURE SEULE
+# (il affiche ce qu'il ferait, n'envoie rien). Sa clé vient du secret GitHub GARDIEN_ROBOT_CLE, jamais du code.
+name: Robot gardien
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  # Essai en lecture seule depuis la branche de travail (jamais d'envoi sur un push).
+  push:
+    branches: [feature/gardien]
+    paths: ['robots/**', '.github/workflows/gardien.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gardien
+  cancel-in-progress: false
+
+jobs:
+  surveiller:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: robots
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --omit=dev --no-audit --no-fund
+      - run: node gardien.mjs
+        env:
+          GARDIEN_ID: ${{ vars.GARDIEN_ID || 'CBBKHSDHUPFSKACFWMZUNWV66SQJYE7D2GHMPVBASSEMRCMUOJWMCOUF' }}
+          ENVOYER: ${{ github.event_name != 'push' && vars.GARDIEN_ACTIF == 'oui' && 'oui' || 'non' }}
+          GARDIEN_ROBOT_CLE: ${{ secrets.GARDIEN_ROBOT_CLE }}
