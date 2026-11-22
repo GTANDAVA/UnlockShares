@@ -156,3 +156,16 @@ test('USDC transfer to a plain address, above the cap, from someone else or of a
     assert.equal(v.status, 403)
   }
 })
+
+test('the hub and the 12-share faucet are accepted, their admin functions are refused', async () => {
+  const HUB = 'CAPHBREM2DX36MACGMUJWMQ7ASCBR2LFJRCJQIEEUMQ7SI5IV4TFMIKF'
+  const ROBINET_ACTIONS = 'CDVXQTFEDN2OJBZU2AB2O4DI76RFBRWJRRMRZMNLEVNSO2BMZNAJQAUO'
+  for (const [contrat, fn] of [[HUB, 'emprunter'], [HUB, 'deposer'], [HUB, 'rembourser'], [HUB, 'reinitialiser_prix_demo'], [ROBINET_ACTIONS, 'recevoir'], [ROBINET_ACTIONS, 'recevoir_titre']]) {
+    const v = await verifier({ func: b64(appel(contrat, fn)), auth: [b64(autorisation(COMPTE, contrat, fn))] }, bonWasm)
+    assert.deepEqual(v, { creation: false, compte: COMPTE }, `${fn} should be accepted`)
+  }
+  for (const [contrat, fn] of [[HUB, 'retirer_reserve'], [HUB, 'fixer_prix'], [HUB, 'ajouter_spoke'], [ROBINET_ACTIONS, 'fixer_pack']]) {
+    const v = await verifier({ func: b64(appel(contrat, fn)), auth: [b64(autorisation(COMPTE, contrat, fn))] }, bonWasm)
+    assert.equal(v.status, 403, `${fn} should be refused`)
+  }
+})

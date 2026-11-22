@@ -1,7 +1,7 @@
 // Relais de frais pour les comptes passkey : on transmet l'appel à OpenZeppelin Channels, qui paie les frais réseau.
 // La clé API (OZ_CHANNELS_KEY) reste ici, côté serveur. Le relais refuse tout ce qui n'est pas :
 //   1. la création d'un compte passkey officiel (smart-account-kit, stellar-accounts v0.8.0), ou
-//   2. un appel d'un compte passkey vers NOS contrats (prêt, robinet, distributeur), fonctions utilisateur seulement, ou
+//   2. un appel d'un compte passkey vers NOS contrats (hub, prêt v3, robinets, distributeur), fonctions utilisateur seulement, ou
 //   3. un retrait vers un anchor : transfert d'USDC (Circle) du compte passkey vers une adresse « M… » (anchor + numéro
 //      du retrait), 50 USDC maximum. L'adresse de l'anchor change selon les anchors : on exige le format M…, que seul
 //      un retrait d'anchor utilise ici, plus le plafond et la limite d'appels par IP.
@@ -22,6 +22,9 @@ export const CIBLES = {
   CCOM4RD25IFM76BXEKQUV4ZLF4AIDIK7XGANGA6FRJQUUWE7R3Q4EUHI: ['fournir', 'retirer_fonds', 'deposer', 'retirer', 'emprunter', 'rembourser', 'liquider', 'fixer_prix_demo', 'avancer_temps_perso'],
   CD3MLCLA2SQHC2X7P3W6PRNHJTZVMT5ELHS2MXT6GOFVAPXRIJVFBNH7: ['recevoir'], // robinet tAAPL
   CAMCKH3GBDEPO7ONTAMIRYJ7YCZWYT3G7F6Q33L2KEPLF7AFIB43A275: ['recevoir'], // distributeur USDC
+  // Hub & spokes (en ligne depuis le 20/11) : mêmes gestes que le prêt v3, plus le retour au prix réel de la démo perso.
+  CAPHBREM2DX36MACGMUJWMQ7ASCBR2LFJRCJQIEEUMQ7SI5IV4TFMIKF: ['fournir', 'retirer_fonds', 'deposer', 'retirer', 'emprunter', 'rembourser', 'liquider', 'fixer_prix_demo', 'reinitialiser_prix_demo', 'avancer_temps_perso'],
+  CDVXQTFEDN2OJBZU2AB2O4DI76RFBRWJRRMRZMNLEVNSO2BMZNAJQAUO: ['recevoir', 'recevoir_titre'], // robinet des 12 actions
 }
 
 /** USDC de Circle sur testnet (contrat SAC) et plafond d'un retrait vers un anchor (unités, 7 décimales) */
