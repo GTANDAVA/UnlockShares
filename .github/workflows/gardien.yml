@@ -36,5 +36,7 @@ jobs:
       - run: node gardien.mjs
         env:
           GARDIEN_ID: ${{ vars.GARDIEN_ID || 'CBBKHSDHUPFSKACFWMZUNWV66SQJYE7D2GHMPVBASSEMRCMUOJWMCOUF' }}
+          # Hub v2 : mandats des comptes (vide tant que le hub v2 n'est pas déployé = rien à faire).
+          HUB_V2_ID: ${{ vars.HUB_V2_ID }}
           ENVOYER: ${{ github.event_name != 'push' && vars.GARDIEN_ACTIF == 'oui' && 'oui' || 'non' }}
           GARDIEN_ROBOT_CLE: ${{ secrets.GARDIEN_ROBOT_CLE }}

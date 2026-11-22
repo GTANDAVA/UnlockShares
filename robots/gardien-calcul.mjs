@@ -34,3 +34,14 @@ export function choisirRemboursement(positions, reste, solde) {
   if (montant < MINIMUM) return { jeton: p.jeton, montant: 0n, besoin, ltv_bps: p.ltv_bps, raison: besoin > reste ? 'plafond du jour atteint' : 'pas assez d’USDC dans le portefeuille' }
   return { jeton: p.jeton, montant, besoin, ltv_bps: p.ltv_bps }
 }
+
+/** Hub v2 : un jour = 17 280 ledgers (comme dans le hub). */
+export const JOUR = 17_280
+
+/** Hub v2 : ce qui reste du plafond du jour d'un mandat (le hub repart de zéro chaque jour). */
+export function restePlafondMandat(mandat, ledger) {
+  if (!mandat) return 0n
+  if (Math.floor(ledger / JOUR) !== Number(mandat.jour)) return mandat.plafond_jour
+  const r = mandat.plafond_jour - mandat.verse
+  return r > 0n ? r : 0n
+}

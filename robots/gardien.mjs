@@ -7,11 +7,14 @@
 // Il n'envoie que si ENVOYER=oui ET que la clé secrète GARDIEN_ROBOT_CLE est présente.
 //
 // Variables : GARDIEN_ID, ENVOYER, GARDIEN_ROBOT_CLE (secret), RPC_URL (défaut testnet).
+// Hub v2 (HUB_V2_ID renseigné) : le robot lit aussi les MANDATS stockés dans le hub v2 (comptes passkey et Varial)
+// et appelle hub.rembourser_par_mandat : le hub vérifie le mandat et le plafond du jour, et prend l'USDC du compte.
 import { Account, Address, Contract, Keypair, Networks, Operation, TransactionBuilder, BASE_FEE, nativeToScVal, rpc, scValToNative, xdr } from '@stellar/stellar-sdk'
 import { Ed25519Signer, KNOWN_AUTH_DIGEST_SCHEMES, signAuthEntryWithSigners } from 'smart-account-kit'
-import { choisirRemboursement, restePlafond } from './gardien-calcul.mjs'
+import { choisirRemboursement, restePlafond, restePlafondMandat } from './gardien-calcul.mjs'
 
 const GARDIEN_ID = (process.env.GARDIEN_ID || '').trim()
+const HUB_V2 = (process.env.HUB_V2_ID || '').trim()
 const CLE = (process.env.GARDIEN_ROBOT_CLE || '').trim()
 const envoyer = process.env.ENVOYER === 'oui' && !!CLE
 const RESEAU = Networks.TESTNET
@@ -82,36 +85,95 @@ function compterSousAppels(inv) {
   return inv.subInvocations.reduce((n, s) => n + 1 + compterSousAppels(s), 0)
 }
 
-if (!GARDIEN_ID) {
-  console.log('GARDIEN_ID manquant : rien à faire.')
+/** Hub v2 : le robot signe seul (compte source), le hub contrôle le mandat. */
+async function rembourserParMandat(moi, hub, compte, jeton, montant) {
+  const compteRobot = await serveur.getAccount(moi.publicKey())
+  const args = [new Address(moi.publicKey()).toScVal(), new Address(compte).toScVal(), new Address(jeton).toScVal(), nativeToScVal(montant, { type: 'i128' })]
+  const tx = new TransactionBuilder(compteRobot, { fee: BASE_FEE, networkPassphrase: RESEAU })
+    .addOperation(Operation.invokeContractFunction({ contract: hub, function: 'rembourser_par_mandat', args }))
+    .setTimeout(60).build()
+  const sim = await serveur.simulateTransaction(tx)
+  if (rpc.Api.isSimulationError(sim)) throw new Error(`refusé par le hub : ${sim.error}`)
+  const pret = rpc.assembleTransaction(tx, sim).build()
+  pret.sign(moi)
+  const envoi = await serveur.sendTransaction(pret)
+  if (envoi.status === 'ERROR') throw new Error(`envoi refusé : ${JSON.stringify(envoi.errorResult)}`)
+  for (let i = 0; i < 30; i++) {
+    const r = await serveur.getTransaction(envoi.hash)
+    if (r.status === 'SUCCESS') return envoi.hash
+    if (r.status === 'FAILED') throw new Error(`transaction échouée ${envoi.hash}`)
+    await new Promise((ok) => setTimeout(ok, 2000))
+  }
+  throw new Error(`pas de confirmation pour ${envoi.hash}`)
+}
+
+/** Hub v2 : surveille les comptes qui ont donné un mandat à CE robot. */
+async function passerMandats(moi, ledger) {
+  const jetonUsdc = await lire(HUB_V2, 'jeton_pret')
+  const mandants = await lire(HUB_V2, 'mandants')
+  const robot = moi?.publicKey() ?? LECTEUR
+  console.log(`Hub v2 : ${mandants.length} mandat(s)${envoyer ? '' : ' (LECTURE SEULE : rien ne sera envoyé)'}`)
+  let erreurs = 0
+  for (const compte of mandants) {
+    try {
+      const c = new Address(compte).toScVal()
+      const [mandat, positions, solde, permis] = await Promise.all([
+        lire(HUB_V2, 'mandat', c),
+        lire(HUB_V2, 'positions', c),
+        lire(jetonUsdc, 'balance', c),
+        lire(jetonUsdc, 'allowance', c, new Address(HUB_V2).toScVal()),
+      ])
+      if (!mandat || mandat.robot !== robot) { console.log(`${court(compte)} : mandat pour un autre robot, ignoré.`); continue }
+      const reste = restePlafondMandat(mandat, ledger)
+      const choix = choisirRemboursement(positions, reste, solde < permis ? solde : permis)
+      if (!choix) { console.log(`${court(compte)} : prêt en sécurité, rien à faire.`); continue }
+      const niveau = `${(Number(choix.ltv_bps) / 100).toFixed(1)} %`
+      if (!choix.montant) { console.log(`${court(compte)} : prêt à ${niveau}, mais ${choix.raison}.`); continue }
+      console.log(`${court(compte)} : prêt à ${niveau}, je rembourse ${usdc(choix.montant)} USDC (besoin ${usdc(choix.besoin)}, reste du jour ${usdc(reste)}, portefeuille ${usdc(solde)}, autorisé ${usdc(permis)}).`)
+      if (!envoyer) continue
+      const hash = await rembourserParMandat(moi, HUB_V2, compte, choix.jeton, choix.montant)
+      console.log(`  ✓ remboursé : ${hash}`)
+    } catch (e) {
+      erreurs++
+      console.log(`${court(compte)} : erreur ${e.message}`)
+    }
+  }
+  return erreurs
+}
+
+if (!GARDIEN_ID && !HUB_V2) {
+  console.log('GARDIEN_ID et HUB_V2_ID manquants : rien à faire.')
   process.exit(0)
 }
 const moi = CLE ? Keypair.fromSecret(CLE) : null
 const signer = CLE ? Ed25519Signer.fromSecret(CLE, VERIFIER_ED25519) : null
-const { hub, usdc: jetonUsdc, periode } = await lire(GARDIEN_ID, 'reglages')
-const inscrits = await lire(GARDIEN_ID, 'inscrits')
 const { sequence: ledger } = await serveur.getLatestLedger()
-console.log(`${inscrits.length} compte(s) avec le gardien activé${envoyer ? '' : ' (LECTURE SEULE : rien ne sera envoyé)'}`)
 let code = 0
-for (const { compte, regle } of inscrits) {
-  try {
-    const [etat, positions, solde] = await Promise.all([
-      lire(GARDIEN_ID, 'etat', new Address(compte).toScVal(), nativeToScVal(regle, { type: 'u32' })),
-      lire(hub, 'positions', new Address(compte).toScVal()),
-      lire(jetonUsdc, 'balance', new Address(compte).toScVal()),
-    ])
-    const reste = restePlafond(etat, periode, ledger)
-    const choix = choisirRemboursement(positions, reste, solde)
-    if (!choix) { console.log(`${court(compte)} : prêt en sécurité, rien à faire.`); continue }
-    const niveau = `${(Number(choix.ltv_bps) / 100).toFixed(1)} %`
-    if (!choix.montant) { console.log(`${court(compte)} : prêt à ${niveau}, mais ${choix.raison}.`); continue }
-    console.log(`${court(compte)} : prêt à ${niveau}, je rembourse ${usdc(choix.montant)} USDC (besoin ${usdc(choix.besoin)}, reste du jour ${usdc(reste)}, portefeuille ${usdc(solde)}).`)
-    if (!envoyer) continue
-    const hash = await rembourser(moi, signer, compte, regle, hub, choix.jeton, choix.montant)
-    console.log(`  ✓ remboursé : ${hash}`)
-  } catch (e) {
-    code = 1
-    console.log(`${court(compte)} : erreur ${e.message}`)
+if (GARDIEN_ID) {
+  const { hub, usdc: jetonUsdc, periode } = await lire(GARDIEN_ID, 'reglages')
+  const inscrits = await lire(GARDIEN_ID, 'inscrits')
+  console.log(`${inscrits.length} compte(s) avec le gardien activé${envoyer ? '' : ' (LECTURE SEULE : rien ne sera envoyé)'}`)
+  for (const { compte, regle } of inscrits) {
+    try {
+      const [etat, positions, solde] = await Promise.all([
+        lire(GARDIEN_ID, 'etat', new Address(compte).toScVal(), nativeToScVal(regle, { type: 'u32' })),
+        lire(hub, 'positions', new Address(compte).toScVal()),
+        lire(jetonUsdc, 'balance', new Address(compte).toScVal()),
+      ])
+      const reste = restePlafond(etat, periode, ledger)
+      const choix = choisirRemboursement(positions, reste, solde)
+      if (!choix) { console.log(`${court(compte)} : prêt en sécurité, rien à faire.`); continue }
+      const niveau = `${(Number(choix.ltv_bps) / 100).toFixed(1)} %`
+      if (!choix.montant) { console.log(`${court(compte)} : prêt à ${niveau}, mais ${choix.raison}.`); continue }
+      console.log(`${court(compte)} : prêt à ${niveau}, je rembourse ${usdc(choix.montant)} USDC (besoin ${usdc(choix.besoin)}, reste du jour ${usdc(reste)}, portefeuille ${usdc(solde)}).`)
+      if (!envoyer) continue
+      const hash = await rembourser(moi, signer, compte, regle, hub, choix.jeton, choix.montant)
+      console.log(`  ✓ remboursé : ${hash}`)
+    } catch (e) {
+      code = 1
+      console.log(`${court(compte)} : erreur ${e.message}`)
+    }
   }
 }
+if (HUB_V2 && (await passerMandats(moi, ledger))) code = 1
 process.exit(code)

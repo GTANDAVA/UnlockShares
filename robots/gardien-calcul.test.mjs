@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { choisirRemboursement, restePlafond } from './gardien-calcul.mjs'
+import { JOUR, choisirRemboursement, restePlafond, restePlafondMandat } from './gardien-calcul.mjs'
 
 const U = 10_000_000n
 const pos = (ltv, dette, valeur, jeton = 'A') => ({ jeton, dette: BigInt(dette) * U, valeur: BigInt(valeur) * U, ltv_bps: BigInt(ltv) })
@@ -31,4 +31,12 @@ test('the daily limit resets after one period', () => {
   assert.equal(restePlafond(etat, 17280, 2000), 5n * U)
   assert.equal(restePlafond(etat, 17280, 18280), 20n * U)
   assert.equal(restePlafond(null, 17280, 2000), 0n)
+})
+
+test('hub v2 : le plafond du mandat repart à zéro chaque jour', () => {
+  const m = { plafond_jour: 200_000_000n, verse: 150_000_000n, jour: 10 }
+  assert.equal(restePlafondMandat(m, 10 * JOUR + 5), 50_000_000n)
+  assert.equal(restePlafondMandat(m, 11 * JOUR), 200_000_000n)
+  assert.equal(restePlafondMandat({ ...m, verse: 300_000_000n }, 10 * JOUR), 0n)
+  assert.equal(restePlafondMandat(null, 0), 0n)
 })
