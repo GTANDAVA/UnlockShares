@@ -108,7 +108,7 @@ export async function envoyerParRelais(funcB64: string, authB64: string[]): Prom
 
 /** Vérificateur ed25519 officiel déjà déployé sur testnet (smart-account-kit, demo/.env.example) */
 const VERIFIER_ED25519 = 'CAAVTMCBXEIBPR64EAASKFXERVPYFZA2JYP5A3BG6PESWEFUJX5IHKN4'
-const NOM_REGLE_GARDIEN = 'UnlockShares guardian'
+const NOM_REGLE_GARDIEN = 'Guardian' // 20 octets maximum (limite du compte)
 
 export type EtatGardien = { actif: boolean; regle?: number }
 
