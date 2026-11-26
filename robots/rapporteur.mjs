@@ -8,7 +8,7 @@
 // Variables : TITRE (AAPL, NVDA, TSLA… ; défaut AAPL), ENVOYER, ORACLE_ID (l'oracle de ce titre), RAPPORTEUR_CLE (secret),
 //             FORCER_LECTURE=oui (lecture seule : lit Yahoo même séance fermée, pour tester),
 //             RPC_URL (défaut testnet), RESEAU (défaut testnet).
-import { lireYahoo, lireHyperliquid, seanceOuverte, versDollars } from './sources.mjs';
+import { lireYahoo, lireYahooSiOuvert, lireHyperliquid, seanceOuverte, versDollars } from './sources.mjs';
 
 const source = process.argv[2];
 const titre = (process.env.TITRE || 'AAPL').trim().toUpperCase();
@@ -20,7 +20,8 @@ async function lire() {
     // Le test forcé n'existe qu'en lecture seule : un vieux cours n'est jamais envoyé.
     if (process.env.FORCER_LECTURE === 'oui' && !envoyer) return lireYahoo(fetch, new Date(), Infinity, titre);
     if (!seanceOuverte()) return null;
-    return lireYahoo(fetch, new Date(), undefined, titre);
+    // Jour férié ou séance écourtée : cours trop vieux = bourse fermée, rien à faire (pas d'erreur).
+    return lireYahooSiOuvert(fetch, new Date(), titre);
   }
   throw new Error('source inconnue : hyperliquid ou yahoo');
 }

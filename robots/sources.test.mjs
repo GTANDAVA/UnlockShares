@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lireYahoo, lireHyperliquid, seanceOuverte, versDollars, versUnites } from './sources.mjs';
+import { lireYahoo, lireYahooSiOuvert, lireHyperliquid, seanceOuverte, versDollars, versUnites } from './sources.mjs';
 
 const reponse = (corps, ok = true, status = 200) => async () => ({ ok, status, json: async () => corps });
 
@@ -59,3 +59,14 @@ test('Yahoo : autre action (hub & spokes), titre vérifié et titre invalide ref
   await assert.rejects(lireYahoo(reponse(yahoo(181.2, t)), maintenant, undefined, 'NVDA'), /mauvais titre/);
   await assert.rejects(lireYahoo(reponse(yahoo(181.2, t)), maintenant, undefined, 'nvda/../x'), /titre invalide/);
 });
+
+test('Yahoo un jour férié (cours de la veille) : « fermé », pas une erreur ; les autres erreurs restent des erreurs', async () => {
+  const maintenant = new Date('2026-11-26T20:39:00Z') // Thanksgiving, 15 h 39 à New York
+  const veille = Math.floor(new Date('2026-11-25T21:00:00Z').getTime() / 1000)
+  const corps = { chart: { result: [{ meta: { symbol: 'AAPL', currency: 'USD', regularMarketPrice: 355.58, regularMarketTime: veille } }] } }
+  assert.equal(await lireYahooSiOuvert(reponse(corps), maintenant, 'AAPL'), null)
+  const frais = { chart: { result: [{ meta: { ...corps.chart.result[0].meta, regularMarketTime: Math.floor(maintenant.getTime() / 1000) - 60 } }] } }
+  assert.equal((await lireYahooSiOuvert(reponse(frais), maintenant, 'AAPL')).prix, 3_555_800_000n)
+  await assert.rejects(lireYahooSiOuvert(reponse({}, false, 500), maintenant, 'AAPL'), /HTTP 500/)
+  await assert.rejects(lireYahooSiOuvert(reponse({ chart: { result: [{ meta: { ...frais.chart.result[0].meta, symbol: 'NVDA' } }] } }), maintenant, 'AAPL'), /mauvais titre/)
+})

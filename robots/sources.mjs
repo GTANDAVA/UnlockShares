@@ -40,6 +40,20 @@ export function seanceOuverte(date = new Date()) {
   return minutes >= 9 * 60 + 30 && minutes < 16 * 60;
 }
 
+/**
+ * Yahoo pendant les heures de séance : un cours trop vieux veut dire que la bourse est fermée ce jour-là
+ * (jour férié comme Thanksgiving, ou séance écourtée) : on renvoie null (« rien à faire ») au lieu d'une erreur,
+ * pour ne pas faire échouer le robot toutes les 5 minutes. Un vieux cours n'est jamais envoyé.
+ */
+export async function lireYahooSiOuvert(fetchFn = fetch, maintenant = new Date(), titre = 'AAPL') {
+  try {
+    return await lireYahoo(fetchFn, maintenant, undefined, titre);
+  } catch (e) {
+    if (/cours Yahoo trop vieux/.test(e.message)) return null;
+    throw e;
+  }
+}
+
 /** Hyperliquid : prix ORACLE (pas le prix d'échange) du marché xyz:AAPL, disponible 24 h/24. */
 export async function lireHyperliquid(fetchFn = fetch, marche = 'xyz:AAPL') {
   const dex = marche.includes(':') ? marche.split(':')[0] : '';
