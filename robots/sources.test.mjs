@@ -48,6 +48,10 @@ test('séance de New York', () => {
   assert.equal(seanceOuverte(new Date('2026-11-16T14:29:00Z')), false); // lundi 9 h 29
   assert.equal(seanceOuverte(new Date('2026-11-16T21:00:00Z')), false); // lundi 16 h
   assert.equal(seanceOuverte(new Date('2026-11-15T16:00:00Z')), false); // dimanche
+  assert.equal(seanceOuverte(new Date('2026-11-26T19:00:00Z')), false); // Thanksgiving, 14 h à New York
+  assert.equal(seanceOuverte(new Date('2026-11-27T17:00:00Z')), true); // demi-journée, 12 h à New York
+  assert.equal(seanceOuverte(new Date('2026-11-27T19:00:00Z')), false); // demi-journée, 14 h à New York : fermé
+  assert.equal(seanceOuverte(new Date('2026-11-25T19:00:00Z')), true); // mercredi normal, 14 h à New York
   assert.equal(seanceOuverte(new Date('2026-07-06T13:45:00Z')), true); // été (EDT) : 9 h 45
 });
 

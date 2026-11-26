@@ -28,16 +28,29 @@ function verifierBornes(unites) {
   return unites;
 }
 
-/** Séance de New York ouverte (lun-ven, 9 h 30 - 16 h, heure de New York) ? Jours fériés non gérés : Yahoo renvoie alors un vieux cours, refusé par l'âge. */
+/** Jours fériés de la bourse de New York (NYSE), 2026-2027 : bourse fermée toute la journée. À compléter chaque année. */
+export const JOURS_FERIES = new Set([
+  '2026-11-26', '2026-12-25',
+  '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18',
+  '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24',
+]);
+/** Demi-journées : la bourse ferme à 13 h (heure de New York). */
+export const DEMI_JOURNEES = new Set(['2026-11-27', '2026-12-24', '2027-11-26']);
+
+/** Séance de New York ouverte (lun-ven, 9 h 30 - 16 h, heure de New York, hors jours fériés et demi-journées) ? */
 export function seanceOuverte(date = new Date()) {
   const p = Object.fromEntries(
     new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/New_York', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+      timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+      weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
     }).formatToParts(date).map((x) => [x.type, x.value]),
   );
   if (p.weekday === 'Sat' || p.weekday === 'Sun') return false;
+  const jour = `${p.year}-${p.month}-${p.day}`;
+  if (JOURS_FERIES.has(jour)) return false;
   const minutes = Number(p.hour) * 60 + Number(p.minute);
-  return minutes >= 9 * 60 + 30 && minutes < 16 * 60;
+  const fin = DEMI_JOURNEES.has(jour) ? 13 * 60 : 16 * 60;
+  return minutes >= 9 * 60 + 30 && minutes < fin;
 }
 
 /** Hyperliquid : prix ORACLE (pas le prix d'échange) du marché xyz:AAPL, disponible 24 h/24. */
